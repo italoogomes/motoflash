@@ -1,0 +1,19 @@
+# MotoFlash - Dependências Python
+
+# Framework web
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# ORM e banco de dados
+sqlmodel==0.0.14
+sqlalchemy==2.0.25
+
+# QR Code
+qrcode[pil]==7.4.2
+pillow==10.2.0
+
+# Validação
+pydantic==2.5.3
+
+# Utilitários
+python-multipart==0.0.6
