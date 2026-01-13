@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f97316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>MotoFlash - Motoboy</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Leaflet CSS e JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        body { 
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
+            border-radius: 12px;
+        }
+        /* Esconde o zoom control em mobile */
+        @media (max-width: 768px) {
+            .leaflet-control-zoom {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        // ============ CONFIGURAÇÃO ============
+        const API_URL = 'http://localhost:8000';
+        
+        // Localização do restaurante (centro de Ribeirão Preto)
+        const RESTAURANT_LOCATION = {
+            lat: -21.1767,
+            lng: -47.8108,
+            name: 'Restaurante'
+        };
+        
+        // ============ COMPONENTES AUXILIARES ============
+        
+        const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '', size = 'normal' }) => {
+            const variants = {
+                primary: 'bg-orange-500 hover:bg-orange-600 text-white',
+                secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700',
+                success: 'bg-green-500 hover:bg-green-600 text-white',
+                danger: 'bg-red-500 hover:bg-red-600 text-white',
+                navigation: 'bg-blue-500 hover:bg-blue-600 text-white',
+            };
+            
+            const sizes = {
+                small: 'px-3 py-1.5 text-sm',
+                normal: 'px-4 py-2',
+                large: 'px-6 py-3 text-lg',
+            };
+            
+            return (
+                <button
+                    onClick={onClick}
+                    disabled={disabled}
+                    className={`${variants[variant]} ${sizes[size]} rounded-xl font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+                >
+                    {children}
+                </button>
+            );
+        };
+        
+        const Card = ({ children, className = '' }) => (
+            <div className={`bg-white rounded-2xl shadow-sm ${className}`}>
+                {children}
+            </div>
+        );
+        
+        // ============ TELA DE LOGIN ============
+        
+        const LoginScreen = ({ onLogin }) => {
+            const [couriers, setCouriers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedCourier, setSelectedCourier] = useState(null);
+            
+            useEffect(() => {
+                fetchCouriers();
+            }, []);
+            
+            const fetchCouriers = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/couriers`);
+                    const data = await res.json();
+                    setCouriers(data);
+                } catch (err) {
+                    console.error('Erro ao buscar motoboys:', err);
+                }
+                setLoading(false);
+            };
+            
+            const handleLogin = () => {
+                if (selectedCourier) {
+                    localStorage.setItem('motoboy_id', selectedCourier.id);
+                    localStorage.setItem('motoboy_name', selectedCourier.name);
+                    onLogin(selectedCourier);
+                }
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="text-4xl mb-4">🏍️</div>
+                            <div className="text-gray-500">Carregando...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-600 flex flex-col items-center justify-center p-6">
+                    <div className="text-center mb-8">
+                        <div className="text-6xl mb-4">🏍️</div>
+                        <h1 className="text-3xl font-bold text-white">MotoFlash</h1>
+                        <p className="text-orange-100 mt-2">App do Motoboy</p>
+                    </div>
+                    
+                    <Card className="w-full max-w-sm p-6">
+                        <h2 className="text-lg font-semibold text-gray-700 mb-4 text-center">
+                            Selecione seu nome
+                        </h2>
+                        
+                        {couriers.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <div className="text-4xl mb-2">😕</div>
+                                <p>Nenhum motoboy cadastrado</p>
+                                <p className="text-sm mt-2">Peça pro restaurante te adicionar!</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
+                                    {couriers.map(courier => (
+                                        <button
+                                            key={courier.id}
+                                            onClick={() => setSelectedCourier(courier)}
+                                            className={`w-full p-4 rounded-xl text-left transition-all flex items-center gap-3 ${
+                                                selectedCourier?.id === courier.id
+                                                    ? 'bg-orange-100 border-2 border-orange-500'
+                                                    : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
+                                                selectedCourier?.id === courier.id
+                                                    ? 'bg-orange-500 text-white'
+                                                    : 'bg-gray-200 text-gray-600'
+                                            }`}>
+                                                {courier.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-gray-800">{courier.name}</div>
+                                                <div className={`text-xs ${
+                                                    courier.status === 'available' ? 'text-green-600' :
+                                                    courier.status === 'busy' ? 'text-orange-600' : 'text-gray-400'
+                                                }`}>
+                                                    {courier.status === 'available' ? '🟢 Disponível' :
+                                                     courier.status === 'busy' ? '🟠 Em entrega' : '⚫ Offline'}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                <Button 
+                                    onClick={handleLogin} 
+                                    disabled={!selectedCourier}
+                                    className="w-full"
+                                    size="large"
+                                >
+                                    Entrar
+                                </Button>
+                            </>
+                        )}
+                    </Card>
+                    
+                    <p className="text-orange-200 text-sm mt-6">
+                        MotoFlash v0.3
+                    </p>
+                </div>
+            );
+        };
+        
+        // ============ COMPONENTE DO MAPA ============
+        
+        const DeliveryMap = ({ orders, restaurantLocation }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const markersRef = useRef([]);
+            const routeLineRef = useRef(null);
+            
+            useEffect(() => {
+                // Inicializa o mapa apenas uma vez
+                if (!mapInstanceRef.current && mapRef.current) {
+                    mapInstanceRef.current = L.map(mapRef.current).setView(
+                        [restaurantLocation.lat, restaurantLocation.lng], 
+                        13
+                    );
+                    
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap'
+                    }).addTo(mapInstanceRef.current);
+                }
+                
+                return () => {
+                    if (mapInstanceRef.current) {
+                        mapInstanceRef.current.remove();
+                        mapInstanceRef.current = null;
+                    }
+                };
+            }, []);
+            
+            useEffect(() => {
+                if (!mapInstanceRef.current) return;
+                
+                // Remove marcadores antigos
+                markersRef.current.forEach(marker => marker.remove());
+                markersRef.current = [];
+                
+                // Remove linha de rota antiga
+                if (routeLineRef.current) {
+                    routeLineRef.current.remove();
+                    routeLineRef.current = null;
+                }
+                
+                // Adiciona marcador do restaurante
+                const restaurantIcon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background: #22c55e; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">🏪</div>`,
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20],
+                });
+                
+                const restaurantMarker = L.marker(
+                    [restaurantLocation.lat, restaurantLocation.lng],
+                    { icon: restaurantIcon }
+                ).addTo(mapInstanceRef.current)
+                .bindPopup('<b>🏪 Restaurante</b><br>Ponto de partida');
+                
+                markersRef.current.push(restaurantMarker);
+                
+                // Adiciona marcadores dos pedidos
+                const routeCoords = [[restaurantLocation.lat, restaurantLocation.lng]];
+                
+                orders.forEach((order, index) => {
+                    const isDelivered = order.status === 'delivered';
+                    const color = isDelivered ? '#9ca3af' : '#f97316';
+                    
+                    const orderIcon = L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="background: ${color}; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: white; border: 3px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">${order.stop_order || index + 1}</div>`,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18],
+                    });
+                    
+                    const marker = L.marker(
+                        [order.lat, order.lng],
+                        { icon: orderIcon }
+                    ).addTo(mapInstanceRef.current)
+                    .bindPopup(`
+                        <b>📍 Parada #${order.stop_order || index + 1}</b><br>
+                        <b>${order.customer_name}</b><br>
+                        ${order.address_text}<br>
+                        <span style="color: ${isDelivered ? 'green' : 'orange'}">
+                            ${isDelivered ? '✅ Entregue' : '🚚 Pendente'}
+                        </span>
+                    `);
+                    
+                    markersRef.current.push(marker);
+                    routeCoords.push([order.lat, order.lng]);
+                });
+                
+                // Desenha a linha da rota
+                if (routeCoords.length > 1) {
+                    routeLineRef.current = L.polyline(routeCoords, {
+                        color: '#f97316',
+                        weight: 4,
+                        opacity: 0.7,
+                        dashArray: '10, 10'
+                    }).addTo(mapInstanceRef.current);
+                }
+                
+                // Ajusta o zoom para mostrar todos os pontos
+                if (routeCoords.length > 1) {
+                    const bounds = L.latLngBounds(routeCoords);
+                    mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+                }
+                
+            }, [orders, restaurantLocation]);
+            
+            return <div ref={mapRef} className="w-full h-full min-h-[300px]" />;
+        };
+        
+        // ============ TELA PRINCIPAL DO MOTOBOY ============
+        
+        const MainScreen = ({ courier, onLogout }) => {
+            const [batch, setBatch] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [refreshing, setRefreshing] = useState(false);
+            
+            const fetchBatch = useCallback(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/couriers/${courier.id}/current-batch`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setBatch(data);
+                    } else {
+                        setBatch(null);
+                    }
+                } catch (err) {
+                    console.error('Erro ao buscar lote:', err);
+                }
+                setLoading(false);
+                setRefreshing(false);
+            }, [courier.id]);
+            
+            useEffect(() => {
+                fetchBatch();
+                const interval = setInterval(fetchBatch, 5000);
+                return () => clearInterval(interval);
+            }, [fetchBatch]);
+            
+            const handleRefresh = () => {
+                setRefreshing(true);
+                fetchBatch();
+            };
+            
+            const openNavigation = (order) => {
+                const url = `https://www.google.com/maps/dir/?api=1&destination=${order.lat},${order.lng}&travelmode=driving`;
+                window.open(url, '_blank');
+            };
+            
+            const openWaze = (order) => {
+                const url = `https://waze.com/ul?ll=${order.lat},${order.lng}&navigate=yes`;
+                window.open(url, '_blank');
+            };
+            
+            const markDelivered = async (orderId) => {
+                try {
+                    await fetch(`${API_URL}/orders/${orderId}/pickup`, { method: 'POST' });
+                    await fetch(`${API_URL}/orders/${orderId}/deliver`, { method: 'POST' });
+                    fetchBatch();
+                } catch (err) {
+                    console.error('Erro ao marcar entrega:', err);
+                }
+            };
+            
+            const finishBatch = async () => {
+                if (!confirm('Finalizar todas as entregas e voltar pro restaurante?')) return;
+                
+                try {
+                    await fetch(`${API_URL}/couriers/${courier.id}/complete-batch`, { method: 'POST' });
+                    fetchBatch();
+                } catch (err) {
+                    console.error('Erro ao finalizar lote:', err);
+                }
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                        <div className="text-center">
+                            <div className="text-4xl mb-4 animate-bounce">🏍️</div>
+                            <div className="text-gray-500">Carregando entregas...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            // Sem entregas
+            if (!batch || !batch.orders || batch.orders.length === 0) {
+                return (
+                    <div className="min-h-screen bg-gray-100">
+                        {/* Header */}
+                        <header className="bg-white shadow-sm p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold">
+                                        {courier.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-gray-800">{courier.name}</div>
+                                        <div className="text-xs text-green-600">🟢 Disponível</div>
+                                    </div>
+                                </div>
+                                <Button onClick={onLogout} variant="secondary" size="small">
+                                    Sair
+                                </Button>
+                            </div>
+                        </header>
+                        
+                        {/* Conteúdo */}
+                        <div className="flex flex-col items-center justify-center p-6" style={{ minHeight: 'calc(100vh - 80px)' }}>
+                            <div className="text-center">
+                                <div className="text-6xl mb-4">☕</div>
+                                <h2 className="text-xl font-semibold text-gray-700 mb-2">
+                                    Nenhuma entrega no momento
+                                </h2>
+                                <p className="text-gray-500 mb-6">
+                                    Aguarde o restaurante enviar pedidos pra você
+                                </p>
+                                <Button onClick={handleRefresh} disabled={refreshing}>
+                                    {refreshing ? '⏳ Atualizando...' : '🔄 Atualizar'}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            // Com entregas
+            const pendingOrders = batch.orders.filter(o => o.status !== 'delivered');
+            const deliveredOrders = batch.orders.filter(o => o.status === 'delivered');
+            const allDelivered = pendingOrders.length === 0;
+            
+            return (
+                <div className="min-h-screen bg-gray-100 pb-24">
+                    {/* Header */}
+                    <header className="bg-white shadow-sm p-4 sticky top-0 z-50">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold">
+                                    {courier.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="font-semibold text-gray-800">{courier.name}</div>
+                                    <div className="text-xs text-orange-600">
+                                        🟠 {pendingOrders.length} entrega(s) pendente(s)
+                                    </div>
+                                </div>
+                            </div>
+                            <Button onClick={handleRefresh} variant="secondary" size="small" disabled={refreshing}>
+                                {refreshing ? '⏳' : '🔄'}
+                            </Button>
+                        </div>
+                    </header>
+                    
+                    {/* Mapa */}
+                    <div className="p-4">
+                        <Card className="overflow-hidden">
+                            <div className="h-64 md:h-80">
+                                <DeliveryMap 
+                                    orders={batch.orders} 
+                                    restaurantLocation={RESTAURANT_LOCATION}
+                                />
+                            </div>
+                        </Card>
+                    </div>
+                    
+                    {/* Lista de entregas */}
+                    <div className="px-4">
+                        <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            📍 Suas entregas
+                            <span className="text-sm font-normal text-gray-500">
+                                ({deliveredOrders.length}/{batch.orders.length} concluídas)
+                            </span>
+                        </h3>
+                        
+                        <div className="space-y-3">
+                            {batch.orders.map((order, index) => {
+                                const isDelivered = order.status === 'delivered';
+                                
+                                return (
+                                    <Card 
+                                        key={order.id} 
+                                        className={`p-4 ${isDelivered ? 'opacity-60' : 'border-l-4 border-orange-500'}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {/* Número da parada */}
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 ${
+                                                isDelivered ? 'bg-gray-400' : 'bg-orange-500'
+                                            }`}>
+                                                {order.stop_order || index + 1}
+                                            </div>
+                                            
+                                            {/* Info do pedido */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="font-semibold text-gray-800">
+                                                        {order.customer_name}
+                                                    </span>
+                                                    {isDelivered && (
+                                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                                            ✓ Entregue
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-gray-500 mt-1 break-words">
+                                                    {order.address_text}
+                                                </p>
+                                                
+                                                {/* Botões de ação */}
+                                                {!isDelivered && (
+                                                    <div className="flex flex-wrap gap-2 mt-3">
+                                                        <Button 
+                                                            onClick={() => openNavigation(order)}
+                                                            variant="navigation"
+                                                            size="small"
+                                                        >
+                                                            🗺️ Maps
+                                                        </Button>
+                                                        <Button 
+                                                            onClick={() => openWaze(order)}
+                                                            variant="secondary"
+                                                            size="small"
+                                                        >
+                                                            🚗 Waze
+                                                        </Button>
+                                                        <Button 
+                                                            onClick={() => markDelivered(order.id)}
+                                                            variant="success"
+                                                            size="small"
+                                                        >
+                                                            ✓ Entreguei
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    
+                    {/* Botão fixo de finalizar */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg">
+                        {allDelivered ? (
+                            <Button 
+                                onClick={finishBatch}
+                                variant="success"
+                                size="large"
+                                className="w-full"
+                            >
+                                ✅ Todas entregues! Voltar pro restaurante
+                            </Button>
+                        ) : (
+                            <div className="text-center text-gray-500 text-sm">
+                                Entregue todos os pedidos para finalizar
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ APP PRINCIPAL ============
+        
+        const App = () => {
+            const [courier, setCourier] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                // Verifica se já está logado
+                const savedId = localStorage.getItem('motoboy_id');
+                const savedName = localStorage.getItem('motoboy_name');
+                
+                if (savedId && savedName) {
+                    // Verifica se o motoboy ainda existe
+                    fetch(`${API_URL}/couriers`)
+                        .then(res => res.json())
+                        .then(couriers => {
+                            const found = couriers.find(c => c.id === savedId);
+                            if (found) {
+                                setCourier(found);
+                            } else {
+                                localStorage.removeItem('motoboy_id');
+                                localStorage.removeItem('motoboy_name');
+                            }
+                            setLoading(false);
+                        })
+                        .catch(() => setLoading(false));
+                } else {
+                    setLoading(false);
+                }
+            }, []);
+            
+            const handleLogin = (selectedCourier) => {
+                setCourier(selectedCourier);
+            };
+            
+            const handleLogout = () => {
+                localStorage.removeItem('motoboy_id');
+                localStorage.removeItem('motoboy_name');
+                setCourier(null);
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-orange-500">
+                        <div className="text-center text-white">
+                            <div className="text-5xl mb-4 animate-bounce">🏍️</div>
+                            <div className="text-xl font-semibold">MotoFlash</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            if (!courier) {
+                return <LoginScreen onLogin={handleLogin} />;
+            }
+            
+            return <MainScreen courier={courier} onLogout={handleLogout} />;
+        };
+        
+        // ============ RENDER ============
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
