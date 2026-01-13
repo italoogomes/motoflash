@@ -5,8 +5,9 @@ Algoritmo inteligente que:
 1. PRIMEIRO: Agrupa pedidos do MESMO endereço (nunca separa!)
 2. SEGUNDO: Agrupa clusters próximos geograficamente
 3. TERCEIRO: Distribui para motoqueiros de forma otimizada
+4. QUARTO: Pedidos órfãos vão pra rota mais próxima (NUNCA fica parado!)
 
-Versão V0.2 - Inteligência Real
+Versão V0.3 - Nenhum pedido fica parado
 """
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional, Dict
@@ -20,7 +21,7 @@ from models import (
 )
 
 
-# ============ CONFIGURAÇÕES DO DISPATCH V0.2 ============
+# ============ CONFIGURAÇÕES DO DISPATCH V0.3 ============
 
 # Distância para considerar MESMO endereço (em km)
 # 0.05 km = 50 metros - praticamente o mesmo lugar
@@ -29,12 +30,15 @@ SAME_ADDRESS_THRESHOLD_KM = 0.05
 # Raio máximo para agrupar pedidos PRÓXIMOS no mesmo lote (km)
 MAX_CLUSTER_RADIUS_KM = 3.0
 
-# Máximo de pedidos por motoqueiro
-MAX_ORDERS_PER_COURIER = 3
+# Máximo de pedidos por motoqueiro (preferência, não limite absoluto)
+PREFERRED_ORDERS_PER_COURIER = 2
+
+# Limite ABSOLUTO de pedidos por motoboy (segurança)
+MAX_ABSOLUTE_ORDERS = 5
 
 # Se tem motoqueiros sobrando, prefere distribuir
 # MAS nunca separa pedidos do mesmo endereço!
-PREFER_DISTRIBUTION = False
+PREFER_DISTRIBUTION = True
 
 
 # ============ FUNÇÕES AUXILIARES ============
@@ -84,6 +88,23 @@ def distance_to_cluster(order: Order, cluster: List[Order]) -> float:
     return haversine_distance(order.lat, order.lng, center_lat, center_lng)
 
 
+def distance_order_to_route(order: Order, route_orders: List[Order]) -> float:
+    """
+    Calcula a menor distância de um pedido até qualquer ponto de uma rota
+    Retorna a distância até o ponto mais próximo da rota
+    """
+    if not route_orders:
+        return float('inf')
+    
+    min_distance = float('inf')
+    for route_order in route_orders:
+        dist = haversine_distance(order.lat, order.lng, route_order.lat, route_order.lng)
+        if dist < min_distance:
+            min_distance = dist
+    
+    return min_distance
+
+
 def sort_orders_by_distance(orders: List[Order], start_lat: float, start_lng: float) -> List[Order]:
     """
     Ordena pedidos pela distância do ponto inicial (rota mais curta)
@@ -107,6 +128,34 @@ def sort_orders_by_distance(orders: List[Order], start_lat: float, start_lng: fl
         current_lat, current_lng = closest.lat, closest.lng
     
     return sorted_orders
+
+
+def insert_order_in_best_position(order: Order, route: List[Order], start_lat: float, start_lng: float) -> List[Order]:
+    """
+    Insere um pedido na melhor posição da rota (menor desvio)
+    """
+    if not route:
+        return [order]
+    
+    # Testa inserir em cada posição e calcula a distância total
+    best_route = None
+    best_distance = float('inf')
+    
+    for i in range(len(route) + 1):
+        test_route = route[:i] + [order] + route[i:]
+        
+        # Calcula distância total dessa rota
+        total_dist = 0
+        prev_lat, prev_lng = start_lat, start_lng
+        for o in test_route:
+            total_dist += haversine_distance(prev_lat, prev_lng, o.lat, o.lng)
+            prev_lat, prev_lng = o.lat, o.lng
+        
+        if total_dist < best_distance:
+            best_distance = total_dist
+            best_route = test_route
+    
+    return best_route
 
 
 # ============ ALGORITMO INTELIGENTE ============
@@ -238,6 +287,7 @@ def run_dispatch(session: Session) -> DispatchResult:
     1. Pedidos do MESMO endereço SEMPRE vão juntos
     2. Pedidos PRÓXIMOS são agrupados quando faz sentido
     3. Distribui de forma justa entre motoboys
+    4. NENHUM PEDIDO FICA PARADO se tem motoboy disponível!
     """
     # 1. Busca TODOS os pedidos READY que ainda não foram atribuídos
     ready_orders = session.exec(
@@ -268,17 +318,19 @@ def run_dispatch(session: Session) -> DispatchResult:
             message=f"{len(ready_orders)} pedido(s) pronto(s), mas nenhum motoqueiro disponível"
         )
     
-    # 3. Agrupa pedidos de forma INTELIGENTE
+    # 3. Agrupa pedidos de forma INTELIGENTE (primeira passada)
     clusters = smart_cluster_orders(
         list(ready_orders),
         MAX_CLUSTER_RADIUS_KM,
-        MAX_ORDERS_PER_COURIER,
+        PREFERRED_ORDERS_PER_COURIER,
         len(available_couriers)
     )
     
     # 4. Atribui clusters aos motoqueiros
     batches_created = 0
     orders_assigned = 0
+    batch_orders_map = {}  # batch_id -> lista de orders
+    courier_batch_map = {}  # courier_id -> batch
     
     for i, cluster in enumerate(clusters):
         if i >= len(available_couriers):
@@ -310,21 +362,85 @@ def run_dispatch(session: Session) -> DispatchResult:
         courier.updated_at = datetime.now()
         session.add(courier)
         
+        # Guarda referência para possível adição de pedidos órfãos
+        batch_orders_map[batch.id] = sorted_cluster.copy()
+        courier_batch_map[courier.id] = {
+            'batch': batch,
+            'courier': courier,
+            'start_lat': start_lat,
+            'start_lng': start_lng
+        }
+        
         batches_created += 1
         orders_assigned += len(cluster)
     
     session.commit()
     
-    # Conta pedidos que ficaram sem atribuição
-    remaining = len(ready_orders) - orders_assigned
+    # 5. NOVO! Verifica se ficou pedido órfão e adiciona na rota mais próxima
+    orphan_orders = [o for o in ready_orders if o.batch_id is None]
+    orphans_assigned = 0
     
-    message = f"{batches_created} lote(s) criado(s), {orders_assigned} pedido(s) atribuído(s)"
-    if remaining > 0:
-        message += f", {remaining} pedido(s) aguardando motoqueiro"
+    if orphan_orders and batch_orders_map:
+        for orphan in orphan_orders:
+            # Encontra a rota mais próxima que ainda pode receber pedidos
+            best_batch_id = None
+            best_distance = float('inf')
+            
+            for batch_id, route_orders in batch_orders_map.items():
+                # Verifica se ainda pode adicionar (limite absoluto)
+                if len(route_orders) >= MAX_ABSOLUTE_ORDERS:
+                    continue
+                
+                # Calcula distância até essa rota
+                distance = distance_order_to_route(orphan, route_orders)
+                
+                if distance < best_distance:
+                    best_distance = distance
+                    best_batch_id = batch_id
+            
+            # Adiciona na melhor rota encontrada
+            if best_batch_id:
+                batch_info = None
+                for cid, info in courier_batch_map.items():
+                    if info['batch'].id == best_batch_id:
+                        batch_info = info
+                        break
+                
+                if batch_info:
+                    # Recalcula a rota com o novo pedido na melhor posição
+                    current_route = batch_orders_map[best_batch_id]
+                    new_route = insert_order_in_best_position(
+                        orphan, 
+                        current_route, 
+                        batch_info['start_lat'], 
+                        batch_info['start_lng']
+                    )
+                    
+                    # Atualiza os stop_order de todos os pedidos dessa rota
+                    for stop_num, order in enumerate(new_route, 1):
+                        order.batch_id = best_batch_id
+                        order.stop_order = stop_num
+                        order.status = OrderStatus.ASSIGNED
+                        session.add(order)
+                    
+                    # Atualiza o mapa
+                    batch_orders_map[best_batch_id] = new_route
+                    orphans_assigned += 1
+        
+        session.commit()
+    
+    # Conta pedidos que ainda ficaram sem atribuição (não deveria acontecer!)
+    final_remaining = len(ready_orders) - orders_assigned - orphans_assigned
+    
+    message = f"{batches_created} lote(s) criado(s), {orders_assigned + orphans_assigned} pedido(s) atribuído(s)"
+    if orphans_assigned > 0:
+        message += f" ({orphans_assigned} adicionado(s) em rotas existentes)"
+    if final_remaining > 0:
+        message += f", {final_remaining} pedido(s) aguardando motoqueiro"
     
     return DispatchResult(
         batches_created=batches_created,
-        orders_assigned=orders_assigned,
+        orders_assigned=orders_assigned + orphans_assigned,
         message=message
     )
 
