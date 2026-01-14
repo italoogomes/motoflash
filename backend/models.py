@@ -101,9 +101,10 @@ class OrderCreate(SQLModel):
     """Schema para criar pedido"""
     customer_name: str = "Cliente"
     address_text: str
-    lat: float
-    lng: float
+    lat: Optional[float] = None  # Se não informado, usa geocoding
+    lng: Optional[float] = None  # Se não informado, usa geocoding
     prep_type: PrepType = PrepType.SHORT
+    simulated_date: Optional[str] = None  # Para simulação: "2025-01-14"
 
 
 class OrderResponse(SQLModel):

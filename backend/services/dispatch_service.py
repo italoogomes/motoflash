@@ -3,11 +3,11 @@ Serviço de Dispatch - O CORAÇÃO do MotoFlash
 
 Algoritmo inteligente que:
 1. PRIMEIRO: Agrupa pedidos do MESMO endereço (nunca separa!)
-2. SEGUNDO: Agrupa clusters próximos geograficamente
-3. TERCEIRO: Distribui para motoqueiros de forma otimizada
+2. SEGUNDO: SEMPRE agrupa pedidos próximos (até 3km) - otimiza rotas!
+3. TERCEIRO: Distribui lotes otimizados para motoqueiros
 4. QUARTO: Pedidos órfãos vão pra rota mais próxima (NUNCA fica parado!)
 
-Versão V0.3 - Nenhum pedido fica parado
+Versão V0.4 - Prioriza agrupamento inteligente
 """
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional, Dict
@@ -21,24 +21,22 @@ from models import (
 )
 
 
-# ============ CONFIGURAÇÕES DO DISPATCH V0.3 ============
+# ============ CONFIGURAÇÕES DO DISPATCH V0.4 ============
 
 # Distância para considerar MESMO endereço (em km)
 # 0.05 km = 50 metros - praticamente o mesmo lugar
 SAME_ADDRESS_THRESHOLD_KM = 0.05
 
 # Raio máximo para agrupar pedidos PRÓXIMOS no mesmo lote (km)
+# 3 km = pedidos nesse raio VÃO JUNTOS pro mesmo motoboy
 MAX_CLUSTER_RADIUS_KM = 3.0
 
-# Máximo de pedidos por motoqueiro (preferência, não limite absoluto)
-PREFERRED_ORDERS_PER_COURIER = 2
+# Quantidade IDEAL de pedidos por motoboy
+# O algoritmo tenta agrupar até esse limite
+PREFERRED_ORDERS_PER_COURIER = 4
 
 # Limite ABSOLUTO de pedidos por motoboy (segurança)
-MAX_ABSOLUTE_ORDERS = 5
-
-# Se tem motoqueiros sobrando, prefere distribuir
-# MAS nunca separa pedidos do mesmo endereço!
-PREFER_DISTRIBUTION = True
+MAX_ABSOLUTE_ORDERS = 6
 
 
 # ============ FUNÇÕES AUXILIARES ============
@@ -249,34 +247,37 @@ def smart_cluster_orders(
     """
     Algoritmo inteligente de agrupamento
     
+    PRIORIDADE MÁXIMA: Agrupar pedidos próximos para otimizar rotas!
+    Isso é o CORAÇÃO do MotoFlash - nunca desperdiçar rota.
+    
     1. Agrupa pedidos do MESMO endereço (nunca separa)
-    2. Junta grupos próximos se fizer sentido
+    2. SEMPRE junta grupos próximos (otimização de rota)
     3. Respeita o limite por motoboy
     """
     if not orders:
         return []
     
-    # PASSO 1: Agrupa por mesmo endereço
+    # PASSO 1: Agrupa por mesmo endereço (ex: 2 pizzas pro mesmo cliente)
     address_groups = group_by_same_address(orders)
     
-    # PASSO 2: Se temos mais motoboys que grupos E queremos distribuir,
-    # não precisa juntar - cada grupo vai pra um motoboy
-    if PREFER_DISTRIBUTION and num_couriers >= len(address_groups):
-        # Mas ainda precisamos verificar se algum grupo excede o limite
-        final_groups = []
-        for group in address_groups:
-            if len(group) <= max_per_courier:
-                final_groups.append(group)
-            else:
-                # Grupo grande demais, precisa dividir (mesmo endereço, múltiplas viagens)
-                for i in range(0, len(group), max_per_courier):
-                    final_groups.append(group[i:i + max_per_courier])
-        return final_groups
-    
-    # PASSO 3: Precisa otimizar - junta grupos próximos
+    # PASSO 2: SEMPRE agrupa pedidos próximos - isso é a inteligência do app!
+    # Não importa quantos motoboys tem, pedidos próximos = mesma rota
     merged_groups = merge_nearby_groups(address_groups, max_radius_km, max_per_courier)
     
-    return merged_groups
+    # PASSO 3: Verifica se algum grupo excede o limite e divide se necessário
+    final_groups = []
+    for group in merged_groups:
+        if len(group) <= max_per_courier:
+            final_groups.append(group)
+        else:
+            # Grupo grande demais, precisa dividir em múltiplas viagens
+            # Ordena por proximidade antes de dividir
+            center = calculate_cluster_center(group)
+            sorted_group = sorted(group, key=lambda o: haversine_distance(o.lat, o.lng, center[0], center[1]))
+            for i in range(0, len(sorted_group), max_per_courier):
+                final_groups.append(sorted_group[i:i + max_per_courier])
+    
+    return final_groups
 
 
 def run_dispatch(session: Session) -> DispatchResult:
@@ -345,8 +346,8 @@ def run_dispatch(session: Session) -> DispatchResult:
         session.refresh(batch)
         
         # Ordena pedidos do cluster pela rota mais curta
-        start_lat = courier.last_lat or -21.17  # Default: Ribeirão Preto
-        start_lng = courier.last_lng or -47.81
+        start_lat = courier.last_lat or -21.2020  # Restaurante: Rua Visconde de Inhaúma, 2235
+        start_lng = courier.last_lng or -47.8130
         
         sorted_cluster = sort_orders_by_distance(cluster, start_lat, start_lng)
         
