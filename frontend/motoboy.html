@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f97316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>MotoFlash - Motoboy v0.5</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React 18 -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Google Maps -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDAMV5FvQAEPacHSSBLScr5LIALFQ6qpmU&libraries=geometry"></script>
+    
+    <style>
+        body { 
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+        .pulse-green {
+            animation: pulse-green 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        // ============ CONFIGURAÇÃO ============
+        // Detecta automaticamente o IP - funciona em localhost E na rede local!
+        const API_HOST = window.location.hostname; // 'localhost' ou '192.168.x.x'
+        const API_URL = `http://${API_HOST}:8000`;
+        
+        // Endereço do restaurante - coordenadas serão buscadas via geocoding
+        const RESTAURANT_ADDRESS = 'Rua Visconde de Inhauma, 2235 - Jardim Sumaré';
+        
+        // Será preenchido pelo geocoding ao carregar a página
+        let RESTAURANT_LOCATION = {
+            lat: null,
+            lng: null,
+            name: 'Restaurante',
+            address: RESTAURANT_ADDRESS
+        };
+        
+        // Função para buscar coordenadas do restaurante via geocoding
+        async function loadRestaurantLocation() {
+            try {
+                const res = await fetch(`${API_URL}/geocode?address=${encodeURIComponent(RESTAURANT_ADDRESS)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.found) {
+                        RESTAURANT_LOCATION.lat = data.lat;
+                        RESTAURANT_LOCATION.lng = data.lng;
+                        console.log('📍 Restaurante localizado:', data.lat, data.lng);
+                        return true;
+                    }
+                }
+                console.error('❌ Não foi possível geocodificar o endereço do restaurante');
+                return false;
+            } catch (err) {
+                console.error('❌ Erro ao buscar localização do restaurante:', err);
+                return false;
+            }
+        }
+        
+        // Distância mínima para liberar botão de entrega (em metros)
+        const MIN_DISTANCE_TO_DELIVER = 100;
+        
+        // ============ COMPONENTE LOGO ============
+        
+        const Logo = ({ size = 40 }) => (
+            <svg width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+            </svg>
+        );
+        
+        const LogoLight = ({ size = 40 }) => (
+            <svg width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="34" fill="white"/>
+                <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="#FF6B00"/>
+            </svg>
+        );
+        
+        // ============ FUNÇÕES AUXILIARES ============
+        
+        const calculateDistance = (lat1, lng1, lat2, lng2) => {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        };
+        
+        // ============ COMPONENTES AUXILIARES ============
+        
+        const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '', size = 'normal' }) => {
+            const variants = {
+                primary: 'bg-orange-500 hover:bg-orange-600 text-white',
+                secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700',
+                success: 'bg-green-500 hover:bg-green-600 text-white',
+                danger: 'bg-red-500 hover:bg-red-600 text-white',
+                navigation: 'bg-blue-500 hover:bg-blue-600 text-white',
+            };
+            
+            const sizes = {
+                small: 'px-3 py-1.5 text-sm',
+                normal: 'px-4 py-2',
+                large: 'px-6 py-3 text-lg',
+            };
+            
+            return (
+                <button
+                    onClick={onClick}
+                    disabled={disabled}
+                    className={`${variants[variant]} ${sizes[size]} rounded-xl font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+                >
+                    {children}
+                </button>
+            );
+        };
+        
+        const Card = ({ children, className = '' }) => (
+            <div className={`bg-white rounded-2xl shadow-sm ${className}`}>
+                {children}
+            </div>
+        );
+        
+        // ============ TELA DE LOGIN ============
+        
+        const LoginScreen = ({ onLogin }) => {
+            const [couriers, setCouriers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [selectedCourier, setSelectedCourier] = useState(null);
+            
+            useEffect(() => {
+                fetchCouriers();
+            }, []);
+            
+            const fetchCouriers = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/couriers`);
+                    if (!res.ok) throw new Error('Falha ao buscar');
+                    const data = await res.json();
+                    setCouriers(data);
+                    setError(null);
+                } catch (err) {
+                    setError('Não foi possível conectar ao servidor');
+                }
+                setLoading(false);
+            };
+            
+            const handleLogin = () => {
+                if (selectedCourier) {
+                    localStorage.setItem('motoboy_id', selectedCourier.id);
+                    localStorage.setItem('motoboy_name', selectedCourier.name);
+                    onLogin(selectedCourier);
+                }
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-600 flex items-center justify-center">
+                        <div className="text-center text-white">
+                            <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                            <div className="text-xl">Carregando...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-600 flex flex-col items-center justify-center p-6">
+                    <div className="text-center mb-8">
+                        <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                        <h1 className="text-3xl font-bold text-white">MotoFlash</h1>
+                        <p className="text-orange-100 mt-2">App do Motoboy</p>
+                    </div>
+                    
+                    <Card className="w-full max-w-sm p-6">
+                        <h2 className="text-lg font-semibold text-gray-700 mb-4 text-center">Selecione seu nome</h2>
+                        
+                        {error ? (
+                            <div className="text-center py-8">
+                                <div className="text-4xl mb-2">⚠️</div>
+                                <p className="text-red-500 mb-4">{error}</p>
+                                <Button onClick={fetchCouriers}>🔄 Tentar novamente</Button>
+                            </div>
+                        ) : couriers.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <div className="text-4xl mb-2">😕</div>
+                                <p>Nenhum motoboy cadastrado</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
+                                    {couriers.map(courier => (
+                                        <button
+                                            key={courier.id}
+                                            onClick={() => setSelectedCourier(courier)}
+                                            className={`w-full p-4 rounded-xl text-left transition-all flex items-center gap-3 ${
+                                                selectedCourier?.id === courier.id
+                                                    ? 'bg-orange-100 border-2 border-orange-500'
+                                                    : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
+                                                selectedCourier?.id === courier.id ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600'
+                                            }`}>
+                                                {courier.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-gray-800">{courier.name}</div>
+                                                <div className={`text-xs ${courier.status === 'available' ? 'text-green-600' : 'text-orange-600'}`}>
+                                                    {courier.status === 'available' ? '🟢 Disponível' : '🟠 Em entrega'}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                                <Button onClick={handleLogin} disabled={!selectedCourier} className="w-full" size="large">
+                                    Entrar
+                                </Button>
+                            </>
+                        )}
+                    </Card>
+                    <p className="text-orange-200 text-sm mt-6">MotoFlash v0.5</p>
+                </div>
+            );
+        };
+        
+        // ============ COMPONENTE DO MAPA (GOOGLE MAPS) ============
+        
+        const DeliveryMap = ({ orders, restaurantLocation, currentPosition, routeStarted, returningHome }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const markersRef = useRef([]);
+            const routeLineRef = useRef(null);
+            const positionMarkerRef = useRef(null);
+            const directionsRendererRef = useRef(null);
+            const userInteractedRef = useRef(false);
+            const initialFitDoneRef = useRef(false);
+            
+            // Inicializa o mapa
+            useEffect(() => {
+                if (mapInstanceRef.current || !mapRef.current) return;
+                
+                const initialLat = currentPosition?.lat || restaurantLocation.lat;
+                const initialLng = currentPosition?.lng || restaurantLocation.lng;
+                
+                mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+                    center: { lat: initialLat, lng: initialLng },
+                    zoom: 15,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: false,
+                });
+                
+                // Detecta interação do usuário
+                google.maps.event.addListener(mapInstanceRef.current, 'dragstart', () => {
+                    userInteractedRef.current = true;
+                });
+                google.maps.event.addListener(mapInstanceRef.current, 'zoom_changed', () => {
+                    if (initialFitDoneRef.current) {
+                        userInteractedRef.current = true;
+                    }
+                });
+                
+                return () => {
+                    mapInstanceRef.current = null;
+                };
+            }, []);
+            
+            // Atualiza marcador de posição atual (SEM mexer no zoom)
+            useEffect(() => {
+                if (!mapInstanceRef.current || !currentPosition) return;
+                
+                const pos = { lat: currentPosition.lat, lng: currentPosition.lng };
+                
+                if (positionMarkerRef.current) {
+                    positionMarkerRef.current.setPosition(pos);
+                } else {
+                    positionMarkerRef.current = new google.maps.Marker({
+                        position: pos,
+                        map: mapInstanceRef.current,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 12,
+                            fillColor: '#3b82f6',
+                            fillOpacity: 1,
+                            strokeColor: 'white',
+                            strokeWeight: 3,
+                        },
+                        title: 'Você está aqui',
+                        zIndex: 1000,
+                    });
+                }
+            }, [currentPosition]);
+            
+            // Atualiza marcadores e rota
+            useEffect(() => {
+                if (!mapInstanceRef.current) return;
+                
+                // Remove marcadores antigos
+                markersRef.current.forEach(marker => marker.setMap(null));
+                markersRef.current = [];
+                
+                // Remove rota antiga
+                if (routeLineRef.current) {
+                    routeLineRef.current.setMap(null);
+                    routeLineRef.current = null;
+                }
+                if (directionsRendererRef.current) {
+                    directionsRendererRef.current.setMap(null);
+                    directionsRendererRef.current = null;
+                }
+                
+                // Marcador do restaurante
+                const restaurantMarker = new google.maps.Marker({
+                    position: { lat: restaurantLocation.lat, lng: restaurantLocation.lng },
+                    map: mapInstanceRef.current,
+                    icon: {
+                        url: 'data:image/svg+xml,' + encodeURIComponent(`
+                            <svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="22" cy="22" r="20" fill="#22c55e" stroke="white" stroke-width="3"/>
+                                <text x="22" y="28" text-anchor="middle" font-size="20">🏪</text>
+                            </svg>
+                        `),
+                        scaledSize: new google.maps.Size(44, 44),
+                    },
+                    title: 'Restaurante',
+                });
+                markersRef.current.push(restaurantMarker);
+                
+                // Coordenadas para rota
+                const routeCoords = [];
+                
+                if (currentPosition) {
+                    routeCoords.push({ lat: currentPosition.lat, lng: currentPosition.lng });
+                } else {
+                    routeCoords.push({ lat: restaurantLocation.lat, lng: restaurantLocation.lng });
+                }
+                
+                // Pedidos pendentes
+                const pendingOrders = orders.filter(o => o.status !== 'delivered');
+                const deliveredOrders = orders.filter(o => o.status === 'delivered');
+                
+                // Marcadores entregues (cinza)
+                deliveredOrders.forEach(order => {
+                    const marker = new google.maps.Marker({
+                        position: { lat: order.lat, lng: order.lng },
+                        map: mapInstanceRef.current,
+                        icon: {
+                            url: 'data:image/svg+xml,' + encodeURIComponent(`
+                                <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="18" cy="18" r="16" fill="#9ca3af" stroke="white" stroke-width="3"/>
+                                    <text x="18" y="24" text-anchor="middle" font-size="16" fill="white">✓</text>
+                                </svg>
+                            `),
+                            scaledSize: new google.maps.Size(36, 36),
+                        },
+                        title: `Entregue - ${order.customer_name}`,
+                    });
+                    markersRef.current.push(marker);
+                });
+                
+                // Marcadores pendentes (laranja)
+                pendingOrders.forEach((order, index) => {
+                    const isNext = index === 0;
+                    const color = isNext ? '#f97316' : '#fb923c';
+                    const size = isNext ? 44 : 36;
+                    
+                    const marker = new google.maps.Marker({
+                        position: { lat: order.lat, lng: order.lng },
+                        map: mapInstanceRef.current,
+                        icon: {
+                            url: 'data:image/svg+xml,' + encodeURIComponent(`
+                                <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="${size/2}" cy="${size/2}" r="${size/2-3}" fill="${color}" stroke="white" stroke-width="3"/>
+                                    <text x="${size/2}" y="${size/2+6}" text-anchor="middle" font-size="${isNext ? 18 : 14}" fill="white" font-weight="bold">${order.stop_order}</text>
+                                </svg>
+                            `),
+                            scaledSize: new google.maps.Size(size, size),
+                        },
+                        title: `#${order.stop_order} - ${order.customer_name}`,
+                    });
+                    markersRef.current.push(marker);
+                    routeCoords.push({ lat: order.lat, lng: order.lng });
+                });
+                
+                // Se voltando ao restaurante
+                if (returningHome) {
+                    routeCoords.push({ lat: restaurantLocation.lat, lng: restaurantLocation.lng });
+                }
+                
+                // Desenha rota REAL usando Google Directions API
+                if (routeStarted && routeCoords.length > 1) {
+                    const directionsService = new google.maps.DirectionsService();
+                    directionsRendererRef.current = new google.maps.DirectionsRenderer({
+                        map: mapInstanceRef.current,
+                        suppressMarkers: true,
+                        preserveViewport: true, // NÃO mexe no zoom automaticamente
+                        polylineOptions: {
+                            strokeColor: returningHome ? '#22c55e' : '#f97316',
+                            strokeOpacity: 0.8,
+                            strokeWeight: 5,
+                        },
+                    });
+                    
+                    const origin = routeCoords[0];
+                    const destination = routeCoords[routeCoords.length - 1];
+                    const waypoints = routeCoords.slice(1, -1).map(coord => ({
+                        location: coord,
+                        stopover: true,
+                    }));
+                    
+                    directionsService.route({
+                        origin: origin,
+                        destination: destination,
+                        waypoints: waypoints,
+                        optimizeWaypoints: false,
+                        travelMode: google.maps.TravelMode.DRIVING,
+                    }, (result, status) => {
+                        if (status === 'OK') {
+                            directionsRendererRef.current.setDirections(result);
+                            
+                            // Só faz fitBounds na PRIMEIRA vez e se usuário não mexeu
+                            if (!initialFitDoneRef.current) {
+                                const bounds = new google.maps.LatLngBounds();
+                                routeCoords.forEach(coord => bounds.extend(coord));
+                                mapInstanceRef.current.fitBounds(bounds, { padding: 60 });
+                                
+                                const listener = google.maps.event.addListener(mapInstanceRef.current, 'idle', () => {
+                                    if (mapInstanceRef.current.getZoom() > 15) {
+                                        mapInstanceRef.current.setZoom(15);
+                                    }
+                                    google.maps.event.removeListener(listener);
+                                    initialFitDoneRef.current = true;
+                                });
+                            }
+                        } else {
+                            // Fallback: linha reta
+                            routeLineRef.current = new google.maps.Polyline({
+                                path: routeCoords,
+                                geodesic: true,
+                                strokeColor: returningHome ? '#22c55e' : '#f97316',
+                                strokeOpacity: 0.8,
+                                strokeWeight: 5,
+                            });
+                            routeLineRef.current.setMap(mapInstanceRef.current);
+                        }
+                    });
+                }
+                
+            }, [orders, restaurantLocation, routeStarted, returningHome, currentPosition]);
+            
+            const centerOnMe = () => {
+                if (mapInstanceRef.current && currentPosition) {
+                    mapInstanceRef.current.setCenter({ lat: currentPosition.lat, lng: currentPosition.lng });
+                    mapInstanceRef.current.setZoom(16);
+                }
+            };
+            
+            const showFullRoute = () => {
+                if (!mapInstanceRef.current) return;
+                userInteractedRef.current = false;
+                
+                const bounds = new google.maps.LatLngBounds();
+                if (currentPosition) {
+                    bounds.extend({ lat: currentPosition.lat, lng: currentPosition.lng });
+                }
+                orders.forEach(order => {
+                    bounds.extend({ lat: order.lat, lng: order.lng });
+                });
+                bounds.extend({ lat: restaurantLocation.lat, lng: restaurantLocation.lng });
+                
+                mapInstanceRef.current.fitBounds(bounds, { padding: 60 });
+                setTimeout(() => {
+                    if (mapInstanceRef.current.getZoom() > 15) {
+                        mapInstanceRef.current.setZoom(15);
+                    }
+                }, 100);
+            };
+            
+            return (
+                <div className="relative">
+                    <div ref={mapRef} style={{ width: '100%', height: '280px', borderRadius: '12px' }} />
+                    <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-2">
+                        <button 
+                            onClick={centerOnMe}
+                            className="bg-white p-3 rounded-xl shadow-lg text-blue-600 hover:bg-blue-50 active:scale-95"
+                            title="Minha localização"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/>
+                            </svg>
+                        </button>
+                        <button 
+                            onClick={showFullRoute}
+                            className="bg-white p-3 rounded-xl shadow-lg text-orange-600 hover:bg-orange-50 active:scale-95"
+                            title="Ver toda a rota"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ MODO NAVEGAÇÃO (TELA CHEIA - ESTILO WAZE) ============
+        
+        const NavigationMode = ({ 
+            orders, 
+            restaurantLocation, 
+            currentPosition, 
+            currentSpeed,
+            returningHome,
+            onClose,
+            onMarkDelivered,
+            onOpenGoogleMaps,
+            onOpenWaze,
+            onFinishBatch
+        }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const directionsRendererRef = useRef(null);
+            const positionMarkerRef = useRef(null);
+            const destinationMarkerRef = useRef(null);
+            const [followMode, setFollowMode] = useState(true);
+            const [navigationInfo, setNavigationInfo] = useState({
+                nextManeuver: null,
+                nextStreet: '',
+                distanceToManeuver: '',
+                totalDistance: '',
+                totalDuration: '',
+                eta: ''
+            });
+            const [showActions, setShowActions] = useState(false);
+            
+            const pendingOrders = orders.filter(o => o.status !== 'delivered');
+            const nextOrder = pendingOrders[0];
+            const destination = returningHome 
+                ? { lat: restaurantLocation.lat, lng: restaurantLocation.lng, name: 'Restaurante', address: restaurantLocation.address }
+                : nextOrder 
+                    ? { lat: nextOrder.lat, lng: nextOrder.lng, name: nextOrder.customer_name, address: nextOrder.address_text }
+                    : null;
+            
+            // Ícones de manobra estilo Waze
+            const getManeuverIcon = (maneuver) => {
+                const icons = {
+                    'turn-left': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M14 6v3.5c0 .83-.67 1.5-1.5 1.5H9v5h10v2H7v-7H5V8.5C5 7.67 5.67 7 6.5 7H12V4l4 4-2 2V6h-0z"/>
+                            <path d="M9 4l-5 5 5 5V9h4V4H9z"/>
+                        </svg>
+                    ),
+                    'turn-right': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M15 4l5 5-5 5V9h-4v5H5v2h8v-7h2V4z"/>
+                        </svg>
+                    ),
+                    'turn-slight-left': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M11 4l-6 6 2 2 2.5-2.5V18h3V9.5L15 12l2-2-6-6z"/>
+                        </svg>
+                    ),
+                    'turn-slight-right': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M13 4l6 6-2 2-2.5-2.5V18h-3V9.5L9 12 7 10l6-6z"/>
+                        </svg>
+                    ),
+                    'turn-sharp-left': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M6 6l6 6-2 2-2-2v8h-3V10L3 12 1 10l5-4z"/>
+                        </svg>
+                    ),
+                    'turn-sharp-right': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M18 6l-6 6 2 2 2-2v8h3V10l2 2 2-2-5-4z"/>
+                        </svg>
+                    ),
+                    'uturn-left': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M6 9V4H4v5c0 3.87 3.13 7 7 7h5v-3h-5c-2.21 0-4-1.79-4-4zm3-3l-4 4 4 4v-3h2c1.1 0 2 .9 2 2v5h3v-5c0-2.76-2.24-5-5-5H9V6z"/>
+                        </svg>
+                    ),
+                    'uturn-right': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M18 9V4h2v5c0 3.87-3.13 7-7 7H8v-3h5c2.21 0 4-1.79 4-4zm-3-3l4 4-4 4v-3h-2c-1.1 0-2 .9-2 2v5H8v-5c0-2.76 2.24-5 5-5h2V6z"/>
+                        </svg>
+                    ),
+                    'roundabout-left': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2"/>
+                            <path d="M12 20v-4M8 12H4l3-3-3-3"/>
+                        </svg>
+                    ),
+                    'roundabout-right': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2"/>
+                            <path d="M12 20v-4M16 12h4l-3-3 3-3"/>
+                        </svg>
+                    ),
+                    'straight': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M12 4l-4 4 2 2 0.5-0.5V20h3V9.5l0.5 0.5 2-2-4-4z"/>
+                        </svg>
+                    ),
+                    'ramp-left': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M8 4l-5 5 5 5V9h3c1.1 0 2 .9 2 2v9h3v-9c0-2.76-2.24-5-5-5H8V4z"/>
+                        </svg>
+                    ),
+                    'ramp-right': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M16 4l5 5-5 5V9h-3c-1.1 0-2 .9-2 2v9H8v-9c0-2.76 2.24-5 5-5h3V4z"/>
+                        </svg>
+                    ),
+                    'merge': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M12 4l-4 4 2 2 2-2 2 2 2-2-4-4zm-1.5 6.5V20h3V10.5l-1.5-1.5-1.5 1.5z"/>
+                        </svg>
+                    ),
+                    'fork-left': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M10 4l-5 5 2 2 1.5-1.5V20h3V9.5L10 8l2-2-2-2z"/>
+                        </svg>
+                    ),
+                    'fork-right': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M14 4l5 5-2 2-1.5-1.5V20h-3V9.5L14 8l-2-2 2-2z"/>
+                        </svg>
+                    ),
+                    'ferry': (
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10">
+                            <path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v-2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42c-.26.08-.48.26-.6.5s-.15.52-.06.78L3.95 19z"/>
+                        </svg>
+                    ),
+                };
+                
+                // Mapeia variações do Google para ícones
+                if (maneuver?.includes('left')) {
+                    if (maneuver.includes('slight')) return icons['turn-slight-left'];
+                    if (maneuver.includes('sharp')) return icons['turn-sharp-left'];
+                    if (maneuver.includes('uturn') || maneuver.includes('u-turn')) return icons['uturn-left'];
+                    return icons['turn-left'];
+                }
+                if (maneuver?.includes('right')) {
+                    if (maneuver.includes('slight')) return icons['turn-slight-right'];
+                    if (maneuver.includes('sharp')) return icons['turn-sharp-right'];
+                    if (maneuver.includes('uturn') || maneuver.includes('u-turn')) return icons['uturn-right'];
+                    return icons['turn-right'];
+                }
+                if (maneuver?.includes('roundabout')) {
+                    return maneuver.includes('left') ? icons['roundabout-left'] : icons['roundabout-right'];
+                }
+                if (maneuver?.includes('merge')) return icons['merge'];
+                if (maneuver?.includes('fork')) {
+                    return maneuver.includes('left') ? icons['fork-left'] : icons['fork-right'];
+                }
+                if (maneuver?.includes('ramp')) {
+                    return maneuver.includes('left') ? icons['ramp-left'] : icons['ramp-right'];
+                }
+                if (maneuver?.includes('ferry')) return icons['ferry'];
+                
+                return icons['straight'];
+            };
+            
+            // Inicializa mapa focado na posição atual
+            useEffect(() => {
+                if (!mapRef.current || mapInstanceRef.current) return;
+                
+                console.log('🚀 NavigationMode v0.5 WAZE - Iniciando');
+                
+                const center = currentPosition || { lat: restaurantLocation.lat, lng: restaurantLocation.lng };
+                
+                mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+                    center: center,
+                    zoom: 17,
+                    disableDefaultUI: true,
+                    zoomControl: false,
+                    gestureHandling: 'greedy',
+                    styles: [
+                        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+                        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+                        { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+                        { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#FCD34D' }] },
+                        { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#CA8A04' }] },
+                        { featureType: 'road.arterial', elementType: 'geometry.fill', stylers: [{ color: '#ffffff' }] },
+                        { featureType: 'road.local', elementType: 'geometry.fill', stylers: [{ color: '#ffffff' }] },
+                        { featureType: 'landscape', elementType: 'geometry.fill', stylers: [{ color: '#E8E4DC' }] },
+                    ]
+                });
+                
+                if (currentPosition) {
+                    mapInstanceRef.current.setCenter({ lat: currentPosition.lat, lng: currentPosition.lng });
+                }
+                
+                google.maps.event.addListener(mapInstanceRef.current, 'dragstart', () => {
+                    setFollowMode(false);
+                });
+            }, []);
+            
+            // Segue a posição do usuário
+            useEffect(() => {
+                if (!mapInstanceRef.current || !currentPosition) return;
+                
+                const pos = { lat: currentPosition.lat, lng: currentPosition.lng };
+                
+                if (positionMarkerRef.current) {
+                    positionMarkerRef.current.setPosition(pos);
+                } else {
+                    // Marcador estilo Waze (seta cyan/azul)
+                    positionMarkerRef.current = new google.maps.Marker({
+                        position: pos,
+                        map: mapInstanceRef.current,
+                        icon: {
+                            url: 'data:image/svg+xml,' + encodeURIComponent(`
+                                <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                                            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+                                        </filter>
+                                    </defs>
+                                    <circle cx="24" cy="24" r="20" fill="white" filter="url(#shadow)"/>
+                                    <circle cx="24" cy="24" r="16" fill="#06B6D4"/>
+                                    <path d="M24 10 L32 30 L24 25 L16 30 Z" fill="white"/>
+                                </svg>
+                            `),
+                            scaledSize: new google.maps.Size(48, 48),
+                            anchor: new google.maps.Point(24, 24),
+                        },
+                        zIndex: 1000,
+                    });
+                }
+                
+                if (followMode) {
+                    mapInstanceRef.current.panTo(pos);
+                }
+            }, [currentPosition, followMode]);
+            
+            // Desenha destino e rota + pega instruções de navegação
+            useEffect(() => {
+                if (!mapInstanceRef.current || !destination) {
+                    return;
+                }
+                
+                console.log('🗺️ Desenhando rota para:', destination.name);
+                
+                const destColor = returningHome ? '#22c55e' : '#8B5CF6';
+                
+                // Remove marcador de destino antigo
+                if (destinationMarkerRef.current) {
+                    destinationMarkerRef.current.setMap(null);
+                }
+                
+                // Marcador de destino
+                const destContent = returningHome 
+                    ? `<svg width="56" height="56" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="28" cy="28" r="24" fill="${destColor}" stroke="white" stroke-width="3"/>
+                        <path d="M28 16 L40 26 L40 40 L16 40 L16 26 Z" fill="white"/>
+                        <rect x="24" y="30" width="8" height="10" fill="${destColor}"/>
+                       </svg>`
+                    : `<svg width="56" height="56" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="28" cy="28" r="24" fill="${destColor}" stroke="white" stroke-width="3"/>
+                        <text x="28" y="36" text-anchor="middle" font-size="22" fill="white" font-weight="bold">${nextOrder?.stop_order || '1'}</text>
+                       </svg>`;
+                
+                destinationMarkerRef.current = new google.maps.Marker({
+                    position: { lat: destination.lat, lng: destination.lng },
+                    map: mapInstanceRef.current,
+                    icon: {
+                        url: 'data:image/svg+xml,' + encodeURIComponent(destContent),
+                        scaledSize: new google.maps.Size(56, 56),
+                    },
+                });
+                
+                // Origem: posição atual OU restaurante
+                const origin = currentPosition 
+                    ? { lat: currentPosition.lat, lng: currentPosition.lng }
+                    : { lat: restaurantLocation.lat, lng: restaurantLocation.lng };
+                
+                // Limpa renderer anterior
+                if (directionsRendererRef.current) {
+                    directionsRendererRef.current.setMap(null);
+                }
+                
+                // Cria novo renderer e guarda em variável local (evita race condition)
+                const renderer = new google.maps.DirectionsRenderer({
+                    map: mapInstanceRef.current,
+                    suppressMarkers: true,
+                    preserveViewport: true,
+                    polylineOptions: {
+                        strokeColor: '#8B5CF6',
+                        strokeOpacity: 1,
+                        strokeWeight: 8,
+                    },
+                });
+                directionsRendererRef.current = renderer;
+                
+                const directionsService = new google.maps.DirectionsService();
+                
+                directionsService.route({
+                    origin: origin,
+                    destination: { lat: destination.lat, lng: destination.lng },
+                    travelMode: google.maps.TravelMode.DRIVING,
+                }, (result, status) => {
+                    if (status === 'OK' && renderer) {
+                        // Usa variável local, não o ref (que pode ter mudado)
+                        renderer.setDirections(result);
+                        console.log('✅ Rota renderizada!');
+                        
+                        const leg = result.routes[0]?.legs[0];
+                        if (leg) {
+                            const firstStep = leg.steps[0];
+                            const instructions = firstStep?.instructions || '';
+                            
+                            const allMatches = instructions.match(/<b>([^<]+)<\/b>/g) || [];
+                            let streetName = '';
+                            if (allMatches.length > 0) {
+                                const lastMatch = allMatches[allMatches.length - 1];
+                                streetName = lastMatch.replace(/<\/?b>/g, '');
+                            }
+                            if (!streetName || streetName.length < 3) {
+                                streetName = instructions.replace(/<[^>]*>/g, '');
+                            }
+                            
+                            const now = new Date();
+                            const durationSeconds = leg.duration?.value || 0;
+                            const eta = new Date(now.getTime() + durationSeconds * 1000);
+                            const etaStr = eta.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                            
+                            setNavigationInfo({
+                                nextManeuver: firstStep?.maneuver || 'straight',
+                                nextStreet: streetName,
+                                distanceToManeuver: firstStep?.distance?.text || '',
+                                totalDistance: leg.distance?.text || '',
+                                totalDuration: leg.duration?.text || '',
+                                eta: etaStr
+                            });
+                        }
+                    } else {
+                        console.error('❌ Directions failed:', status);
+                    }
+                });
+                
+                // Cleanup
+                return () => {
+                    if (renderer) {
+                        renderer.setMap(null);
+                    }
+                };
+            }, [destination?.lat, destination?.lng, returningHome]);
+            
+            const reactivateFollow = () => {
+                setFollowMode(true);
+                if (mapInstanceRef.current && currentPosition) {
+                    mapInstanceRef.current.panTo({ lat: currentPosition.lat, lng: currentPosition.lng });
+                    mapInstanceRef.current.setZoom(17);
+                }
+            };
+            
+            const speedKmh = currentSpeed ? Math.round(currentSpeed * 3.6) : 0;
+            
+            return (
+                <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
+                    {/* Header preto estilo Waze - Próxima manobra */}
+                    <div className="bg-gray-900 text-white px-4 py-3 shadow-lg">
+                        <div className="flex items-center gap-4">
+                            <div className="text-cyan-400">
+                                {getManeuverIcon(navigationInfo.nextManeuver)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-2xl font-bold text-white">
+                                    {navigationInfo.distanceToManeuver || '...'}
+                                </div>
+                                <div className="text-lg text-cyan-300 truncate">
+                                    {navigationInfo.nextStreet || 'Calculando rota...'}
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M18 6L6 18M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Container do Mapa com overlays */}
+                    <div className="flex-1 relative">
+                        {/* Mapa */}
+                        <div ref={mapRef} className="absolute inset-0" />
+                        
+                        {/* Velocímetro estilo Waze */}
+                        <div className="absolute bottom-4 left-4 z-10">
+                            <div className="bg-gray-800 text-white rounded-full w-16 h-16 flex flex-col items-center justify-center shadow-lg border-2 border-gray-700">
+                                <span className="text-xl font-bold leading-none">{speedKmh}</span>
+                                <span className="text-xs text-gray-400">km/h</span>
+                            </div>
+                        </div>
+                        
+                        {/* Botão reativar follow */}
+                        {!followMode && (
+                            <button 
+                                onClick={reactivateFollow}
+                                className="absolute right-4 bottom-4 bg-cyan-500 p-4 rounded-full shadow-lg text-white active:scale-95 z-10 animate-pulse"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <circle cx="12" cy="12" r="3"/>
+                                    <path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/>
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* Footer com ETA e ações */}
+                    <div className="bg-white shadow-lg">
+                        {/* Info bar - ETA, tempo, distância */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b">
+                            <button onClick={() => onOpenGoogleMaps(destination?.lat, destination?.lng)} className="p-2 hover:bg-gray-100 rounded-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="M21 21l-4.35-4.35"/>
+                                </svg>
+                            </button>
+                            
+                            <div className="text-center">
+                                <div className="text-3xl font-bold text-gray-800">{navigationInfo.eta || '--:--'}</div>
+                                <div className="text-sm text-gray-500">
+                                    {navigationInfo.totalDuration || '-- min'} • {navigationInfo.totalDistance || '-- km'}
+                                </div>
+                            </div>
+                            
+                            <button onClick={() => onOpenWaze(destination?.lat, destination?.lng)} className="p-2 hover:bg-gray-100 rounded-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        {/* Destino info - clicável para expandir ações */}
+                        <button 
+                            onClick={() => setShowActions(!showActions)}
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${returningHome ? 'bg-green-500' : 'bg-purple-500'}`}>
+                                    {returningHome ? '🏪' : nextOrder?.stop_order || '1'}
+                                </div>
+                                <div className="text-left">
+                                    <div className="font-semibold text-gray-800">{destination?.name || 'Destino'}</div>
+                                    <div className="text-sm text-gray-500 truncate max-w-[200px]">{destination?.address || ''}</div>
+                                </div>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transform transition-transform ${showActions ? 'rotate-180' : ''}`}>
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </button>
+                        
+                        {/* Ações expandidas */}
+                        {showActions && (
+                            <div className="px-4 pb-4 space-y-2 border-t bg-gray-50">
+                                <div className="flex gap-2 pt-3">
+                                    <button 
+                                        onClick={() => onOpenGoogleMaps(destination?.lat, destination?.lng)}
+                                        className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-semibold active:scale-95"
+                                    >
+                                        🗺️ Google Maps
+                                    </button>
+                                    <button 
+                                        onClick={() => onOpenWaze(destination?.lat, destination?.lng)}
+                                        className="flex-1 bg-purple-500 text-white py-3 rounded-xl font-semibold active:scale-95"
+                                    >
+                                        🚗 Waze
+                                    </button>
+                                </div>
+                                
+                                {!returningHome && nextOrder && (
+                                    <button 
+                                        onClick={() => onMarkDelivered(nextOrder.id)}
+                                        className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg active:scale-95"
+                                    >
+                                        ✓ Entreguei para {nextOrder.customer_name}
+                                    </button>
+                                )}
+                                
+                                {returningHome && (
+                                    <button 
+                                        onClick={onFinishBatch}
+                                        className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg active:scale-95"
+                                    >
+                                        ✅ Cheguei no Restaurante
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ TELA PRINCIPAL DO MOTOBOY ============
+        
+        const MainScreen = ({ courier, onLogout }) => {
+            const [batch, setBatch] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [refreshing, setRefreshing] = useState(false);
+            const [routeStarted, setRouteStarted] = useState(false);
+            const [currentPosition, setCurrentPosition] = useState(null);
+            const [currentSpeed, setCurrentSpeed] = useState(null);
+            const [gpsError, setGpsError] = useState(null);
+            const [returningHome, setReturningHome] = useState(false);
+            const [navigationMode, setNavigationMode] = useState(false);
+            const watchIdRef = useRef(null);
+            
+            const fetchBatch = useCallback(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/couriers/${courier.id}/current-batch`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setBatch(data);
+                        
+                        if (data.orders && data.orders.length > 0) {
+                            const allDelivered = data.orders.every(o => o.status === 'delivered');
+                            if (allDelivered && routeStarted && !returningHome) {
+                                setReturningHome(true);
+                            }
+                        }
+                    } else {
+                        setBatch(null);
+                        setRouteStarted(false);
+                        setReturningHome(false);
+                    }
+                } catch (err) {
+                    console.error('Erro ao buscar lote:', err);
+                }
+                setLoading(false);
+                setRefreshing(false);
+            }, [courier.id, routeStarted, returningHome]);
+            
+            useEffect(() => {
+                fetchBatch();
+                const interval = setInterval(fetchBatch, 5000);
+                return () => clearInterval(interval);
+            }, [fetchBatch]);
+            
+            const startGPSTracking = () => {
+                // Verifica se já está rastreando
+                if (watchIdRef.current) {
+                    console.log('📍 GPS já está ativo');
+                    return;
+                }
+                
+                if (!navigator.geolocation) {
+                    setGpsError('GPS não disponível neste navegador');
+                    return;
+                }
+                
+                // Verifica contexto seguro (HTTPS ou localhost)
+                const isSecure = window.isSecureContext;
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                
+                if (!isSecure && !isLocalhost) {
+                    setGpsError(`GPS bloqueado: acesse via HTTPS ou localhost. Atual: ${window.location.hostname}`);
+                    console.error('❌ Geolocation requer HTTPS. Acesse chrome://flags e adicione este site em "Insecure origins treated as secure"');
+                    return;
+                }
+                
+                console.log('📍 Iniciando rastreamento GPS...');
+                
+                watchIdRef.current = navigator.geolocation.watchPosition(
+                    (position) => {
+                        console.log('📍 GPS atualizado:', position.coords.latitude, position.coords.longitude);
+                        setCurrentPosition({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        });
+                        setCurrentSpeed(position.coords.speed);
+                        setGpsError(null);
+                    },
+                    (error) => {
+                        console.error('❌ Erro GPS:', error.code, error.message);
+                        let errorMsg = 'Erro ao obter localização';
+                        switch(error.code) {
+                            case 1: errorMsg = 'Permissão de localização negada'; break;
+                            case 2: errorMsg = 'Localização indisponível'; break;
+                            case 3: errorMsg = 'Tempo esgotado ao obter localização'; break;
+                        }
+                        setGpsError(errorMsg);
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+                );
+            };
+            
+            const stopGPSTracking = () => {
+                if (watchIdRef.current) {
+                    navigator.geolocation.clearWatch(watchIdRef.current);
+                    watchIdRef.current = null;
+                    console.log('📍 GPS parado');
+                }
+            };
+            
+            // Inicia GPS assim que tiver batch (não espera clicar em Iniciar Rota)
+            useEffect(() => {
+                if (batch && batch.orders && batch.orders.length > 0) {
+                    startGPSTracking();
+                }
+                return () => stopGPSTracking();
+            }, [batch?.id]);
+            
+            const handleStartRoute = () => {
+                setRouteStarted(true);
+                // GPS já foi iniciado automaticamente quando recebeu o batch
+                startGPSTracking(); // Garante que está rodando
+            };
+            
+            const openGoogleMaps = (lat, lng) => {
+                window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+            };
+            
+            const openWaze = (lat, lng) => {
+                window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_blank');
+            };
+            
+            const markDelivered = async (orderId) => {
+                await fetch(`${API_URL}/orders/${orderId}/pickup`, { method: 'POST' });
+                await fetch(`${API_URL}/orders/${orderId}/deliver`, { method: 'POST' });
+                fetchBatch();
+            };
+            
+            const finishBatch = async () => {
+                if (!confirm('Confirma que chegou no restaurante?')) return;
+                await fetch(`${API_URL}/couriers/${courier.id}/complete-batch`, { method: 'POST' });
+                stopGPSTracking();
+                setRouteStarted(false);
+                setReturningHome(false);
+                fetchBatch();
+            };
+            
+            const getDistanceToOrder = (order) => {
+                if (!currentPosition) return null;
+                return calculateDistance(currentPosition.lat, currentPosition.lng, order.lat, order.lng);
+            };
+            
+            const getDistanceToRestaurant = () => {
+                if (!currentPosition) return null;
+                return calculateDistance(currentPosition.lat, currentPosition.lng, RESTAURANT_LOCATION.lat, RESTAURANT_LOCATION.lng);
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                        <div className="text-center">
+                            <Logo size={60} />
+                            <div className="text-gray-500 mt-4">Carregando entregas...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            // Sem entregas
+            if (!batch || !batch.orders || batch.orders.length === 0) {
+                return (
+                    <div className="min-h-screen bg-gray-100">
+                        <header className="bg-white shadow-sm p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Logo size={40} />
+                                    <div>
+                                        <div className="font-semibold text-gray-800">{courier.name}</div>
+                                        <div className="text-xs text-green-600">🟢 Disponível</div>
+                                    </div>
+                                </div>
+                                <Button onClick={onLogout} variant="secondary" size="small">Sair</Button>
+                            </div>
+                        </header>
+                        
+                        <div className="flex flex-col items-center justify-center p-6" style={{ minHeight: 'calc(100vh - 80px)' }}>
+                            <div className="text-6xl mb-4">☕</div>
+                            <h2 className="text-xl font-semibold text-gray-700 mb-2">Nenhuma entrega no momento</h2>
+                            <p className="text-gray-500 mb-6">Aguarde o restaurante enviar pedidos</p>
+                            <Button onClick={() => { setRefreshing(true); fetchBatch(); }} disabled={refreshing}>
+                                {refreshing ? '⏳ Atualizando...' : '🔄 Atualizar'}
+                            </Button>
+                        </div>
+                    </div>
+                );
+            }
+            
+            const pendingOrders = batch.orders.filter(o => o.status !== 'delivered');
+            const deliveredOrders = batch.orders.filter(o => o.status === 'delivered');
+            const allDelivered = pendingOrders.length === 0;
+            
+            // Modo navegação em tela cheia
+            if (navigationMode) {
+                return (
+                    <NavigationMode
+                        orders={batch.orders}
+                        restaurantLocation={RESTAURANT_LOCATION}
+                        currentPosition={currentPosition}
+                        currentSpeed={currentSpeed}
+                        returningHome={returningHome}
+                        onClose={() => setNavigationMode(false)}
+                        onMarkDelivered={(orderId) => {
+                            markDelivered(orderId);
+                            if (pendingOrders.length <= 1) {
+                                setReturningHome(true);
+                            }
+                        }}
+                        onOpenGoogleMaps={openGoogleMaps}
+                        onOpenWaze={openWaze}
+                        onFinishBatch={async () => {
+                            await fetch(`${API_URL}/couriers/${courier.id}/complete-batch`, { method: 'POST' });
+                            stopGPSTracking();
+                            setRouteStarted(false);
+                            setReturningHome(false);
+                            setNavigationMode(false);
+                            fetchBatch();
+                        }}
+                    />
+                );
+            }
+            
+            return (
+                <div className="min-h-screen bg-gray-100 pb-32">
+                    {/* Header */}
+                    <header className="bg-white shadow-sm p-4 sticky top-0 z-50">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Logo size={40} />
+                                <div>
+                                    <div className="font-semibold text-gray-800">{courier.name}</div>
+                                    <div className="text-xs text-orange-600">
+                                        {returningHome ? '🏠 Voltando ao restaurante' : `🟠 ${pendingOrders.length} entrega(s)`}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {currentPosition && (
+                                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">📍 GPS OK</span>
+                                )}
+                                <Button onClick={onLogout} variant="secondary" size="small">Sair</Button>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    {gpsError && (
+                        <div className="mx-4 mt-4 p-3 bg-red-100 text-red-700 rounded-xl text-sm">
+                            <div className="font-semibold">⚠️ {gpsError}</div>
+                            {gpsError.includes('HTTPS') && (
+                                <div className="mt-2 text-xs">
+                                    <strong>No celular:</strong> Abra <code>chrome://flags</code>, procure "Insecure origins treated as secure", adicione este site e reinicie o Chrome.
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* Botão Iniciar Rota */}
+                    {!routeStarted && (
+                        <div className="p-4">
+                            <Button onClick={handleStartRoute} variant="success" size="large" className="w-full pulse-green">
+                                🚀 Iniciar Rota ({batch.orders.length} entregas)
+                            </Button>
+                        </div>
+                    )}
+                    
+                    {/* Mapa Google */}
+                    {routeStarted && (
+                        <div className="p-4">
+                            <Card className="overflow-hidden p-0">
+                                <DeliveryMap 
+                                    orders={batch.orders} 
+                                    restaurantLocation={RESTAURANT_LOCATION}
+                                    currentPosition={currentPosition}
+                                    routeStarted={routeStarted}
+                                    returningHome={returningHome}
+                                />
+                            </Card>
+                            
+                            {/* Botão Modo Navegação */}
+                            <button 
+                                onClick={() => setNavigationMode(true)}
+                                className="w-full mt-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 shadow-lg"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                                </svg>
+                                Iniciar Navegação
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Voltando ao restaurante */}
+                    {returningHome && (
+                        <div className="px-4 mb-4">
+                            <Card className="p-4 border-2 border-green-500 bg-green-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-4xl">🏪</div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-green-700">Voltar ao Restaurante</h3>
+                                        <p className="text-sm text-green-600">{RESTAURANT_LOCATION.address}</p>
+                                        {currentPosition && (
+                                            <p className="text-xs text-green-500 mt-1">📍 {Math.round(getDistanceToRestaurant())}m</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 mt-3">
+                                    <Button onClick={() => openGoogleMaps(RESTAURANT_LOCATION.lat, RESTAURANT_LOCATION.lng)} variant="navigation" size="small">
+                                        🗺️ Google Maps
+                                    </Button>
+                                    <Button onClick={() => openWaze(RESTAURANT_LOCATION.lat, RESTAURANT_LOCATION.lng)} variant="secondary" size="small">
+                                        🚗 Waze
+                                    </Button>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+                    
+                    {/* Lista de entregas */}
+                    {!returningHome && routeStarted && (
+                        <div className="px-4">
+                            <h3 className="font-semibold text-gray-700 mb-3">
+                                📍 Suas entregas ({deliveredOrders.length}/{batch.orders.length})
+                            </h3>
+                            
+                            <div className="space-y-3">
+                                {batch.orders.map((order) => {
+                                    const isDelivered = order.status === 'delivered';
+                                    const isNext = !isDelivered && pendingOrders[0]?.id === order.id;
+                                    const distance = getDistanceToOrder(order);
+                                    
+                                    return (
+                                        <Card key={order.id} className={`p-4 ${isDelivered ? 'opacity-60' : isNext ? 'border-2 border-orange-500 bg-orange-50' : ''}`}>
+                                            <div className="flex items-start gap-3">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${isDelivered ? 'bg-gray-400' : 'bg-orange-500'}`}>
+                                                    {isDelivered ? '✓' : order.stop_order}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-semibold text-gray-800">{order.customer_name}</span>
+                                                        {isDelivered && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✓ Entregue</span>}
+                                                        {isNext && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Próxima</span>}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 mt-1">{order.address_text}</p>
+                                                    
+                                                    {isNext && distance && (
+                                                        <p className="text-xs text-gray-500 mt-1">📍 {distance < 1000 ? `${Math.round(distance)}m` : `${(distance/1000).toFixed(1)}km`}</p>
+                                                    )}
+                                                    
+                                                    {isNext && (
+                                                        <div className="flex flex-wrap gap-2 mt-3">
+                                                            <Button onClick={() => openGoogleMaps(order.lat, order.lng)} variant="navigation" size="small">🗺️ Maps</Button>
+                                                            <Button onClick={() => openWaze(order.lat, order.lng)} variant="secondary" size="small">🚗 Waze</Button>
+                                                            <Button onClick={() => markDelivered(order.id)} variant="success" size="small">✓ Entreguei</Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Footer */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg">
+                        {returningHome ? (
+                            <Button onClick={finishBatch} variant="success" size="large" className="w-full">
+                                ✅ Cheguei no restaurante!
+                            </Button>
+                        ) : (
+                            <div className="text-center text-gray-500 text-sm">
+                                {allDelivered ? 'Calculando rota de volta...' : routeStarted ? `Entregue os ${pendingOrders.length} pedido(s)` : 'Clique em "Iniciar Rota"'}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ APP PRINCIPAL ============
+        
+        const App = () => {
+            const [courier, setCourier] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                const savedId = localStorage.getItem('motoboy_id');
+                const savedName = localStorage.getItem('motoboy_name');
+                
+                if (savedId && savedName) {
+                    fetch(`${API_URL}/couriers`)
+                        .then(res => res.json())
+                        .then(couriers => {
+                            const found = couriers.find(c => c.id === savedId);
+                            if (found) setCourier(found);
+                            else {
+                                localStorage.removeItem('motoboy_id');
+                                localStorage.removeItem('motoboy_name');
+                            }
+                            setLoading(false);
+                        })
+                        .catch(() => setLoading(false));
+                } else {
+                    setLoading(false);
+                }
+            }, []);
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-orange-500">
+                        <div className="text-center text-white">
+                            <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                            <div className="text-xl font-semibold">MotoFlash</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            if (!courier) return <LoginScreen onLogin={setCourier} />;
+            return <MainScreen courier={courier} onLogout={() => { localStorage.clear(); setCourier(null); }} />;
+        };
+        
+        // ============ RENDER com Geocoding ============
+        (async function init() {
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            
+            root.render(
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-orange-500 to-orange-600">
+                    <div className="text-center text-white">
+                        <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                        <div className="text-xl font-semibold mb-2">MotoFlash</div>
+                        <div className="text-orange-100">Carregando localização...</div>
+                    </div>
+                </div>
+            );
+            
+            const success = await loadRestaurantLocation();
+            
+            if (!success) {
+                root.render(
+                    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+                        <div className="text-center">
+                            <div className="text-5xl mb-4">⚠️</div>
+                            <h2 className="text-xl font-semibold text-red-600 mb-2">Erro ao carregar</h2>
+                            <p className="text-gray-600 mb-4">Verifique se o backend está rodando</p>
+                            <button onClick={() => location.reload()} className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold">
+                                🔄 Tentar Novamente
+                            </button>
+                        </div>
+                    </div>
+                );
+                return;
+            }
+            
+            root.render(<App />);
+        })();
+    </script>
+</body>
+</html>
