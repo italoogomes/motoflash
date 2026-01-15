@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      
     <title>MotoFlash - Despacho Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -245,301 +246,145 @@
           );
         };
         
-        // ============ SIMULADOR DE PEDIDOS ============
+        // ============ FORMULÁRIO DE NOVO PEDIDO (MANUAL) ============
         
-        const OrderSimulator = ({ onOrderCreated, simulatedDate }) => {
+        const NewOrderForm = ({ onOrderCreated, simulatedDate }) => {
           const [loading, setLoading] = useState(false);
+          const [status, setStatus] = useState('');
+          const [errorMsg, setErrorMsg] = useState('');
           
-          const fakeAddresses = [
-            // ========== CENTRO (20 endereços) ==========
-            { text: 'Av. Presidente Vargas, 500 - Centro', lat: -21.1780, lng: -47.8100 },
-            { text: 'Rua General Osório, 800 - Centro', lat: -21.1760, lng: -47.8080 },
-            { text: 'Rua Visconde de Inhaúma, 300 - Centro', lat: -21.1770, lng: -47.8120 },
-            { text: 'Rua Duque de Caxias, 450 - Centro', lat: -21.1775, lng: -47.8095 },
-            { text: 'Rua São Sebastião, 600 - Centro', lat: -21.1765, lng: -47.8110 },
-            { text: 'Rua Barão do Amazonas, 350 - Centro', lat: -21.1755, lng: -47.8090 },
-            { text: 'Av. Francisco Junqueira, 1000 - Centro', lat: -21.1790, lng: -47.8070 },
-            { text: 'Rua Alvares Cabral, 200 - Centro', lat: -21.1750, lng: -47.8105 },
-            { text: 'Rua Tibiriçá, 150 - Centro', lat: -21.1785, lng: -47.8115 },
-            { text: 'Rua José Bonifácio, 700 - Centro', lat: -21.1745, lng: -47.8085 },
-            { text: 'Rua Mariana Junqueira, 400 - Centro', lat: -21.1768, lng: -47.8075 },
-            { text: 'Rua Lafaiete, 550 - Centro', lat: -21.1772, lng: -47.8125 },
-            { text: 'Rua Prudente de Moraes, 300 - Centro', lat: -21.1758, lng: -47.8100 },
-            { text: 'Rua Campos Sales, 800 - Centro', lat: -21.1782, lng: -47.8088 },
-            { text: 'Rua Florêncio de Abreu, 250 - Centro', lat: -21.1748, lng: -47.8095 },
-            { text: 'Rua Cerqueira César, 600 - Centro', lat: -21.1792, lng: -47.8108 },
-            { text: 'Rua Bernardino de Campos, 450 - Centro', lat: -21.1762, lng: -47.8078 },
-            { text: 'Rua Saldanha Marinho, 350 - Centro', lat: -21.1778, lng: -47.8118 },
-            { text: 'Rua 7 de Setembro, 500 - Centro', lat: -21.1752, lng: -47.8092 },
-            { text: 'Rua Amador Bueno, 700 - Centro', lat: -21.1788, lng: -47.8082 },
-            
-            // ========== ZONA SUL - FIÚSA / JARDIM BOTÂNICO (25 endereços) ==========
-            { text: 'Av. Professor João Fiúsa, 1200 - Jardim Botânico', lat: -21.2050, lng: -47.8200 },
-            { text: 'Rua Minas Gerais, 600 - Jardim Sumaré', lat: -21.2000, lng: -47.8150 },
-            { text: 'Av. Wladimir Meirelles Ferreira, 800 - Jardim Botânico', lat: -21.2100, lng: -47.8250 },
-            { text: 'Rua Paraná, 350 - Jardim Sumaré', lat: -21.2010, lng: -47.8160 },
-            { text: 'Rua Santa Catarina, 500 - Jardim Sumaré', lat: -21.2020, lng: -47.8140 },
-            { text: 'Av. João Fiúsa, 1800 - Alto da Boa Vista', lat: -21.2080, lng: -47.8220 },
-            { text: 'Rua Espírito Santo, 400 - Jardim Sumaré', lat: -21.2005, lng: -47.8155 },
-            { text: 'Rua Rio Grande do Sul, 700 - Jardim Sumaré', lat: -21.2030, lng: -47.8170 },
-            { text: 'Rua Pernambuco, 250 - Jardim Sumaré', lat: -21.1995, lng: -47.8145 },
-            { text: 'Av. Caramuru, 2500 - Alto da Boa Vista', lat: -21.2090, lng: -47.8180 },
-            { text: 'Rua Bahia, 800 - Jardim Sumaré', lat: -21.2040, lng: -47.8165 },
-            { text: 'Rua Sergipe, 450 - Jardim Sumaré', lat: -21.2015, lng: -47.8135 },
-            { text: 'Rua Goiás, 600 - Jardim Sumaré', lat: -21.2025, lng: -47.8175 },
-            { text: 'Av. Professor João Fiúsa, 2200 - Jardim Botânico', lat: -21.2110, lng: -47.8240 },
-            { text: 'Rua Amazonas, 350 - Jardim Sumaré', lat: -21.2008, lng: -47.8158 },
-            { text: 'Rua Ceará, 500 - Jardim Sumaré', lat: -21.2035, lng: -47.8168 },
-            { text: 'Rua Piauí, 200 - Jardim Sumaré', lat: -21.1998, lng: -47.8142 },
-            { text: 'Av. João Fiúsa, 900 - Jardim Sumaré', lat: -21.2045, lng: -47.8190 },
-            { text: 'Rua Maranhão, 650 - Jardim Sumaré', lat: -21.2018, lng: -47.8152 },
-            { text: 'Rua Alagoas, 400 - Jardim Sumaré', lat: -21.2028, lng: -47.8162 },
-            { text: 'Av. Professor João Fiúsa, 1500 - Jardim Botânico', lat: -21.2070, lng: -47.8210 },
-            { text: 'Rua Rio de Janeiro, 550 - Jardim Sumaré', lat: -21.2012, lng: -47.8148 },
-            { text: 'Rua São Paulo, 300 - Jardim Sumaré', lat: -21.2002, lng: -47.8138 },
-            { text: 'Rua Mato Grosso, 700 - Jardim Sumaré', lat: -21.2038, lng: -47.8172 },
-            { text: 'Rua Tocantins, 250 - Jardim Sumaré', lat: -21.1992, lng: -47.8132 },
-            
-            // ========== ZONA NORTE - CAMPOS ELÍSEOS / IPIRANGA (25 endereços) ==========
-            { text: 'Av. Independência, 1500 - Campos Elíseos', lat: -21.1550, lng: -47.8050 },
-            { text: 'Rua Capitão Salomão, 400 - Alto do Ipiranga', lat: -21.1500, lng: -47.8000 },
-            { text: 'Av. Dom Pedro I, 800 - Ipiranga', lat: -21.1520, lng: -47.8020 },
-            { text: 'Rua Thomaz Edison, 350 - Campos Elíseos', lat: -21.1560, lng: -47.8060 },
-            { text: 'Rua Santos Dumont, 600 - Ipiranga', lat: -21.1510, lng: -47.8010 },
-            { text: 'Av. Antônio Diederichsen, 1200 - Ipiranga', lat: -21.1530, lng: -47.8030 },
-            { text: 'Rua Mal. Floriano Peixoto, 450 - Campos Elíseos', lat: -21.1570, lng: -47.8070 },
-            { text: 'Rua Dr. Tomás do Brasil, 700 - Alto do Ipiranga', lat: -21.1505, lng: -47.8005 },
-            { text: 'Av. Independência, 2000 - Campos Elíseos', lat: -21.1545, lng: -47.8045 },
-            { text: 'Rua Alberto Magno, 250 - Ipiranga', lat: -21.1525, lng: -47.8025 },
-            { text: 'Rua José de Alencar, 550 - Campos Elíseos', lat: -21.1565, lng: -47.8065 },
-            { text: 'Rua Olavo Bilac, 400 - Ipiranga', lat: -21.1515, lng: -47.8015 },
-            { text: 'Av. Dom Pedro I, 1500 - Alto do Ipiranga', lat: -21.1495, lng: -47.7995 },
-            { text: 'Rua Castro Alves, 650 - Campos Elíseos', lat: -21.1575, lng: -47.8075 },
-            { text: 'Rua Machado de Assis, 300 - Ipiranga', lat: -21.1508, lng: -47.8008 },
-            { text: 'Av. Independência, 1000 - Campos Elíseos', lat: -21.1555, lng: -47.8055 },
-            { text: 'Rua Gonçalves Dias, 500 - Ipiranga', lat: -21.1518, lng: -47.8018 },
-            { text: 'Rua Casemiro de Abreu, 350 - Campos Elíseos', lat: -21.1562, lng: -47.8062 },
-            { text: 'Rua Álvares de Azevedo, 600 - Ipiranga', lat: -21.1512, lng: -47.8012 },
-            { text: 'Av. Antônio Diederichsen, 900 - Ipiranga', lat: -21.1535, lng: -47.8035 },
-            { text: 'Rua Fagundes Varela, 450 - Campos Elíseos', lat: -21.1568, lng: -47.8068 },
-            { text: 'Rua Rui Barbosa, 700 - Alto do Ipiranga', lat: -21.1498, lng: -47.7998 },
-            { text: 'Rua Joaquim Nabuco, 250 - Campos Elíseos', lat: -21.1572, lng: -47.8072 },
-            { text: 'Rua Euclides da Cunha, 550 - Ipiranga', lat: -21.1522, lng: -47.8022 },
-            { text: 'Rua Monteiro Lobato, 400 - Campos Elíseos', lat: -21.1558, lng: -47.8058 },
-            
-            // ========== ZONA OESTE - RIBEIRÂNIA / CALIFÓRNIA (25 endereços) ==========
-            { text: 'Av. Costábile Romano, 2000 - Ribeirânia', lat: -21.1700, lng: -47.8400 },
-            { text: 'Rua João Arcadepani, 300 - Jardim Califórnia', lat: -21.1650, lng: -47.8350 },
-            { text: 'Av. João Gilberto, 800 - Ribeirânia', lat: -21.1710, lng: -47.8410 },
-            { text: 'Rua Dr. Mário Saraiva, 500 - Jardim Califórnia', lat: -21.1660, lng: -47.8360 },
-            { text: 'Rua Carlos de Campos, 350 - Ribeirânia', lat: -21.1705, lng: -47.8405 },
-            { text: 'Av. Costábile Romano, 1500 - Ribeirânia', lat: -21.1695, lng: -47.8395 },
-            { text: 'Rua João Penteado, 600 - Jardim Califórnia', lat: -21.1655, lng: -47.8355 },
-            { text: 'Rua Américo Batista, 450 - Ribeirânia', lat: -21.1715, lng: -47.8415 },
-            { text: 'Rua Dr. Raul Silva, 250 - Jardim Califórnia', lat: -21.1645, lng: -47.8345 },
-            { text: 'Av. João Gilberto, 1200 - Ribeirânia', lat: -21.1720, lng: -47.8420 },
-            { text: 'Rua Benedito de Andrade, 700 - Ribeirânia', lat: -21.1708, lng: -47.8408 },
-            { text: 'Rua João Alfredo, 400 - Jardim Califórnia', lat: -21.1652, lng: -47.8352 },
-            { text: 'Av. Costábile Romano, 2500 - Ribeirânia', lat: -21.1702, lng: -47.8402 },
-            { text: 'Rua Francisco Marques, 550 - Jardim Califórnia', lat: -21.1658, lng: -47.8358 },
-            { text: 'Rua Antônio Teixeira, 300 - Ribeirânia', lat: -21.1712, lng: -47.8412 },
-            { text: 'Rua José Venâncio, 650 - Jardim Califórnia', lat: -21.1648, lng: -47.8348 },
-            { text: 'Av. João Gilberto, 500 - Ribeirânia', lat: -21.1698, lng: -47.8398 },
-            { text: 'Rua Waldemar Barnsley, 450 - Ribeirânia', lat: -21.1718, lng: -47.8418 },
-            { text: 'Rua João Ramalho, 350 - Jardim Califórnia', lat: -21.1642, lng: -47.8342 },
-            { text: 'Rua Dr. Paulo Costa, 600 - Ribeirânia', lat: -21.1722, lng: -47.8422 },
-            { text: 'Rua Altino Arantes, 250 - Jardim Califórnia', lat: -21.1662, lng: -47.8362 },
-            { text: 'Av. Costábile Romano, 1800 - Ribeirânia', lat: -21.1692, lng: -47.8392 },
-            { text: 'Rua Adalberto Pajuaba, 500 - Ribeirânia', lat: -21.1725, lng: -47.8425 },
-            { text: 'Rua José Palocci, 400 - Jardim Califórnia', lat: -21.1665, lng: -47.8365 },
-            { text: 'Rua Maria de Lourdes, 700 - Ribeirânia', lat: -21.1688, lng: -47.8388 },
-            
-            // ========== ZONA LESTE - VILA TIBÉRIO / QUINTINO (25 endereços) ==========
-            { text: 'Av. Jerônimo Gonçalves, 1000 - Vila Tibério', lat: -21.1800, lng: -47.7900 },
-            { text: 'Rua Quintino Bocaiúva, 500 - Quintino Facci II', lat: -21.1850, lng: -47.7850 },
-            { text: 'Rua Rio Branco, 350 - Vila Tibério', lat: -21.1810, lng: -47.7910 },
-            { text: 'Rua José Cupertino, 600 - Quintino Facci II', lat: -21.1855, lng: -47.7855 },
-            { text: 'Av. Jerônimo Gonçalves, 1500 - Vila Tibério', lat: -21.1805, lng: -47.7905 },
-            { text: 'Rua Garibaldi, 400 - Vila Tibério', lat: -21.1815, lng: -47.7915 },
-            { text: 'Rua Martinópolis, 250 - Quintino Facci II', lat: -21.1860, lng: -47.7860 },
-            { text: 'Rua Cristóvão Colombo, 700 - Vila Tibério', lat: -21.1808, lng: -47.7908 },
-            { text: 'Rua Tamoios, 550 - Quintino Facci II', lat: -21.1858, lng: -47.7858 },
-            { text: 'Av. Jerônimo Gonçalves, 800 - Vila Tibério', lat: -21.1802, lng: -47.7902 },
-            { text: 'Rua Guatapará, 450 - Vila Tibério', lat: -21.1818, lng: -47.7918 },
-            { text: 'Rua São Benedito, 300 - Quintino Facci II', lat: -21.1862, lng: -47.7862 },
-            { text: 'Rua Guaxupé, 650 - Vila Tibério', lat: -21.1812, lng: -47.7912 },
-            { text: 'Rua Itapira, 500 - Quintino Facci II', lat: -21.1865, lng: -47.7865 },
-            { text: 'Rua Monte Alegre, 350 - Vila Tibério', lat: -21.1822, lng: -47.7922 },
-            { text: 'Rua Sertãozinho, 600 - Quintino Facci II', lat: -21.1852, lng: -47.7852 },
-            { text: 'Av. Jerônimo Gonçalves, 1200 - Vila Tibério', lat: -21.1798, lng: -47.7898 },
-            { text: 'Rua Batatais, 450 - Vila Tibério', lat: -21.1825, lng: -47.7925 },
-            { text: 'Rua Cajuru, 250 - Quintino Facci II', lat: -21.1868, lng: -47.7868 },
-            { text: 'Rua Brodowski, 700 - Vila Tibério', lat: -21.1795, lng: -47.7895 },
-            { text: 'Rua Cravinhos, 400 - Quintino Facci II', lat: -21.1870, lng: -47.7870 },
-            { text: 'Rua Serrana, 550 - Vila Tibério', lat: -21.1828, lng: -47.7928 },
-            { text: 'Rua Pontal, 300 - Quintino Facci II', lat: -21.1848, lng: -47.7848 },
-            { text: 'Rua Jardinópolis, 650 - Vila Tibério', lat: -21.1792, lng: -47.7892 },
-            { text: 'Rua Orlândia, 500 - Quintino Facci II', lat: -21.1872, lng: -47.7872 },
-            
-            // ========== JARDIM PAULISTA / NOVA ALIANÇA (25 endereços) ==========
-            { text: 'Av. Portugal, 1500 - Jardim Paulista', lat: -21.1950, lng: -47.7950 },
-            { text: 'Rua Espanha, 400 - Nova Aliança', lat: -21.2000, lng: -47.7900 },
-            { text: 'Rua França, 600 - Jardim Paulista', lat: -21.1955, lng: -47.7955 },
-            { text: 'Rua Itália, 350 - Nova Aliança', lat: -21.2005, lng: -47.7905 },
-            { text: 'Av. Portugal, 2000 - Jardim Paulista', lat: -21.1960, lng: -47.7960 },
-            { text: 'Rua Alemanha, 500 - Nova Aliança', lat: -21.2010, lng: -47.7910 },
-            { text: 'Rua Holanda, 450 - Jardim Paulista', lat: -21.1948, lng: -47.7948 },
-            { text: 'Rua Bélgica, 700 - Nova Aliança', lat: -21.2015, lng: -47.7915 },
-            { text: 'Rua Suíça, 300 - Jardim Paulista', lat: -21.1965, lng: -47.7965 },
-            { text: 'Rua Áustria, 550 - Nova Aliança', lat: -21.2020, lng: -47.7920 },
-            { text: 'Av. Portugal, 1200 - Jardim Paulista', lat: -21.1942, lng: -47.7942 },
-            { text: 'Rua Inglaterra, 650 - Nova Aliança', lat: -21.1998, lng: -47.7898 },
-            { text: 'Rua Irlanda, 400 - Jardim Paulista', lat: -21.1970, lng: -47.7970 },
-            { text: 'Rua Escócia, 500 - Nova Aliança', lat: -21.2025, lng: -47.7925 },
-            { text: 'Rua Grécia, 350 - Jardim Paulista', lat: -21.1945, lng: -47.7945 },
-            { text: 'Rua Polônia, 600 - Nova Aliança', lat: -21.2008, lng: -47.7908 },
-            { text: 'Av. Portugal, 1800 - Jardim Paulista', lat: -21.1975, lng: -47.7975 },
-            { text: 'Rua Noruega, 450 - Nova Aliança', lat: -21.2012, lng: -47.7912 },
-            { text: 'Rua Suécia, 700 - Jardim Paulista', lat: -21.1938, lng: -47.7938 },
-            { text: 'Rua Dinamarca, 300 - Nova Aliança', lat: -21.2018, lng: -47.7918 },
-            { text: 'Rua Finlândia, 550 - Jardim Paulista', lat: -21.1980, lng: -47.7980 },
-            { text: 'Rua Rússia, 400 - Nova Aliança', lat: -21.2022, lng: -47.7922 },
-            { text: 'Av. Portugal, 2200 - Jardim Paulista', lat: -21.1985, lng: -47.7985 },
-            { text: 'Rua Hungria, 650 - Nova Aliança', lat: -21.1995, lng: -47.7895 },
-            { text: 'Rua Ucrânia, 500 - Jardim Paulista', lat: -21.1990, lng: -47.7990 },
-            
-            // ========== LAGOINHA / PARQUE INDUSTRIAL (25 endereços) ==========
-            { text: 'Av. Thomaz Alberto Whately, 1000 - Lagoinha', lat: -21.1620, lng: -47.8200 },
-            { text: 'Rua Javari, 400 - Parque Industrial', lat: -21.1580, lng: -47.8250 },
-            { text: 'Rua Japurá, 600 - Lagoinha', lat: -21.1625, lng: -47.8205 },
-            { text: 'Rua Juruá, 350 - Parque Industrial', lat: -21.1585, lng: -47.8255 },
-            { text: 'Av. Thomaz Alberto Whately, 1500 - Lagoinha', lat: -21.1630, lng: -47.8210 },
-            { text: 'Rua Madeira, 500 - Parque Industrial', lat: -21.1590, lng: -47.8260 },
-            { text: 'Rua Tapajós, 450 - Lagoinha', lat: -21.1618, lng: -47.8198 },
-            { text: 'Rua Tocantins, 700 - Parque Industrial', lat: -21.1595, lng: -47.8265 },
-            { text: 'Rua Araguaia, 300 - Lagoinha', lat: -21.1635, lng: -47.8215 },
-            { text: 'Rua Xingu, 550 - Parque Industrial', lat: -21.1575, lng: -47.8245 },
-            { text: 'Av. Thomaz Alberto Whately, 800 - Lagoinha', lat: -21.1612, lng: -47.8192 },
-            { text: 'Rua Tietê, 650 - Parque Industrial', lat: -21.1600, lng: -47.8270 },
-            { text: 'Rua Paranapanema, 400 - Lagoinha', lat: -21.1640, lng: -47.8220 },
-            { text: 'Rua Iguaçu, 500 - Parque Industrial', lat: -21.1572, lng: -47.8242 },
-            { text: 'Rua Uruguai, 350 - Lagoinha', lat: -21.1615, lng: -47.8195 },
-            { text: 'Rua Paraguai, 600 - Parque Industrial', lat: -21.1605, lng: -47.8275 },
-            { text: 'Av. Thomaz Alberto Whately, 1200 - Lagoinha', lat: -21.1645, lng: -47.8225 },
-            { text: 'Rua São Francisco, 450 - Parque Industrial', lat: -21.1568, lng: -47.8238 },
-            { text: 'Rua Doce, 700 - Lagoinha', lat: -21.1608, lng: -47.8188 },
-            { text: 'Rua Jequitinhonha, 300 - Parque Industrial', lat: -21.1610, lng: -47.8280 },
-            { text: 'Rua Parnaíba, 550 - Lagoinha', lat: -21.1650, lng: -47.8230 },
-            { text: 'Rua Piracicaba, 400 - Parque Industrial', lat: -21.1565, lng: -47.8235 },
-            { text: 'Rua Sorocaba, 650 - Lagoinha', lat: -21.1602, lng: -47.8182 },
-            { text: 'Rua Campinas, 500 - Parque Industrial', lat: -21.1615, lng: -47.8285 },
-            { text: 'Rua Santos, 350 - Lagoinha', lat: -21.1655, lng: -47.8235 },
-            
-            // ========== VILA SEIXAS / HIGIENÓPOLIS (20 endereços) ==========
-            { text: 'Rua Floriano Peixoto, 500 - Vila Seixas', lat: -21.1720, lng: -47.8050 },
-            { text: 'Rua Bernardino de Campos, 350 - Higienópolis', lat: -21.1680, lng: -47.8020 },
-            { text: 'Rua São José, 600 - Vila Seixas', lat: -21.1725, lng: -47.8055 },
-            { text: 'Rua Rui Barbosa, 400 - Higienópolis', lat: -21.1685, lng: -47.8025 },
-            { text: 'Rua Campos Sales, 450 - Vila Seixas', lat: -21.1730, lng: -47.8060 },
-            { text: 'Rua Prudente de Moraes, 700 - Higienópolis', lat: -21.1690, lng: -47.8030 },
-            { text: 'Rua Afonso Pena, 300 - Vila Seixas', lat: -21.1718, lng: -47.8048 },
-            { text: 'Rua Rodrigues Alves, 550 - Higienópolis', lat: -21.1695, lng: -47.8035 },
-            { text: 'Rua Wenceslau Braz, 650 - Vila Seixas', lat: -21.1735, lng: -47.8065 },
-            { text: 'Rua Epitácio Pessoa, 400 - Higienópolis', lat: -21.1675, lng: -47.8015 },
-            { text: 'Rua Arthur Bernardes, 500 - Vila Seixas', lat: -21.1722, lng: -47.8052 },
-            { text: 'Rua Washington Luís, 350 - Higienópolis', lat: -21.1700, lng: -47.8040 },
-            { text: 'Rua Getúlio Vargas, 600 - Vila Seixas', lat: -21.1738, lng: -47.8068 },
-            { text: 'Rua Juscelino Kubitschek, 450 - Higienópolis', lat: -21.1678, lng: -47.8018 },
-            { text: 'Rua Jânio Quadros, 700 - Vila Seixas', lat: -21.1715, lng: -47.8045 },
-            { text: 'Rua Costa e Silva, 300 - Higienópolis', lat: -21.1702, lng: -47.8042 },
-            { text: 'Rua Médici, 550 - Vila Seixas', lat: -21.1740, lng: -47.8070 },
-            { text: 'Rua Geisel, 400 - Higienópolis', lat: -21.1682, lng: -47.8022 },
-            { text: 'Rua Figueiredo, 650 - Vila Seixas', lat: -21.1728, lng: -47.8058 },
-            { text: 'Rua Sarney, 500 - Higienópolis', lat: -21.1705, lng: -47.8038 },
-            
-            // ========== JARDIM PAULISTANO / RECREIO (20 endereços) ==========
-            { text: 'Av. Maria de Jesus Condeixa, 1000 - Jardim Paulistano', lat: -21.2150, lng: -47.8100 },
-            { text: 'Rua José de Magalhães, 400 - Recreio das Acácias', lat: -21.2200, lng: -47.8050 },
-            { text: 'Rua Dr. Cláudio Lima, 600 - Jardim Paulistano', lat: -21.2155, lng: -47.8105 },
-            { text: 'Rua Alfredo Condeixa, 350 - Recreio das Acácias', lat: -21.2205, lng: -47.8055 },
-            { text: 'Av. Maria de Jesus Condeixa, 1500 - Jardim Paulistano', lat: -21.2160, lng: -47.8110 },
-            { text: 'Rua Paulo de Faria, 500 - Recreio das Acácias', lat: -21.2210, lng: -47.8060 },
-            { text: 'Rua João Alves, 450 - Jardim Paulistano', lat: -21.2148, lng: -47.8098 },
-            { text: 'Rua Maria José, 700 - Recreio das Acácias', lat: -21.2215, lng: -47.8065 },
-            { text: 'Rua Antônio Prado, 300 - Jardim Paulistano', lat: -21.2165, lng: -47.8115 },
-            { text: 'Rua Francisco Sales, 550 - Recreio das Acácias', lat: -21.2195, lng: -47.8045 },
-            { text: 'Av. Maria de Jesus Condeixa, 800 - Jardim Paulistano', lat: -21.2142, lng: -47.8092 },
-            { text: 'Rua José Pinto, 650 - Recreio das Acácias', lat: -21.2220, lng: -47.8070 },
-            { text: 'Rua Pedro Biagi, 400 - Jardim Paulistano', lat: -21.2170, lng: -47.8120 },
-            { text: 'Rua Maria Aparecida, 500 - Recreio das Acácias', lat: -21.2192, lng: -47.8042 },
-            { text: 'Rua João Machado, 350 - Jardim Paulistano', lat: -21.2145, lng: -47.8095 },
-            { text: 'Rua Luís Carlos, 600 - Recreio das Acácias', lat: -21.2225, lng: -47.8075 },
-            { text: 'Av. Maria de Jesus Condeixa, 1200 - Jardim Paulistano', lat: -21.2175, lng: -47.8125 },
-            { text: 'Rua Carlos Alberto, 450 - Recreio das Acácias', lat: -21.2188, lng: -47.8038 },
-            { text: 'Rua Ana Maria, 700 - Jardim Paulistano', lat: -21.2138, lng: -47.8088 },
-            { text: 'Rua Roberto Carlos, 300 - Recreio das Acácias', lat: -21.2230, lng: -47.8080 },
-          ];
+          // Campos do formulário
+          const [customerName, setCustomerName] = useState('');
+          const [item, setItem] = useState('lanche');
+          const [address, setAddress] = useState('');
           
-          const createRandomOrder = async () => {
+          const createOrder = async (e) => {
+            e.preventDefault();
+            
+            // Validação
+            if (!customerName.trim()) {
+              setErrorMsg('Digite o nome do cliente');
+              return;
+            }
+            if (!address.trim()) {
+              setErrorMsg('Digite o endereço de entrega');
+              return;
+            }
+            
             setLoading(true);
-            const addr = fakeAddresses[Math.floor(Math.random() * fakeAddresses.length)];
-            const names = ['João', 'Maria', 'Pedro', 'Ana', 'Carlos', 'Fernanda', 'Lucas', 'Julia'];
-            const name = names[Math.floor(Math.random() * names.length)];
-            const prepType = Math.random() > 0.3 ? 'short' : 'long';
-            
-            // Usa a data simulada com hora aleatória entre 18:00 e 23:00 (horário de pico)
-            const hour = 18 + Math.floor(Math.random() * 5);
-            const minute = Math.floor(Math.random() * 60);
-            const simulatedDateTime = `${simulatedDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+            setErrorMsg('');
+            setStatus('🔍 Buscando coordenadas no Google Maps...');
             
             try {
               const res = await fetch(`${API_URL}/orders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  customer_name: name,
-                  address_text: addr.text,
-                  lat: addr.lat + (Math.random() - 0.5) * 0.01,
-                  lng: addr.lng + (Math.random() - 0.5) * 0.01,
-                  prep_type: prepType,
-                  simulated_date: simulatedDate,  // Envia a data simulada para o backend
+                  customer_name: customerName.trim(),
+                  address_text: address.trim(),
+                  item: item,
+                  prep_type: item === 'pizza' ? 'long' : 'short',
+                  simulated_date: simulatedDate,
                 }),
               });
-              if (res.ok) onOrderCreated();
+              
+              if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.detail || 'Erro ao criar pedido');
+              }
+              
+              setStatus('✅ Pedido criado com sucesso!');
+              setCustomerName('');
+              setAddress('');
+              setItem('lanche');
+              onOrderCreated();
+              
+              setTimeout(() => setStatus(''), 3000);
+              
             } catch (err) {
               console.error('Erro ao criar pedido:', err);
+              setErrorMsg(`❌ ${err.message}`);
             }
-            setLoading(false);
-          };
-          
-          const createMultipleOrders = async (count) => {
-            setLoading(true);
-            for (let i = 0; i < count; i++) {
-              await createRandomOrder();
-              await new Promise(r => setTimeout(r, 200));
-            }
+            
             setLoading(false);
           };
           
           return (
             <Card className="p-4 mb-6">
-              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                🧪 Simulador de Pedidos
+              <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                📝 Novo Pedido
+                <span className="text-xs font-normal text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                  Google Maps
+                </span>
               </h3>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={createRandomOrder} disabled={loading}>
-                  + 1 Pedido
+              
+              <form onSubmit={createOrder} className="space-y-4">
+                {/* Nome do cliente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Nome do Cliente
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Ex: João Silva"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    disabled={loading}
+                  />
+                </div>
+                
+                {/* Item */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Item
+                  </label>
+                  <select
+                    value={item}
+                    onChange={(e) => setItem(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white"
+                    disabled={loading}
+                  >
+                    <option value="lanche">🍔 Lanche</option>
+                    <option value="pizza">🍕 Pizza</option>
+                  </select>
+                </div>
+                
+                {/* Endereço */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Endereço de Entrega
+                  </label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Ex: Rua General Osório, 500 - Centro"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    📍 Ribeirão Preto, SP
+                  </p>
+                </div>
+                
+                {/* Botão */}
+                <Button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full"
+                >
+                  {loading ? '⏳ Criando...' : '✓ Criar Pedido'}
                 </Button>
-                <Button onClick={() => createMultipleOrders(3)} disabled={loading} variant="secondary">
-                  + 3 Pedidos
-                </Button>
-                <Button onClick={() => createMultipleOrders(5)} disabled={loading} variant="secondary">
-                  + 5 Pedidos
-                </Button>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Cria pedidos com endereços aleatórios de Ribeirão Preto para teste
-              </p>
+              </form>
+              
+              {status && (
+                <p className="text-sm text-green-600 mt-3 text-center animate-pulse">{status}</p>
+              )}
+              
+              {errorMsg && (
+                <p className="text-sm text-red-600 mt-3 text-center">{errorMsg}</p>
+              )}
             </Card>
           );
         };
@@ -595,7 +440,7 @@
             <div className="grid md:grid-cols-3 gap-4 mb-6">
               <Card className="p-4">
                 <h3 className="font-semibold text-gray-700 mb-3">
-                  🍳 Em Preparo ({pendingOrders.length})
+                  🧑‍🍳 Em Preparo ({pendingOrders.length})
                 </h3>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {pendingOrders.length === 0 ? (
@@ -885,9 +730,11 @@
                 <div className="max-w-7xl mx-auto px-4 py-4">
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                        <span className="text-white text-xl">🏍️</span>
-                      </div>
+                      {/* LOGO MOTOFLASH */}
+                      <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                        <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+                      </svg>
                       <div>
                         <h1 className="text-xl font-bold text-gray-800">MotoFlash</h1>
                         <p className="text-xs text-gray-500">Despacho Inteligente v0.3</p>
@@ -936,7 +783,7 @@
                 
                 <div className="grid lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2">
-                    <OrderSimulator onOrderCreated={fetchAll} simulatedDate={simulatedDate} />
+                    <NewOrderForm onOrderCreated={fetchAll} simulatedDate={simulatedDate} />
                     <DispatchControl onDispatch={fetchAll} stats={stats} />
                     <OrdersList orders={orders} onRefresh={fetchAll} />
                   </div>
@@ -949,7 +796,7 @@
               </main>
               
               <footer className="text-center py-4 text-sm text-gray-400">
-                MotoFlash MVP v0.3 - Sistema de Despacho Inteligente com Alertas
+                MotoFlash MVP v0.3 - Sistema de Despacho Inteligente com Geocoding Automático
               </footer>
             </div>
           );
