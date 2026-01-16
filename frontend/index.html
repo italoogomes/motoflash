@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      
     <title>MotoFlash - Despacho Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -19,7 +20,45 @@
         const { useState, useEffect, useCallback } = React;
         
         // ============ CONFIGURAÇÃO ============
-        const API_URL = 'http://localhost:8000';
+        const API_URL = window.location.origin;
+        
+        // ============ COMPONENTE DE CRONÔMETRO ============
+        
+        const Timer = ({ startTime }) => {
+          const [elapsed, setElapsed] = useState(0);
+          
+          useEffect(() => {
+            if (!startTime) return;
+            
+            const start = new Date(startTime).getTime();
+            
+            const updateTimer = () => {
+              const now = Date.now();
+              const diff = Math.floor((now - start) / 1000);
+              setElapsed(diff);
+            };
+            
+            updateTimer();
+            const interval = setInterval(updateTimer, 1000);
+            
+            return () => clearInterval(interval);
+          }, [startTime]);
+          
+          const minutes = Math.floor(elapsed / 60);
+          const seconds = elapsed % 60;
+          
+          // Cores baseadas no tempo
+          let bgColor = 'bg-green-100 text-green-700';
+          if (minutes >= 15) bgColor = 'bg-yellow-100 text-yellow-700';
+          if (minutes >= 25) bgColor = 'bg-orange-100 text-orange-700';
+          if (minutes >= 35) bgColor = 'bg-red-100 text-red-700';
+          
+          return (
+            <span className={`${bgColor} text-xs px-2 py-1 rounded font-mono font-bold`}>
+              ⏱️ {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            </span>
+          );
+        };
         
         // ============ COMPONENTES AUXILIARES ============
         
@@ -207,85 +246,145 @@
           );
         };
         
-        // ============ SIMULADOR DE PEDIDOS ============
+        // ============ FORMULÁRIO DE NOVO PEDIDO (MANUAL) ============
         
-        const OrderSimulator = ({ onOrderCreated }) => {
+        const NewOrderForm = ({ onOrderCreated, simulatedDate }) => {
           const [loading, setLoading] = useState(false);
+          const [status, setStatus] = useState('');
+          const [errorMsg, setErrorMsg] = useState('');
           
-          const fakeAddresses = [
-            // Centro de Ribeirão Preto
-            { text: 'Av. Presidente Vargas, 500 - Centro', lat: -21.1780, lng: -47.8100 },
-            { text: 'Rua General Osório, 800 - Centro', lat: -21.1760, lng: -47.8080 },
-            { text: 'Rua Visconde de Inhaúma, 300 - Centro', lat: -21.1770, lng: -47.8120 },
-            // Zona Sul (Fiúsa / Jardim Botânico)
-            { text: 'Av. Professor João Fiúsa, 1200 - Jardim Botânico', lat: -21.2050, lng: -47.8200 },
-            { text: 'Rua Minas Gerais, 600 - Jardim Sumaré', lat: -21.2000, lng: -47.8150 },
-            { text: 'Av. Wladimir Meirelles Ferreira, 800 - Jardim Botânico', lat: -21.2100, lng: -47.8250 },
-            // Zona Norte (Campos Elíseos / Ipiranga)
-            { text: 'Av. Independência, 1500 - Campos Elíseos', lat: -21.1550, lng: -47.8050 },
-            { text: 'Rua Capitão Salomão, 400 - Alto do Ipiranga', lat: -21.1500, lng: -47.8000 },
-            // Zona Oeste (Ribeirânia / Califórnia)
-            { text: 'Av. Costábile Romano, 2000 - Ribeirânia', lat: -21.1700, lng: -47.8400 },
-            { text: 'Rua João Arcadepani, 300 - Jardim Califórnia', lat: -21.1650, lng: -47.8350 },
-            // Zona Leste (Vila Tibério / Quintino)
-            { text: 'Av. Jerônimo Gonçalves, 1000 - Vila Tibério', lat: -21.1800, lng: -47.7900 },
-            { text: 'Rua Quintino Bocaiúva, 500 - Quintino Facci II', lat: -21.1850, lng: -47.7850 },
-          ];
+          // Campos do formulário
+          const [customerName, setCustomerName] = useState('');
+          const [item, setItem] = useState('lanche');
+          const [address, setAddress] = useState('');
           
-          const createRandomOrder = async () => {
+          const createOrder = async (e) => {
+            e.preventDefault();
+            
+            // Validação
+            if (!customerName.trim()) {
+              setErrorMsg('Digite o nome do cliente');
+              return;
+            }
+            if (!address.trim()) {
+              setErrorMsg('Digite o endereço de entrega');
+              return;
+            }
+            
             setLoading(true);
-            const addr = fakeAddresses[Math.floor(Math.random() * fakeAddresses.length)];
-            const names = ['João', 'Maria', 'Pedro', 'Ana', 'Carlos', 'Fernanda', 'Lucas', 'Julia'];
-            const name = names[Math.floor(Math.random() * names.length)];
-            const prepType = Math.random() > 0.3 ? 'short' : 'long';
+            setErrorMsg('');
+            setStatus('🔍 Buscando coordenadas no Google Maps...');
             
             try {
               const res = await fetch(`${API_URL}/orders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  customer_name: name,
-                  address_text: addr.text,
-                  lat: addr.lat + (Math.random() - 0.5) * 0.01,
-                  lng: addr.lng + (Math.random() - 0.5) * 0.01,
-                  prep_type: prepType,
+                  customer_name: customerName.trim(),
+                  address_text: address.trim(),
+                  item: item,
+                  prep_type: item === 'pizza' ? 'long' : 'short',
+                  simulated_date: simulatedDate,
                 }),
               });
-              if (res.ok) onOrderCreated();
+              
+              if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.detail || 'Erro ao criar pedido');
+              }
+              
+              setStatus('✅ Pedido criado com sucesso!');
+              setCustomerName('');
+              setAddress('');
+              setItem('lanche');
+              onOrderCreated();
+              
+              setTimeout(() => setStatus(''), 3000);
+              
             } catch (err) {
               console.error('Erro ao criar pedido:', err);
+              setErrorMsg(`❌ ${err.message}`);
             }
-            setLoading(false);
-          };
-          
-          const createMultipleOrders = async (count) => {
-            setLoading(true);
-            for (let i = 0; i < count; i++) {
-              await createRandomOrder();
-              await new Promise(r => setTimeout(r, 200));
-            }
+            
             setLoading(false);
           };
           
           return (
             <Card className="p-4 mb-6">
-              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                🧪 Simulador de Pedidos
+              <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                📝 Novo Pedido
+                <span className="text-xs font-normal text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                  Google Maps
+                </span>
               </h3>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={createRandomOrder} disabled={loading}>
-                  + 1 Pedido
+              
+              <form onSubmit={createOrder} className="space-y-4">
+                {/* Nome do cliente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Nome do Cliente
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Ex: João Silva"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    disabled={loading}
+                  />
+                </div>
+                
+                {/* Item */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Item
+                  </label>
+                  <select
+                    value={item}
+                    onChange={(e) => setItem(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white"
+                    disabled={loading}
+                  >
+                    <option value="lanche">🍔 Lanche</option>
+                    <option value="pizza">🍕 Pizza</option>
+                  </select>
+                </div>
+                
+                {/* Endereço */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Endereço de Entrega
+                  </label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Ex: Rua General Osório, 500 - Centro"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    📍 Ribeirão Preto, SP
+                  </p>
+                </div>
+                
+                {/* Botão */}
+                <Button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full"
+                >
+                  {loading ? '⏳ Criando...' : '✓ Criar Pedido'}
                 </Button>
-                <Button onClick={() => createMultipleOrders(3)} disabled={loading} variant="secondary">
-                  + 3 Pedidos
-                </Button>
-                <Button onClick={() => createMultipleOrders(5)} disabled={loading} variant="secondary">
-                  + 5 Pedidos
-                </Button>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Cria pedidos com endereços aleatórios de Ribeirão Preto para teste
-              </p>
+              </form>
+              
+              {status && (
+                <p className="text-sm text-green-600 mt-3 text-center animate-pulse">{status}</p>
+              )}
+              
+              {errorMsg && (
+                <p className="text-sm text-red-600 mt-3 text-center">{errorMsg}</p>
+              )}
             </Card>
           );
         };
@@ -309,11 +408,19 @@
           const OrderCard = ({ order, showScan = false }) => (
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-gray-800">{order.customer_name}</span>
                   <StatusBadge status={order.status} />
                   {order.prep_type === 'long' && (
                     <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Demorado</span>
+                  )}
+                  {/* Cronômetro - mostra desde criação até ficar pronto */}
+                  {['created', 'preparing'].includes(order.status) && order.created_at && (
+                    <Timer startTime={order.created_at} />
+                  )}
+                  {/* Cronômetro - mostra tempo esperando motoboy */}
+                  {order.status === 'ready' && order.ready_at && (
+                    <Timer startTime={order.ready_at} />
                   )}
                 </div>
                 <div className="text-sm text-gray-500 mt-1">{order.address_text}</div>
@@ -578,6 +685,12 @@
           const [connected, setConnected] = useState(false);
           const [error, setError] = useState(null);
           
+          // Data simulada para testes
+          const [simulatedDate, setSimulatedDate] = useState(() => {
+            const today = new Date();
+            return today.toISOString().split('T')[0]; // formato YYYY-MM-DD
+          });
+          
           const fetchAll = useCallback(async () => {
             try {
               const [ordersRes, couriersRes, batchesRes, statsRes, alertsRes, recoRes] = await Promise.all([
@@ -615,16 +728,33 @@
               {/* Header */}
               <header className="bg-white shadow-sm border-b border-orange-100">
                 <div className="max-w-7xl mx-auto px-4 py-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                        <span className="text-white text-xl">🏍️</span>
-                      </div>
+                      {/* LOGO MOTOFLASH */}
+                      <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                        <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+                      </svg>
                       <div>
                         <h1 className="text-xl font-bold text-gray-800">MotoFlash</h1>
                         <p className="text-xs text-gray-500">Despacho Inteligente v0.3</p>
                       </div>
                     </div>
+                    
+                    {/* Seletor de Data para Simulação */}
+                    <div className="flex items-center gap-3 bg-purple-50 px-4 py-2 rounded-lg border border-purple-200">
+                      <span className="text-purple-700 text-sm font-medium">📅 Simular data:</span>
+                      <input
+                        type="date"
+                        value={simulatedDate}
+                        onChange={(e) => setSimulatedDate(e.target.value)}
+                        className="px-3 py-1 border border-purple-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <span className="text-xs text-purple-500">
+                        {new Date(simulatedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })}
+                      </span>
+                    </div>
+                    
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
                       <span className="text-sm text-gray-500">
@@ -653,7 +783,7 @@
                 
                 <div className="grid lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2">
-                    <OrderSimulator onOrderCreated={fetchAll} />
+                    <NewOrderForm onOrderCreated={fetchAll} simulatedDate={simulatedDate} />
                     <DispatchControl onDispatch={fetchAll} stats={stats} />
                     <OrdersList orders={orders} onRefresh={fetchAll} />
                   </div>
@@ -666,7 +796,7 @@
               </main>
               
               <footer className="text-center py-4 text-sm text-gray-400">
-                MotoFlash MVP v0.3 - Sistema de Despacho Inteligente com Alertas
+                MotoFlash MVP v0.3 - Sistema de Despacho Inteligente com Geocoding Automático
               </footer>
             </div>
           );

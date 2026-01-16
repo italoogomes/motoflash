@@ -205,3 +205,73 @@ def get_motoboy_recommendation(session: Session = Depends(get_session)):
     Retorna a recomendação com justificativa.
     """
     return calcular_previsao_motoboys(session)
+
+
+@router.get("/test-google-optimization")
+def test_google_optimization():
+    """
+    🧪 Testa a otimização de rota via Google Directions API
+    
+    Usa 3 pontos na Rua General Osório para testar se a API
+    retorna a ordem correta considerando o sentido da via.
+    """
+    from services.dispatch_service import optimize_route_with_google, GOOGLE_MAPS_API_KEY
+    import httpx
+    
+    # Coordenadas de teste - Rua General Osório em Ribeirão Preto
+    # O sentido da rua é do 300 para o 750
+    test_points = [
+        {"name": "General Osório 750", "lat": -21.1770, "lng": -47.8073},
+        {"name": "General Osório 450", "lat": -21.1775, "lng": -47.8080},
+        {"name": "General Osório 300", "lat": -21.1780, "lng": -47.8087},
+    ]
+    
+    # Restaurante (origem)
+    start_lat = -21.1645
+    start_lng = -47.8224
+    
+    # Chama a API diretamente para teste
+    origin = f"{start_lat},{start_lng}"
+    waypoints = "|".join([f"{p['lat']},{p['lng']}" for p in test_points])
+    
+    url = "https://maps.googleapis.com/maps/api/directions/json"
+    params = {
+        "origin": origin,
+        "destination": origin,
+        "waypoints": f"optimize:true|{waypoints}",
+        "mode": "driving",
+        "language": "pt-BR",
+        "key": GOOGLE_MAPS_API_KEY
+    }
+    
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(url, params=params)
+            data = response.json()
+        
+        status = data.get("status")
+        waypoint_order = data.get("routes", [{}])[0].get("waypoint_order", [])
+        
+        # Interpreta a ordem
+        if waypoint_order:
+            optimized = [test_points[i]["name"] for i in waypoint_order]
+        else:
+            optimized = []
+        
+        return {
+            "api_status": status,
+            "api_key_used": GOOGLE_MAPS_API_KEY[:20] + "...",
+            "original_order": [p["name"] for p in test_points],
+            "waypoint_order_from_google": waypoint_order,
+            "optimized_order": optimized,
+            "expected_order": ["General Osório 300", "General Osório 450", "General Osório 750"],
+            "is_correct": optimized == ["General Osório 300", "General Osório 450", "General Osório 750"],
+            "raw_response_status": status,
+            "error_message": data.get("error_message"),
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "api_key_used": GOOGLE_MAPS_API_KEY[:20] + "...",
+        }

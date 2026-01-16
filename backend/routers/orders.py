@@ -11,6 +11,7 @@ from models import (
     Order, OrderCreate, OrderResponse, OrderStatus
 )
 from services.qrcode_service import generate_qrcode_base64, generate_qrcode_bytes
+from services.geocoding_service import geocode_address
 
 router = APIRouter(prefix="/orders", tags=["Pedidos"])
 
@@ -21,15 +22,43 @@ def create_order(order_data: OrderCreate, session: Session = Depends(get_session
     Cria um novo pedido
     
     O pedido começa com status CREATED.
-    Um QR Code é gerado automaticamente com o ID do pedido.
+    Se lat/lng não forem informados, usa geocoding automático.
+    Se simulated_date for passado, usa essa data ao invés de agora (para testes).
     """
+    # Define a data de criação (simulada ou real)
+    if order_data.simulated_date:
+        try:
+            # Parse da data simulada + hora atual
+            sim_date = datetime.strptime(order_data.simulated_date, "%Y-%m-%d")
+            now = datetime.now()
+            created_at = sim_date.replace(hour=now.hour, minute=now.minute, second=now.second)
+        except:
+            created_at = datetime.now()
+    else:
+        created_at = datetime.now()
+    
+    # Geocoding automático se lat/lng não informados
+    lat = order_data.lat
+    lng = order_data.lng
+    
+    if lat is None or lng is None:
+        coords = geocode_address(order_data.address_text)
+        if coords:
+            lat, lng = coords
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Não foi possível encontrar o endereço: {order_data.address_text}"
+            )
+    
     order = Order(
         customer_name=order_data.customer_name,
         address_text=order_data.address_text,
-        lat=order_data.lat,
-        lng=order_data.lng,
+        lat=lat,
+        lng=lng,
         prep_type=order_data.prep_type,
-        status=OrderStatus.CREATED
+        status=OrderStatus.CREATED,
+        created_at=created_at
     )
     
     session.add(order)
