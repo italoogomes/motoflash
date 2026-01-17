@@ -36,6 +36,37 @@ class BatchStatus(str, Enum):
 
 # ============ TABELAS ============
 
+class Category(SQLModel, table=True):
+    """Categoria do cardápio (ex: Hambúrgueres, Bebidas, Sobremesas)"""
+    __tablename__ = "categories"
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str
+    order: int = Field(default=0)  # Ordem de exibição
+    active: bool = Field(default=True)
+    
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class MenuItem(SQLModel, table=True):
+    """Item do cardápio"""
+    __tablename__ = "menu_items"
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    name: str
+    description: Optional[str] = None
+    price: float
+    image_url: Optional[str] = None
+    
+    category_id: str = Field(foreign_key="categories.id")
+    
+    active: bool = Field(default=True)  # Se está disponível
+    out_of_stock: bool = Field(default=False)  # Esgotado temporariamente
+    
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
 class Order(SQLModel, table=True):
     """Pedido do restaurante"""
     __tablename__ = "orders"
@@ -152,3 +183,60 @@ class DispatchResult(SQLModel):
     batches_created: int
     orders_assigned: int
     message: str
+
+
+# ============ SCHEMAS DO CARDÁPIO ============
+
+class CategoryCreate(SQLModel):
+    """Schema para criar categoria"""
+    name: str
+    order: int = 0
+
+
+class CategoryUpdate(SQLModel):
+    """Schema para atualizar categoria"""
+    name: Optional[str] = None
+    order: Optional[int] = None
+    active: Optional[bool] = None
+
+
+class CategoryResponse(SQLModel):
+    """Schema de resposta da categoria"""
+    id: str
+    name: str
+    order: int
+    active: bool
+    items_count: Optional[int] = 0
+
+
+class MenuItemCreate(SQLModel):
+    """Schema para criar item do cardápio"""
+    name: str
+    description: Optional[str] = None
+    price: float
+    image_url: Optional[str] = None
+    category_id: str
+
+
+class MenuItemUpdate(SQLModel):
+    """Schema para atualizar item"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    image_url: Optional[str] = None
+    category_id: Optional[str] = None
+    active: Optional[bool] = None
+    out_of_stock: Optional[bool] = None
+
+
+class MenuItemResponse(SQLModel):
+    """Schema de resposta do item"""
+    id: str
+    name: str
+    description: Optional[str]
+    price: float
+    image_url: Optional[str]
+    category_id: str
+    category_name: Optional[str] = None
+    active: bool
+    out_of_stock: bool

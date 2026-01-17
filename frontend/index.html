@@ -255,8 +255,46 @@
           
           // Campos do formulário
           const [customerName, setCustomerName] = useState('');
-          const [item, setItem] = useState('lanche');
+          const [selectedItemId, setSelectedItemId] = useState('');
           const [address, setAddress] = useState('');
+          
+          // Cardápio
+          const [menuData, setMenuData] = useState([]);
+          const [loadingMenu, setLoadingMenu] = useState(true);
+          
+          // Busca cardápio na inicialização
+          useEffect(() => {
+            const fetchMenu = async () => {
+              try {
+                const res = await fetch(`${API_URL}/menu/full`);
+                if (res.ok) {
+                  const data = await res.json();
+                  setMenuData(data);
+                  // Seleciona primeiro item disponível
+                  for (const cat of data) {
+                    const availableItem = cat.items.find(i => !i.out_of_stock);
+                    if (availableItem) {
+                      setSelectedItemId(availableItem.id);
+                      break;
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error('Erro ao buscar cardápio:', err);
+              }
+              setLoadingMenu(false);
+            };
+            fetchMenu();
+          }, []);
+          
+          // Encontra o item selecionado
+          const getSelectedItem = () => {
+            for (const cat of menuData) {
+              const item = cat.items.find(i => i.id === selectedItemId);
+              if (item) return { ...item, categoryName: cat.name };
+            }
+            return null;
+          };
           
           const createOrder = async (e) => {
             e.preventDefault();
@@ -271,6 +309,8 @@
               return;
             }
             
+            const selectedItem = getSelectedItem();
+            
             setLoading(true);
             setErrorMsg('');
             setStatus('🔍 Buscando coordenadas no Google Maps...');
@@ -282,8 +322,8 @@
                 body: JSON.stringify({
                   customer_name: customerName.trim(),
                   address_text: address.trim(),
-                  item: item,
-                  prep_type: item === 'pizza' ? 'long' : 'short',
+                  item: selectedItem ? selectedItem.name : 'Pedido',
+                  prep_type: 'short',
                   simulated_date: simulatedDate,
                 }),
               });
@@ -296,7 +336,6 @@
               setStatus('✅ Pedido criado com sucesso!');
               setCustomerName('');
               setAddress('');
-              setItem('lanche');
               onOrderCreated();
               
               setTimeout(() => setStatus(''), 3000);
@@ -308,6 +347,15 @@
             
             setLoading(false);
           };
+          
+          const formatPrice = (price) => {
+            return new Intl.NumberFormat('pt-BR', {
+              style: 'currency',
+              currency: 'BRL'
+            }).format(price);
+          };
+          
+          const hasMenuItems = menuData.some(cat => cat.items.length > 0);
           
           return (
             <Card className="p-4 mb-6">
@@ -334,20 +382,47 @@
                   />
                 </div>
                 
-                {/* Item */}
+                {/* Item do Cardápio */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
                     Item
+                    {!loadingMenu && !hasMenuItems && (
+                      <a href="/cardapio" className="text-orange-500 hover:text-orange-600 ml-2 text-xs font-normal">
+                        + Cadastrar itens
+                      </a>
+                    )}
                   </label>
-                  <select
-                    value={item}
-                    onChange={(e) => setItem(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white"
-                    disabled={loading}
-                  >
-                    <option value="lanche">🍔 Lanche</option>
-                    <option value="pizza">🍕 Pizza</option>
-                  </select>
+                  
+                  {loadingMenu ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400">
+                      Carregando cardápio...
+                    </div>
+                  ) : hasMenuItems ? (
+                    <select
+                      value={selectedItemId}
+                      onChange={(e) => setSelectedItemId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white"
+                      disabled={loading}
+                    >
+                      {menuData.map(category => (
+                        <optgroup key={category.id} label={category.name}>
+                          {category.items.map(item => (
+                            <option 
+                              key={item.id} 
+                              value={item.id}
+                              disabled={item.out_of_stock}
+                            >
+                              {item.name} - {formatPrice(item.price)} {item.out_of_stock ? '(Esgotado)' : ''}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="w-full px-3 py-2 border border-orange-300 rounded-lg bg-orange-50 text-orange-600 text-sm">
+                      ⚠️ Nenhum item cadastrado. <a href="/cardapio" className="underline font-medium">Cadastre seu cardápio</a>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Endereço */}
@@ -371,7 +446,7 @@
                 {/* Botão */}
                 <Button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={loading || (!hasMenuItems && !loadingMenu)}
                   className="w-full"
                 >
                   {loading ? '⏳ Criando...' : '✓ Criar Pedido'}
@@ -755,11 +830,20 @@
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                      <span className="text-sm text-gray-500">
-                        {connected ? 'Conectado' : 'Desconectado'}
-                      </span>
+                    <div className="flex items-center gap-4">
+                      <a 
+                        href="/cardapio" 
+                        className="flex items-center gap-2 bg-orange-100 hover:bg-orange-200 text-orange-700 px-4 py-2 rounded-lg font-medium transition-all"
+                      >
+                        🍽️ Cardápio
+                      </a>
+                      
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="text-sm text-gray-500">
+                          {connected ? 'Conectado' : 'Desconectado'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
