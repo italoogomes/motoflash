@@ -16,4 +16,4 @@
 
 * **Abrir App Motoboy:** https://luxuriant-staci-uncheckmated.ngrok-free.dev/motoboy
 
-* **Rodar Painel de Controle:** https://luxuriant-staci-uncheckmated.ngrok-free.dev/motoboy
+* **Rodar Painel de Controle:** https://luxuriant-staci-uncheckmated.ngrok-free.dev/dashboard

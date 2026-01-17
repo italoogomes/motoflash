@@ -36,6 +36,42 @@ class BatchStatus(str, Enum):
 
 # ============ TABELAS ============
 
+class Customer(SQLModel, table=True):
+    """
+    Cliente do restaurante
+    
+    Pensa assim: essa classe é como um FORMULÁRIO em branco.
+    Cada linha abaixo é um CAMPO desse formulário.
+    """
+    __tablename__ = "customers"  # Nome da "gaveta" no banco de dados
+    
+    # ID único - como o CPF, cada cliente tem um número só dele
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # Telefone - é a "chave" pra buscar o cliente (tipo RG)
+    phone: str = Field(index=True)  # index=True = busca mais rápida
+    
+    # Nome do cliente
+    name: str
+    
+    # Endereço completo (rua, número, bairro)
+    address: str
+    
+    # Complemento - opcional (pode ser vazio)
+    complement: Optional[str] = None  # Optional = não é obrigatório
+    
+    # Ponto de referência - opcional
+    reference: Optional[str] = None
+    
+    # Coordenadas - pra não precisar buscar no Google toda vez
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    
+    # Quando foi criado e atualizado
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
 class Category(SQLModel, table=True):
     """Categoria do cardápio (ex: Hambúrgueres, Bebidas, Sobremesas)"""
     __tablename__ = "categories"
@@ -240,3 +276,54 @@ class MenuItemResponse(SQLModel):
     category_name: Optional[str] = None
     active: bool
     out_of_stock: bool
+
+
+# ============ SCHEMAS DO CLIENTE ============
+
+class CustomerCreate(SQLModel):
+    """
+    Schema para CRIAR cliente
+    
+    Pensa assim: é o FORMULÁRIO que o atendente preenche
+    pra cadastrar um cliente novo.
+    
+    Campos obrigatórios: phone, name, address
+    Campos opcionais: complement, reference
+    """
+    phone: str           # Obrigatório
+    name: str            # Obrigatório
+    address: str         # Obrigatório
+    complement: Optional[str] = None   # Opcional
+    reference: Optional[str] = None    # Opcional
+
+
+class CustomerUpdate(SQLModel):
+    """
+    Schema para ATUALIZAR cliente
+    
+    Aqui TUDO é opcional (Optional) porque você pode
+    querer mudar só o endereço, ou só o nome, etc.
+    """
+    phone: Optional[str] = None
+    name: Optional[str] = None
+    address: Optional[str] = None
+    complement: Optional[str] = None
+    reference: Optional[str] = None
+
+
+class CustomerResponse(SQLModel):
+    """
+    Schema de RESPOSTA do cliente
+    
+    É o que a API DEVOLVE quando você busca um cliente.
+    Tem todos os campos, incluindo id, lat, lng, etc.
+    """
+    id: str
+    phone: str
+    name: str
+    address: str
+    complement: Optional[str]
+    reference: Optional[str]
+    lat: Optional[float]
+    lng: Optional[float]
+    created_at: datetime

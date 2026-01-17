@@ -16,6 +16,7 @@ import os
 from database import create_db_and_tables
 from routers import orders_router, couriers_router, dispatch_router
 from routers.menu import router as menu_router
+from routers.customers import router as customers_router
 from services.geocoding_service import geocode_address_detailed
 
 
@@ -64,6 +65,7 @@ app.include_router(orders_router)
 app.include_router(couriers_router)
 app.include_router(dispatch_router)
 app.include_router(menu_router)
+app.include_router(customers_router)
 
 
 # Rota raiz
@@ -127,6 +129,17 @@ def serve_dashboard():
 def serve_cardapio():
     """Gerenciamento de Cardápio - acesse /cardapio"""
     frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "cardapio.html")
+    if os.path.exists(frontend_path):
+        with open(frontend_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque o frontend na pasta ../frontend/</p>", status_code=404)
+
+
+@app.get("/clientes", response_class=HTMLResponse, tags=["Frontend"])
+@app.get("/clientes.html", response_class=HTMLResponse, tags=["Frontend"])
+def serve_clientes():
+    """Cadastro de Clientes - acesse /clientes"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "clientes.html")
     if os.path.exists(frontend_path):
         with open(frontend_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())

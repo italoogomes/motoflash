@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoFlash - Clientes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const API_URL = window.location.origin;
+        
+        // ============ COMPONENTES AUXILIARES ============
+        
+        const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '', size = 'normal', type = 'button' }) => {
+            const variants = {
+                primary: 'bg-orange-500 hover:bg-orange-600 text-white',
+                secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700',
+                success: 'bg-green-500 hover:bg-green-600 text-white',
+                danger: 'bg-red-500 hover:bg-red-600 text-white',
+            };
+            
+            const sizes = {
+                small: 'px-3 py-1.5 text-sm',
+                normal: 'px-4 py-2',
+                large: 'px-6 py-3 text-lg',
+            };
+            
+            return (
+                <button
+                    type={type}
+                    onClick={onClick}
+                    disabled={disabled}
+                    className={`${variants[variant]} ${sizes[size]} rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+                >
+                    {children}
+                </button>
+            );
+        };
+        
+        const Card = ({ children, className = '' }) => (
+            <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
+                {children}
+            </div>
+        );
+        
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                        </div>
+                        <div className="p-4">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ FORMULÁRIO DE CLIENTE ============
+        
+        const CustomerForm = ({ customer, onSave, onCancel }) => {
+            const [phone, setPhone] = useState(customer?.phone || '');
+            const [name, setName] = useState(customer?.name || '');
+            const [address, setAddress] = useState(customer?.address || '');
+            const [complement, setComplement] = useState(customer?.complement || '');
+            const [reference, setReference] = useState(customer?.reference || '');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            
+            // Formata telefone enquanto digita
+            const formatPhone = (value) => {
+                // Remove tudo que não é número
+                const numbers = value.replace(/\D/g, '');
+                
+                // Aplica a máscara (16) 99999-1234
+                if (numbers.length <= 2) return `(${numbers}`;
+                if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
+                return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
+            };
+            
+            const handlePhoneChange = (e) => {
+                const formatted = formatPhone(e.target.value);
+                setPhone(formatted);
+            };
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                
+                // Validação básica
+                if (!phone || phone.replace(/\D/g, '').length < 10) {
+                    setError('Telefone inválido');
+                    setLoading(false);
+                    return;
+                }
+                
+                if (!name.trim()) {
+                    setError('Digite o nome');
+                    setLoading(false);
+                    return;
+                }
+                
+                if (!address.trim()) {
+                    setError('Digite o endereço');
+                    setLoading(false);
+                    return;
+                }
+                
+                try {
+                    const url = customer 
+                        ? `${API_URL}/customers/${customer.id}`
+                        : `${API_URL}/customers`;
+                    
+                    const res = await fetch(url, {
+                        method: customer ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phone: phone.replace(/\D/g, ''), // Salva só números
+                            name: name.trim(),
+                            address: address.trim(),
+                            complement: complement.trim() || null,
+                            reference: reference.trim() || null
+                        })
+                    });
+                    
+                    if (res.ok) {
+                        onSave();
+                    } else {
+                        const err = await res.json();
+                        setError(err.detail || 'Erro ao salvar');
+                    }
+                } catch (err) {
+                    setError('Erro de conexão');
+                }
+                
+                setLoading(false);
+            };
+            
+            return (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {error && (
+                        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+                            ⚠️ {error}
+                        </div>
+                    )}
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Telefone *
+                        </label>
+                        <input
+                            type="tel"
+                            value={phone}
+                            onChange={handlePhoneChange}
+                            placeholder="(16) 99999-1234"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            maxLength={15}
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Nome *
+                        </label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="João Silva"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Endereço *
+                        </label>
+                        <input
+                            type="text"
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            placeholder="Rua das Flores, 123 - Centro"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            📍 O sistema vai buscar as coordenadas automaticamente
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Complemento
+                        </label>
+                        <input
+                            type="text"
+                            value={complement}
+                            onChange={(e) => setComplement(e.target.value)}
+                            placeholder="Apto 45, Bloco B"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Ponto de Referência
+                        </label>
+                        <input
+                            type="text"
+                            value={reference}
+                            onChange={(e) => setReference(e.target.value)}
+                            placeholder="Portão azul, em frente à padaria"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                    </div>
+                    
+                    <div className="flex gap-2 pt-2">
+                        <Button type="button" variant="secondary" onClick={onCancel} className="flex-1">
+                            Cancelar
+                        </Button>
+                        <Button type="submit" disabled={loading} className="flex-1">
+                            {loading ? 'Salvando...' : customer ? 'Atualizar' : 'Cadastrar'}
+                        </Button>
+                    </div>
+                </form>
+            );
+        };
+        
+        // ============ LISTA DE CLIENTES ============
+        
+        const CustomersList = ({ customers, onEdit, onDelete }) => {
+            const formatPhone = (phone) => {
+                if (!phone) return '';
+                const numbers = phone.replace(/\D/g, '');
+                if (numbers.length === 11) {
+                    return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7)}`;
+                }
+                if (numbers.length === 10) {
+                    return `(${numbers.slice(0,2)}) ${numbers.slice(2,6)}-${numbers.slice(6)}`;
+                }
+                return phone;
+            };
+            
+            const handleDelete = async (customer) => {
+                if (!confirm(`Excluir cliente "${customer.name}"?`)) return;
+                
+                try {
+                    const res = await fetch(`${API_URL}/customers/${customer.id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (res.ok) {
+                        onDelete();
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Erro ao excluir');
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+            };
+            
+            if (customers.length === 0) {
+                return (
+                    <div className="text-center py-12 text-gray-500">
+                        <div className="text-5xl mb-3">👥</div>
+                        <p className="font-medium">Nenhum cliente cadastrado</p>
+                        <p className="text-sm mt-1">Cadastre seu primeiro cliente!</p>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="space-y-2">
+                    {customers.map(customer => (
+                        <div 
+                            key={customer.id} 
+                            className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-lg">
+                                    {customer.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="font-medium text-gray-800">{customer.name}</div>
+                                    <div className="text-sm text-gray-500">{formatPhone(customer.phone)}</div>
+                                    <div className="text-xs text-gray-400 mt-1">
+                                        📍 {customer.address}
+                                        {customer.complement && ` - ${customer.complement}`}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button 
+                                    onClick={() => onEdit(customer)}
+                                    className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
+                                    title="Editar"
+                                >
+                                    ✏️
+                                </button>
+                                <button 
+                                    onClick={() => handleDelete(customer)}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                    title="Excluir"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+        
+        // ============ APP PRINCIPAL ============
+        
+        const CustomersApp = () => {
+            const [customers, setCustomers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [search, setSearch] = useState('');
+            
+            // Modal
+            const [showModal, setShowModal] = useState(false);
+            const [editingCustomer, setEditingCustomer] = useState(null);
+            
+            const fetchCustomers = async () => {
+                try {
+                    const url = search 
+                        ? `${API_URL}/customers?search=${encodeURIComponent(search)}`
+                        : `${API_URL}/customers`;
+                    
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        setCustomers(await res.json());
+                    }
+                } catch (err) {
+                    console.error('Erro ao buscar clientes:', err);
+                }
+                setLoading(false);
+            };
+            
+            useEffect(() => {
+                fetchCustomers();
+            }, [search]);
+            
+            const handleSave = () => {
+                setShowModal(false);
+                setEditingCustomer(null);
+                fetchCustomers();
+            };
+            
+            const openNew = () => {
+                setEditingCustomer(null);
+                setShowModal(true);
+            };
+            
+            const openEdit = (customer) => {
+                setEditingCustomer(customer);
+                setShowModal(true);
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="text-5xl mb-4">👥</div>
+                            <div className="text-gray-500">Carregando clientes...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <header className="bg-white border-b sticky top-0 z-10">
+                        <div className="max-w-4xl mx-auto px-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <a href="/dashboard" className="text-gray-400 hover:text-gray-600">
+                                        ← Voltar
+                                    </a>
+                                    <div>
+                                        <h1 className="text-xl font-bold text-gray-800">👥 Clientes</h1>
+                                        <p className="text-sm text-gray-500">{customers.length} cliente(s) cadastrado(s)</p>
+                                    </div>
+                                </div>
+                                <Button onClick={openNew}>
+                                    + Novo Cliente
+                                </Button>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    {/* Busca */}
+                    <div className="max-w-4xl mx-auto px-4 py-4">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="🔍 Buscar por nome ou telefone..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            />
+                            {search && (
+                                <button 
+                                    onClick={() => setSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Lista */}
+                    <main className="max-w-4xl mx-auto px-4 pb-8">
+                        <Card className="p-4">
+                            <CustomersList 
+                                customers={customers}
+                                onEdit={openEdit}
+                                onDelete={fetchCustomers}
+                            />
+                        </Card>
+                    </main>
+                    
+                    {/* Modal */}
+                    <Modal 
+                        isOpen={showModal} 
+                        onClose={() => { setShowModal(false); setEditingCustomer(null); }}
+                        title={editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
+                    >
+                        <CustomerForm 
+                            customer={editingCustomer}
+                            onSave={handleSave}
+                            onCancel={() => { setShowModal(false); setEditingCustomer(null); }}
+                        />
+                    </Modal>
+                    
+                    <footer className="text-center py-4 text-sm text-gray-400">
+                        MotoFlash - Cadastro de Clientes
+                    </footer>
+                </div>
+            );
+        };
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<CustomersApp />);
+    </script>
+</body>
+</html>

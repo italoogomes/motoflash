@@ -254,13 +254,62 @@
           const [errorMsg, setErrorMsg] = useState('');
           
           // Campos do formulário
+          const [phone, setPhone] = useState('');
           const [customerName, setCustomerName] = useState('');
           const [selectedItemId, setSelectedItemId] = useState('');
           const [address, setAddress] = useState('');
+          const [complement, setComplement] = useState('');
+          
+          // Cliente encontrado
+          const [foundCustomer, setFoundCustomer] = useState(null);
+          const [searchingCustomer, setSearchingCustomer] = useState(false);
           
           // Cardápio
           const [menuData, setMenuData] = useState([]);
           const [loadingMenu, setLoadingMenu] = useState(true);
+          
+          // Formata telefone enquanto digita
+          const formatPhone = (value) => {
+            const numbers = value.replace(/\D/g, '');
+            if (numbers.length <= 2) return `(${numbers}`;
+            if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
+            return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
+          };
+          
+          // Busca cliente quando telefone tiver 11 dígitos
+          const handlePhoneChange = async (e) => {
+            const formatted = formatPhone(e.target.value);
+            setPhone(formatted);
+            
+            const numbers = formatted.replace(/\D/g, '');
+            
+            // Se tiver 10 ou 11 dígitos, busca o cliente
+            if (numbers.length >= 10) {
+              setSearchingCustomer(true);
+              try {
+                const res = await fetch(`${API_URL}/customers/phone/${numbers}`);
+                if (res.ok) {
+                  const customer = await res.json();
+                  setFoundCustomer(customer);
+                  // Preenche os campos automaticamente!
+                  setCustomerName(customer.name);
+                  setAddress(customer.address);
+                  setComplement(customer.complement || '');
+                  setStatus('✅ Cliente encontrado!');
+                  setTimeout(() => setStatus(''), 2000);
+                } else {
+                  setFoundCustomer(null);
+                  // Limpa os campos se não encontrou
+                  if (!customerName) setCustomerName('');
+                }
+              } catch (err) {
+                setFoundCustomer(null);
+              }
+              setSearchingCustomer(false);
+            } else {
+              setFoundCustomer(null);
+            }
+          };
           
           // Busca cardápio na inicialização
           useEffect(() => {
@@ -270,7 +319,6 @@
                 if (res.ok) {
                   const data = await res.json();
                   setMenuData(data);
-                  // Seleciona primeiro item disponível
                   for (const cat of data) {
                     const availableItem = cat.items.find(i => !i.out_of_stock);
                     if (availableItem) {
@@ -287,7 +335,6 @@
             fetchMenu();
           }, []);
           
-          // Encontra o item selecionado
           const getSelectedItem = () => {
             for (const cat of menuData) {
               const item = cat.items.find(i => i.id === selectedItemId);
@@ -299,7 +346,6 @@
           const createOrder = async (e) => {
             e.preventDefault();
             
-            // Validação
             if (!customerName.trim()) {
               setErrorMsg('Digite o nome do cliente');
               return;
@@ -316,12 +362,30 @@
             setStatus('🔍 Buscando coordenadas no Google Maps...');
             
             try {
+              // Se é cliente novo (não encontrado), salva primeiro
+              if (!foundCustomer && phone.replace(/\D/g, '').length >= 10) {
+                try {
+                  await fetch(`${API_URL}/customers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      phone: phone.replace(/\D/g, ''),
+                      name: customerName.trim(),
+                      address: address.trim(),
+                      complement: complement.trim() || null
+                    })
+                  });
+                } catch (err) {
+                  // Ignora erro se cliente já existe
+                }
+              }
+              
               const res = await fetch(`${API_URL}/orders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   customer_name: customerName.trim(),
-                  address_text: address.trim(),
+                  address_text: address.trim() + (complement ? ` - ${complement}` : ''),
                   item: selectedItem ? selectedItem.name : 'Pedido',
                   prep_type: 'short',
                   simulated_date: simulatedDate,
@@ -334,8 +398,11 @@
               }
               
               setStatus('✅ Pedido criado com sucesso!');
+              setPhone('');
               setCustomerName('');
               setAddress('');
+              setComplement('');
+              setFoundCustomer(null);
               onOrderCreated();
               
               setTimeout(() => setStatus(''), 3000);
@@ -367,6 +434,33 @@
               </h3>
               
               <form onSubmit={createOrder} className="space-y-4">
+                {/* Telefone - PRIMEIRO CAMPO */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Telefone do Cliente
+                    {searchingCustomer && <span className="ml-2 text-orange-500">🔍 Buscando...</span>}
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    placeholder="(16) 99999-1234"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    maxLength={15}
+                    disabled={loading}
+                  />
+                  {foundCustomer && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      ✅ Cliente encontrado: <strong>{foundCustomer.name}</strong>
+                    </p>
+                  )}
+                  {phone.replace(/\D/g, '').length >= 10 && !foundCustomer && !searchingCustomer && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      📝 Cliente novo - será cadastrado automaticamente
+                    </p>
+                  )}
+                </div>
+                
                 {/* Nome do cliente */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -377,7 +471,9 @@
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Ex: João Silva"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none ${
+                      foundCustomer ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                    }`}
                     disabled={loading}
                   />
                 </div>
@@ -435,12 +531,29 @@
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="Ex: Rua General Osório, 500 - Centro"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none ${
+                      foundCustomer ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                    }`}
                     disabled={loading}
                   />
                   <p className="text-xs text-gray-400 mt-1">
                     📍 Ribeirão Preto, SP
                   </p>
+                </div>
+                
+                {/* Complemento */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Complemento <span className="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                    placeholder="Apto 45, Bloco B"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    disabled={loading}
+                  />
                 </div>
                 
                 {/* Botão */}
@@ -836,6 +949,12 @@
                         className="flex items-center gap-2 bg-orange-100 hover:bg-orange-200 text-orange-700 px-4 py-2 rounded-lg font-medium transition-all"
                       >
                         🍽️ Cardápio
+                      </a>
+                      <a 
+                        href="/clientes" 
+                        className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-medium transition-all"
+                      >
+                        👥 Clientes
                       </a>
                       
                       <div className="flex items-center gap-2">
