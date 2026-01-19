@@ -327,3 +327,50 @@ class CustomerResponse(SQLModel):
     lat: Optional[float]
     lng: Optional[float]
     created_at: datetime
+
+
+# ============ CONFIGURAÇÕES DO RESTAURANTE ============
+
+class Settings(SQLModel, table=True):
+    """
+    Configurações do restaurante
+    
+    Essa tabela tem só UMA linha - os dados do restaurante.
+    O endereço e coordenadas ficam salvos aqui, assim não
+    precisa chamar Geocoding toda vez que abrir o app!
+    """
+    __tablename__ = "settings"
+    
+    id: str = Field(default="default", primary_key=True)  # Sempre "default"
+    
+    # Dados do restaurante
+    restaurant_name: str = Field(default="Meu Restaurante")
+    phone: Optional[str] = None
+    
+    # Endereço (texto)
+    address: str = Field(default="")
+    
+    # Coordenadas (já geocodificadas - NÃO chama API toda vez!)
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    
+    # Quando foi atualizado
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
+class SettingsUpdate(SQLModel):
+    """Schema para atualizar configurações"""
+    restaurant_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None  # Se mudar, recalcula lat/lng
+
+
+class SettingsResponse(SQLModel):
+    """Schema de resposta das configurações"""
+    id: str
+    restaurant_name: str
+    phone: Optional[str]
+    address: str
+    lat: Optional[float]
+    lng: Optional[float]
+    updated_at: datetime

@@ -6,7 +6,35 @@
     <meta name="theme-color" content="#f97316">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>MotoFlash - Motoboy v0.6</title>
+    <meta name="apple-mobile-web-app-title" content="MotoFlash">
+    <meta name="application-name" content="MotoFlash">
+    <meta name="description" content="App do entregador MotoFlash - Gerencie suas entregas">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="msapplication-TileColor" content="#f97316">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <title>MotoFlash - Motoboy v0.7</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Ícones para iOS -->
+    <link rel="apple-touch-icon" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/icons/icon-72.png">
+    <link rel="apple-touch-icon" sizes="96x96" href="/icons/icon-96.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="/icons/icon-128.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="384x384" href="/icons/icon-384.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72.png">
+    
+    <!-- Splash Screens iOS -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -43,7 +71,92 @@
         .leaflet-control-attribution { font-size: 8px !important; }
         .leaflet-pane { z-index: 1; }
         .leaflet-top, .leaflet-bottom { z-index: 2; }
+        
+        /* PWA Install Banner */
+        .pwa-install-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 16px;
+            z-index: 9999;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+            animation: slide-up 0.3s ease-out;
+        }
+        @keyframes slide-up {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
     </style>
+    
+    <!-- Registro do Service Worker -->
+    <script>
+        // Registra Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registrado:', registration.scope);
+                        
+                        // Verifica atualizações
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Nova versão disponível
+                                    if (confirm('Nova versão disponível! Deseja atualizar?')) {
+                                        newWorker.postMessage('skipWaiting');
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('❌ Erro ao registrar Service Worker:', error);
+                    });
+            });
+        }
+        
+        // Variável global para o evento de instalação
+        let deferredPrompt = null;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('📱 App pode ser instalado!');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Dispara evento customizado para o React
+            window.dispatchEvent(new CustomEvent('pwaInstallAvailable'));
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            console.log('🎉 App instalado com sucesso!');
+            deferredPrompt = null;
+        });
+        
+        // Função global para instalar o app
+        window.installPWA = async () => {
+            if (!deferredPrompt) {
+                console.log('❌ Instalação não disponível');
+                return false;
+            }
+            
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log('📱 Resultado da instalação:', outcome);
+            deferredPrompt = null;
+            return outcome === 'accepted';
+        };
+        
+        // Verifica se está rodando como PWA
+        window.isPWA = () => {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.navigator.standalone === true;
+        };
+    </script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div id="root"></div>
@@ -53,31 +166,37 @@
         
         // ============ CONFIGURAÇÃO ============
         const API_URL = window.location.origin;
-        const RESTAURANT_ADDRESS = 'Rua Visconde de Inhauma, 2235 - Jardim Sumaré';
         const ARRIVAL_DISTANCE_METERS = 50; // Distância para considerar "chegou"
         
         let RESTAURANT_LOCATION = {
             lat: null,
             lng: null,
             name: 'Restaurante',
-            address: RESTAURANT_ADDRESS
+            address: ''
         };
         
+        // Busca configurações do restaurante do banco de dados
+        // NÃO chama Geocoding! Pega lat/lng já salvos = R$ 0,00
         async function loadRestaurantLocation() {
             try {
-                const res = await fetch(`${API_URL}/geocode?address=${encodeURIComponent(RESTAURANT_ADDRESS)}`);
+                const res = await fetch(`${API_URL}/settings`);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.found) {
+                    if (data.lat && data.lng) {
                         RESTAURANT_LOCATION.lat = data.lat;
                         RESTAURANT_LOCATION.lng = data.lng;
-                        console.log('📍 Restaurante localizado:', data.lat, data.lng);
+                        RESTAURANT_LOCATION.name = data.restaurant_name || 'Restaurante';
+                        RESTAURANT_LOCATION.address = data.address || '';
+                        console.log('📍 Restaurante carregado do banco:', data.lat, data.lng);
                         return true;
+                    } else {
+                        console.warn('⚠️ Restaurante não tem coordenadas configuradas');
+                        return false;
                     }
                 }
                 return false;
             } catch (err) {
-                console.error('❌ Erro ao buscar localização:', err);
+                console.error('❌ Erro ao buscar configurações:', err);
                 return false;
             }
         }
@@ -914,6 +1033,98 @@
             );
         };
         
+        // ============ PWA INSTALL BANNER ============
+        
+        const PWAInstallBanner = () => {
+            const [showBanner, setShowBanner] = useState(false);
+            const [isInstalled, setIsInstalled] = useState(false);
+            
+            useEffect(() => {
+                // Verifica se já está instalado
+                if (window.isPWA && window.isPWA()) {
+                    setIsInstalled(true);
+                    return;
+                }
+                
+                // Verifica se já foi dispensado recentemente
+                const dismissed = localStorage.getItem('pwa_banner_dismissed');
+                if (dismissed) {
+                    const dismissedTime = parseInt(dismissed);
+                    const hoursSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60);
+                    if (hoursSinceDismissed < 24) return; // Não mostra por 24h
+                }
+                
+                // Escuta evento de instalação disponível
+                const handleInstallAvailable = () => {
+                    setTimeout(() => setShowBanner(true), 3000); // Mostra após 3s
+                };
+                
+                window.addEventListener('pwaInstallAvailable', handleInstallAvailable);
+                
+                // Se já tem o deferredPrompt disponível
+                if (window.deferredPrompt) {
+                    setTimeout(() => setShowBanner(true), 3000);
+                }
+                
+                return () => {
+                    window.removeEventListener('pwaInstallAvailable', handleInstallAvailable);
+                };
+            }, []);
+            
+            const handleInstall = async () => {
+                if (window.installPWA) {
+                    const installed = await window.installPWA();
+                    if (installed) {
+                        setShowBanner(false);
+                        setIsInstalled(true);
+                    }
+                }
+            };
+            
+            const handleDismiss = () => {
+                localStorage.setItem('pwa_banner_dismissed', Date.now().toString());
+                setShowBanner(false);
+            };
+            
+            if (!showBanner || isInstalled) return null;
+            
+            return (
+                <div className="pwa-install-banner">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0">
+                            <span className="text-2xl">🏍️</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-bold text-lg">Instalar MotoFlash</div>
+                            <div className="text-sm text-orange-100">
+                                Acesse mais rápido direto da tela inicial!
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleDismiss}
+                            className="p-2 text-white/70 hover:text-white"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className="flex gap-3 mt-4">
+                        <button
+                            onClick={handleDismiss}
+                            className="flex-1 py-3 rounded-xl bg-white/20 text-white font-semibold"
+                        >
+                            Agora não
+                        </button>
+                        <button
+                            onClick={handleInstall}
+                            className="flex-1 py-3 rounded-xl bg-white text-orange-500 font-bold"
+                        >
+                            📲 Instalar
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
         // ============ APP PRINCIPAL ============
         
         const App = () => {
@@ -953,8 +1164,19 @@
                 );
             }
             
-            if (!courier) return <LoginScreen onLogin={setCourier} />;
-            return <MainScreen courier={courier} onLogout={() => { localStorage.clear(); setCourier(null); }} />;
+            if (!courier) return (
+                <>
+                    <LoginScreen onLogin={setCourier} />
+                    <PWAInstallBanner />
+                </>
+            );
+            
+            return (
+                <>
+                    <MainScreen courier={courier} onLogout={() => { localStorage.clear(); setCourier(null); }} />
+                    <PWAInstallBanner />
+                </>
+            );
         };
         
         // ============ RENDER ============

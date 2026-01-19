@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 import os
 import uuid
 import shutil
@@ -20,6 +20,7 @@ from database import create_db_and_tables
 from routers import orders_router, couriers_router, dispatch_router
 from routers.menu import router as menu_router
 from routers.customers import router as customers_router
+from routers.settings import router as settings_router
 from services.geocoding_service import geocode_address_detailed
 
 # Pasta para uploads de imagens
@@ -71,12 +72,19 @@ app.add_middleware(
 # Exemplo: /uploads/abc123.jpg → backend/uploads/abc123.jpg
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
+# Serve ícones do PWA
+# Exemplo: /icons/icon-192.png → frontend/icons/icon-192.png
+ICONS_DIR = Path(__file__).parent.parent / "frontend" / "icons"
+if ICONS_DIR.exists():
+    app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
+
 # Registra as rotas
 app.include_router(orders_router)
 app.include_router(couriers_router)
 app.include_router(dispatch_router)
 app.include_router(menu_router)
 app.include_router(customers_router)
+app.include_router(settings_router)
 
 
 # ============ UPLOAD DE IMAGENS ============
@@ -160,6 +168,26 @@ def geocode(address: str, city: str = "Ribeirão Preto", state: str = "SP"):
 
 # ============ SERVE FRONTEND ============
 # Permite acessar o app pelo mesmo servidor (só precisa 1 ngrok!)
+
+# PWA - Manifest
+@app.get("/manifest.json", tags=["PWA"])
+def serve_manifest():
+    """Manifest do PWA"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "manifest.json")
+    if os.path.exists(frontend_path):
+        with open(frontend_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="application/manifest+json")
+    return Response(content="{}", media_type="application/json", status_code=404)
+
+# PWA - Service Worker
+@app.get("/sw.js", tags=["PWA"])
+def serve_service_worker():
+    """Service Worker do PWA"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "sw.js")
+    if os.path.exists(frontend_path):
+        with open(frontend_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="application/javascript")
+    return Response(content="// Service Worker not found", media_type="application/javascript", status_code=404)
 
 @app.get("/motoboy", response_class=HTMLResponse, tags=["Frontend"])
 @app.get("/motoboy.html", response_class=HTMLResponse, tags=["Frontend"])
