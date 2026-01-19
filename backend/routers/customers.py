@@ -15,7 +15,6 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import Customer, CustomerCreate, CustomerUpdate, CustomerResponse
-from services.geocoding_service import geocode_address
 
 # Cria o "balcão" de clientes
 # prefix="/customers" = todas as rotas começam com /customers
@@ -37,9 +36,8 @@ def create_customer(data: CustomerCreate, session: Session = Depends(get_session
     O que acontece aqui:
     1. Recebe os dados (telefone, nome, endereço)
     2. Verifica se já existe cliente com esse telefone
-    3. Busca as coordenadas do endereço no Google
-    4. Salva no banco de dados
-    5. Devolve o cliente criado
+    3. Salva no banco de dados (sem coordenadas - economiza Geocoding!)
+    4. Coordenadas são buscadas apenas ao criar pedido
     """
     
     # 1. Verifica se já existe cliente com esse telefone
@@ -53,24 +51,18 @@ def create_customer(data: CustomerCreate, session: Session = Depends(get_session
             detail="Já existe cliente com este telefone"
         )
     
-    # 2. Busca coordenadas do endereço
-    lat, lng = None, None
-    coords = geocode_address(data.address)
-    if coords:
-        lat, lng = coords
-    
-    # 3. Cria o cliente
+    # 2. Cria o cliente (sem coordenadas - serão buscadas apenas ao criar pedido)
     customer = Customer(
         phone=data.phone,
         name=data.name,
         address=data.address,
         complement=data.complement,
         reference=data.reference,
-        lat=lat,
-        lng=lng
+        lat=None,
+        lng=None
     )
     
-    # 4. Salva no banco
+    # 3. Salva no banco
     # session.add() = "Coloca na gaveta"
     # session.commit() = "Confirma que salvou"
     # session.refresh() = "Atualiza com os dados do banco (pega o id gerado)"
@@ -78,7 +70,7 @@ def create_customer(data: CustomerCreate, session: Session = Depends(get_session
     session.commit()
     session.refresh(customer)
     
-    # 5. Devolve o cliente criado
+    # 4. Devolve o cliente criado
     return CustomerResponse(
         id=customer.id,
         phone=customer.phone,
@@ -238,10 +230,7 @@ def update_customer(
         customer.name = data.name
     if data.address is not None:
         customer.address = data.address
-        # Se mudou o endereço, busca novas coordenadas
-        coords = geocode_address(data.address)
-        if coords:
-            customer.lat, customer.lng = coords
+        # Coordenadas serão atualizadas apenas ao criar novo pedido
     if data.complement is not None:
         customer.complement = data.complement
     if data.reference is not None:

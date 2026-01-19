@@ -1,23 +1,30 @@
 """
 MotoFlash - Sistema de Despacho Inteligente para Entregas
 
-MVP V0.5
+MVP V0.8
 
 Execute com: uvicorn main:app --reload
 Docs: http://localhost:8000/docs
 """
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 import os
+import uuid
+import shutil
+from pathlib import Path
 
 from database import create_db_and_tables
 from routers import orders_router, couriers_router, dispatch_router
 from routers.menu import router as menu_router
 from routers.customers import router as customers_router
 from services.geocoding_service import geocode_address_detailed
+
+# Pasta para uploads de imagens
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)  # Cria a pasta se não existir
 
 
 @asynccontextmanager
@@ -47,7 +54,7 @@ app = FastAPI(
     4. Motoqueiro recebe lote de entregas
     5. Motoqueiro finaliza → Disponível para novo lote
     """,
-    version="0.5.0",
+    version="0.8.0",
     lifespan=lifespan
 )
 
@@ -60,12 +67,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve arquivos de upload como estáticos
+# Exemplo: /uploads/abc123.jpg → backend/uploads/abc123.jpg
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
 # Registra as rotas
 app.include_router(orders_router)
 app.include_router(couriers_router)
 app.include_router(dispatch_router)
 app.include_router(menu_router)
 app.include_router(customers_router)
+
+
+# ============ UPLOAD DE IMAGENS ============
+
+@app.post("/upload", tags=["Utilidades"])
+async def upload_image(file: UploadFile = File(...)):
+    """
+    Faz upload de uma imagem
+    
+    EXPLICAÇÃO SIMPLES:
+    1. Recebe um arquivo (foto)
+    2. Gera um nome único (pra não sobrescrever outras)
+    3. Salva na pasta /uploads
+    4. Retorna a URL pra acessar a imagem
+    
+    Exemplo de retorno:
+    { "url": "/uploads/abc123.jpg" }
+    """
+    
+    # 1. Verifica se é uma imagem
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Tipo de arquivo não permitido. Use: JPG, PNG, WebP ou GIF"
+        )
+    
+    # 2. Limita tamanho (5MB)
+    max_size = 5 * 1024 * 1024  # 5MB em bytes
+    contents = await file.read()
+    if len(contents) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="Arquivo muito grande. Máximo: 5MB"
+        )
+    
+    # 3. Gera nome único
+    # uuid4() gera algo como: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    unique_name = f"{uuid.uuid4()}.{extension}"
+    
+    # 4. Salva o arquivo
+    file_path = UPLOAD_DIR / unique_name
+    with open(file_path, "wb") as f:
+        f.write(contents)
+    
+    # 5. Retorna a URL
+    return {"url": f"/uploads/{unique_name}"}
 
 
 # Rota raiz

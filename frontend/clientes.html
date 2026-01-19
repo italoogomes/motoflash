@@ -77,26 +77,194 @@
         const CustomerForm = ({ customer, onSave, onCancel }) => {
             const [phone, setPhone] = useState(customer?.phone || '');
             const [name, setName] = useState(customer?.name || '');
-            const [address, setAddress] = useState(customer?.address || '');
+            
+            // Campos de endereço SEPARADOS
+            const [cep, setCep] = useState('');
+            const [street, setStreet] = useState('');
+            const [number, setNumber] = useState('');
+            const [neighborhood, setNeighborhood] = useState('');
+            const [city, setCity] = useState('Ribeirão Preto');
             const [complement, setComplement] = useState(customer?.complement || '');
-            const [reference, setReference] = useState(customer?.reference || '');
+            const [loadingCep, setLoadingCep] = useState(false);
+            
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
             
-            // Formata telefone enquanto digita
-            const formatPhone = (value) => {
-                // Remove tudo que não é número
-                const numbers = value.replace(/\D/g, '');
+            // Autocomplete Photon
+            const [streetSuggestions, setStreetSuggestions] = useState([]);
+            const [showStreetSuggestions, setShowStreetSuggestions] = useState(false);
+            const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState([]);
+            const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
+            const [citySuggestions, setCitySuggestions] = useState([]);
+            const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+            
+            // Parseia endereço existente ao carregar
+            useEffect(() => {
+                if (customer?.address) {
+                    parseAddress(customer.address);
+                }
+            }, [customer]);
+            
+            // Tenta parsear endereço em campos separados
+            // Formato esperado: "Rua X, 123 - Bairro, Cidade"
+            const parseAddress = (fullAddress) => {
+                // Primeiro separa por " - " para pegar o bairro
+                const dashParts = fullAddress.split(' - ');
                 
-                // Aplica a máscara (16) 99999-1234
+                if (dashParts.length >= 2) {
+                    // Tem " - ", então: "Rua X, 123" - "Bairro, Cidade"
+                    const ruaENumero = dashParts[0]; // "Rua X, 123"
+                    const bairroECidade = dashParts.slice(1).join(' - '); // "Bairro, Cidade"
+                    
+                    // Separa rua e número por vírgula
+                    const ruaParts = ruaENumero.split(',').map(p => p.trim());
+                    if (ruaParts.length >= 2) {
+                        setStreet(ruaParts[0]); // "Rua X"
+                        setNumber(ruaParts[1]); // "123"
+                    } else {
+                        setStreet(ruaParts[0]);
+                    }
+                    
+                    // Separa bairro e cidade por vírgula
+                    const bairroParts = bairroECidade.split(',').map(p => p.trim());
+                    if (bairroParts.length >= 2) {
+                        setNeighborhood(bairroParts[0]); // "Bairro"
+                        setCity(bairroParts[1]); // "Cidade"
+                    } else if (bairroParts.length === 1) {
+                        setNeighborhood(bairroParts[0]);
+                    }
+                } else {
+                    // Não tem " - ", tenta separar só por vírgula
+                    const parts = fullAddress.split(',').map(p => p.trim());
+                    if (parts.length >= 1) setStreet(parts[0]);
+                    if (parts.length >= 2) setNumber(parts[1]);
+                    if (parts.length >= 3) setNeighborhood(parts[2]);
+                    if (parts.length >= 4) setCity(parts[3]);
+                }
+            };
+            
+            // Formata telefone
+            const formatPhone = (value) => {
+                const numbers = value.replace(/\D/g, '');
                 if (numbers.length <= 2) return `(${numbers}`;
                 if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
                 return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
             };
             
             const handlePhoneChange = (e) => {
-                const formatted = formatPhone(e.target.value);
-                setPhone(formatted);
+                setPhone(formatPhone(e.target.value));
+            };
+            
+            // Formata CEP
+            const formatCep = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 5) return numbers;
+                return `${numbers.slice(0,5)}-${numbers.slice(5,8)}`;
+            };
+            
+            // Busca endereço pelo CEP (ViaCEP)
+            const handleCepChange = async (e) => {
+                const formatted = formatCep(e.target.value);
+                setCep(formatted);
+                
+                const numbers = formatted.replace(/\D/g, '');
+                
+                if (numbers.length === 8) {
+                    setLoadingCep(true);
+                    try {
+                        const res = await fetch(`https://viacep.com.br/ws/${numbers}/json/`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (!data.erro) {
+                                setStreet(data.logradouro || '');
+                                setNeighborhood(data.bairro || '');
+                                setCity(data.localidade || '');
+                                setTimeout(() => {
+                                    document.getElementById('customerNumberInput')?.focus();
+                                }, 100);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Erro ViaCEP:', err);
+                    }
+                    setLoadingCep(false);
+                }
+            };
+            
+            // Remove acentos
+            const removeAccents = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            
+            // Busca sugestões no Photon
+            const searchPhoton = async (query, type) => {
+                if (query.trim().length < 3) return [];
+                
+                try {
+                    const cleanQuery = removeAccents(query);
+                    const fullQuery = type === 'city' 
+                        ? `${cleanQuery} Brasil`
+                        : `${cleanQuery} ${removeAccents(city || 'Ribeirao Preto')}`;
+                    
+                    const res = await fetch(
+                        `https://photon.komoot.io/api/?q=${encodeURIComponent(fullQuery)}&limit=5&lat=-21.17&lon=-47.80`
+                    );
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.features && data.features.length > 0) {
+                            const values = new Set();
+                            data.features.forEach(f => {
+                                const p = f.properties;
+                                if (type === 'street') {
+                                    const name = p.name || p.street;
+                                    if (name) values.add(name);
+                                } else if (type === 'neighborhood') {
+                                    const bairro = p.suburb || p.district || p.locality || p.neighbourhood;
+                                    if (bairro && bairro !== p.city) values.add(bairro);
+                                } else if (type === 'city') {
+                                    if (p.city) values.add(p.city);
+                                }
+                            });
+                            return Array.from(values);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Erro Photon:', err);
+                }
+                return [];
+            };
+            
+            // Handlers de autocomplete
+            const handleStreetChange = async (e) => {
+                const value = e.target.value;
+                setStreet(value);
+                const suggestions = await searchPhoton(value, 'street');
+                setStreetSuggestions(suggestions);
+                setShowStreetSuggestions(suggestions.length > 0);
+            };
+            
+            const handleNeighborhoodChange = async (e) => {
+                const value = e.target.value;
+                setNeighborhood(value);
+                const suggestions = await searchPhoton(value, 'neighborhood');
+                setNeighborhoodSuggestions(suggestions);
+                setShowNeighborhoodSuggestions(suggestions.length > 0);
+            };
+            
+            const handleCityChange = async (e) => {
+                const value = e.target.value;
+                setCity(value);
+                const suggestions = await searchPhoton(value, 'city');
+                setCitySuggestions(suggestions);
+                setShowCitySuggestions(suggestions.length > 0);
+            };
+            
+            // Monta endereço completo
+            const getFullAddress = () => {
+                let addr = street;
+                if (number) addr += `, ${number}`;
+                if (neighborhood) addr += ` - ${neighborhood}`;
+                if (city) addr += `, ${city}`;
+                return addr;
             };
             
             const handleSubmit = async (e) => {
@@ -104,7 +272,6 @@
                 setLoading(true);
                 setError('');
                 
-                // Validação básica
                 if (!phone || phone.replace(/\D/g, '').length < 10) {
                     setError('Telefone inválido');
                     setLoading(false);
@@ -117,8 +284,20 @@
                     return;
                 }
                 
-                if (!address.trim()) {
-                    setError('Digite o endereço');
+                if (!street.trim()) {
+                    setError('Digite a rua');
+                    setLoading(false);
+                    return;
+                }
+                
+                if (!number.trim()) {
+                    setError('Digite o número');
+                    setLoading(false);
+                    return;
+                }
+                
+                if (!city.trim()) {
+                    setError('Digite a cidade');
                     setLoading(false);
                     return;
                 }
@@ -132,11 +311,10 @@
                         method: customer ? 'PUT' : 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            phone: phone.replace(/\D/g, ''), // Salva só números
+                            phone: phone.replace(/\D/g, ''),
                             name: name.trim(),
-                            address: address.trim(),
-                            complement: complement.trim() || null,
-                            reference: reference.trim() || null
+                            address: getFullAddress(),
+                            complement: complement.trim() || null
                         })
                     });
                     
@@ -161,10 +339,9 @@
                         </div>
                     )}
                     
+                    {/* Telefone */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Telefone *
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Telefone *</label>
                         <input
                             type="tel"
                             value={phone}
@@ -172,63 +349,139 @@
                             placeholder="(16) 99999-1234"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                             maxLength={15}
-                            required
                         />
                     </div>
                     
+                    {/* Nome */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Nome *
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="João Silva"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            required
                         />
                     </div>
                     
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Endereço *
-                        </label>
+                    {/* CEP - só aparece em cadastro novo */}
+                    {!customer && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                CEP
+                                {loadingCep && <span className="ml-2 text-orange-500">🔍 Buscando...</span>}
+                            </label>
+                            <input
+                                type="text"
+                                value={cep}
+                                onChange={handleCepChange}
+                                placeholder="14090-000"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                maxLength={9}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">💡 Digite o CEP para preencher automaticamente</p>
+                        </div>
+                    )}
+                    
+                    {/* Rua */}
+                    <div className="relative">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Rua *</label>
                         <input
                             type="text"
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            placeholder="Rua das Flores, 123 - Centro"
+                            value={street}
+                            onChange={handleStreetChange}
+                            onBlur={() => setTimeout(() => setShowStreetSuggestions(false), 200)}
+                            onFocus={() => streetSuggestions.length > 0 && setShowStreetSuggestions(true)}
+                            placeholder="Ex: Rua Rangel Pestana"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            required
+                            autoComplete="off"
                         />
-                        <p className="text-xs text-gray-500 mt-1">
-                            📍 O sistema vai buscar as coordenadas automaticamente
-                        </p>
+                        {showStreetSuggestions && streetSuggestions.length > 0 && (
+                            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                {streetSuggestions.map((s, i) => (
+                                    <button key={i} type="button" onClick={() => { setStreet(s); setShowStreetSuggestions(false); }}
+                                        className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
+                                        📍 {s}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     
+                    {/* Número + Bairro */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Número *</label>
+                            <input
+                                id="customerNumberInput"
+                                type="text"
+                                value={number}
+                                onChange={(e) => setNumber(e.target.value)}
+                                placeholder="834"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                        </div>
+                        
+                        <div className="col-span-2 relative">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bairro</label>
+                            <input
+                                type="text"
+                                value={neighborhood}
+                                onChange={handleNeighborhoodChange}
+                                onBlur={() => setTimeout(() => setShowNeighborhoodSuggestions(false), 200)}
+                                onFocus={() => neighborhoodSuggestions.length > 0 && setShowNeighborhoodSuggestions(true)}
+                                placeholder="Ex: Vila Virginia"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                autoComplete="off"
+                            />
+                            {showNeighborhoodSuggestions && neighborhoodSuggestions.length > 0 && (
+                                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                    {neighborhoodSuggestions.map((s, i) => (
+                                        <button key={i} type="button" onClick={() => { setNeighborhood(s); setShowNeighborhoodSuggestions(false); }}
+                                            className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
+                                            📍 {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Cidade */}
+                    <div className="relative">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Cidade *</label>
+                        <input
+                            type="text"
+                            value={city}
+                            onChange={handleCityChange}
+                            onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
+                            onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                            placeholder="Ex: Ribeirão Preto"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            autoComplete="off"
+                        />
+                        {showCitySuggestions && citySuggestions.length > 0 && (
+                            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                {citySuggestions.map((s, i) => (
+                                    <button key={i} type="button" onClick={() => { setCity(s); setShowCitySuggestions(false); }}
+                                        className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
+                                        📍 {s}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Complemento */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Complemento
+                            Complemento <span className="text-gray-400 font-normal">(opcional)</span>
                         </label>
                         <input
                             type="text"
                             value={complement}
                             onChange={(e) => setComplement(e.target.value)}
-                            placeholder="Apto 45, Bloco B"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Ponto de Referência
-                        </label>
-                        <input
-                            type="text"
-                            value={reference}
-                            onChange={(e) => setReference(e.target.value)}
-                            placeholder="Portão azul, em frente à padaria"
+                            placeholder="Apto 45, Bloco B, Portão azul..."
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
                     </div>

@@ -150,7 +150,46 @@
             const [description, setDescription] = useState(item?.description || '');
             const [price, setPrice] = useState(item?.price || '');
             const [categoryId, setCategoryId] = useState(item?.category_id || categories[0]?.id || '');
+            const [imageUrl, setImageUrl] = useState(item?.image_url || '');
             const [loading, setLoading] = useState(false);
+            const [uploading, setUploading] = useState(false);
+            
+            // Faz upload da imagem
+            const handleImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Verifica tamanho (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Imagem muito grande! Máximo: 5MB');
+                    return;
+                }
+                
+                setUploading(true);
+                
+                try {
+                    // FormData é como um "envelope" pra enviar arquivos
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const res = await fetch(`${API_URL}/upload`, {
+                        method: 'POST',
+                        body: formData  // Não precisa de headers, o browser configura
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        setImageUrl(data.url);  // Salva a URL retornada
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Erro ao enviar imagem');
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+                
+                setUploading(false);
+            };
             
             const handleSubmit = async (e) => {
                 e.preventDefault();
@@ -168,7 +207,8 @@
                             name,
                             description: description || null,
                             price: parseFloat(price),
-                            category_id: categoryId
+                            category_id: categoryId,
+                            image_url: imageUrl || null  // Inclui a URL da imagem
                         })
                     });
                     
@@ -187,6 +227,59 @@
             
             return (
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* FOTO DO ITEM */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Foto do Item <span className="text-gray-400 font-normal">(opcional)</span>
+                        </label>
+                        
+                        <div className="flex items-start gap-4">
+                            {/* Preview da imagem */}
+                            <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-300">
+                                {imageUrl ? (
+                                    <img 
+                                        src={`${API_URL}${imageUrl}`} 
+                                        alt="Preview" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="text-3xl text-gray-300">📷</span>
+                                )}
+                            </div>
+                            
+                            {/* Botão de upload */}
+                            <div className="flex-1">
+                                <label className={`
+                                    block w-full px-4 py-2 text-center rounded-lg cursor-pointer transition-all
+                                    ${uploading 
+                                        ? 'bg-gray-100 text-gray-400' 
+                                        : 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                                    }
+                                `}>
+                                    {uploading ? '⏳ Enviando...' : imageUrl ? '🔄 Trocar foto' : '📤 Escolher foto'}
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp,image/gif"
+                                        onChange={handleImageUpload}
+                                        className="hidden"
+                                        disabled={uploading}
+                                    />
+                                </label>
+                                <p className="text-xs text-gray-500 mt-1">JPG, PNG ou WebP. Máx: 5MB</p>
+                                
+                                {imageUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setImageUrl('')}
+                                        className="text-xs text-red-500 hover:text-red-600 mt-1"
+                                    >
+                                        🗑️ Remover foto
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Item</label>
                         <input
@@ -368,19 +461,35 @@
                     {filteredItems.map(item => (
                         <div 
                             key={item.id} 
-                            className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
+                            className={`flex items-center gap-4 p-4 rounded-lg border transition-all ${
                                 item.out_of_stock ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'
                             }`}
                         >
-                            <div className="flex-1">
+                            {/* Foto do item */}
+                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                {item.image_url ? (
+                                    <img 
+                                        src={`${API_URL}${item.image_url}`} 
+                                        alt={item.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">
+                                        🍽️
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Informações */}
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <span className="font-medium text-gray-800">{item.name}</span>
+                                    <span className="font-medium text-gray-800 truncate">{item.name}</span>
                                     {item.out_of_stock && (
-                                        <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">Esgotado</span>
+                                        <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full flex-shrink-0">Esgotado</span>
                                     )}
                                 </div>
                                 {item.description && (
-                                    <p className="text-sm text-gray-500 mt-1">{item.description}</p>
+                                    <p className="text-sm text-gray-500 mt-1 truncate">{item.description}</p>
                                 )}
                                 <div className="flex items-center gap-3 mt-2">
                                     <span className="font-bold text-green-600">{formatPrice(item.price)}</span>
@@ -389,7 +498,9 @@
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 ml-4">
+                            
+                            {/* Ações */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
                                 <button 
                                     onClick={() => toggleStock(item)}
                                     className={`p-2 rounded-lg ${
