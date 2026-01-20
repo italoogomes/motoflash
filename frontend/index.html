@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      
     <title>MotoFlash - Despacho Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -19,7 +20,45 @@
         const { useState, useEffect, useCallback } = React;
         
         // ============ CONFIGURAÇÃO ============
-        const API_URL = 'http://localhost:8000';
+        const API_URL = window.location.origin;
+        
+        // ============ COMPONENTE DE CRONÔMETRO ============
+        
+        const Timer = ({ startTime }) => {
+          const [elapsed, setElapsed] = useState(0);
+          
+          useEffect(() => {
+            if (!startTime) return;
+            
+            const start = new Date(startTime).getTime();
+            
+            const updateTimer = () => {
+              const now = Date.now();
+              const diff = Math.floor((now - start) / 1000);
+              setElapsed(diff);
+            };
+            
+            updateTimer();
+            const interval = setInterval(updateTimer, 1000);
+            
+            return () => clearInterval(interval);
+          }, [startTime]);
+          
+          const minutes = Math.floor(elapsed / 60);
+          const seconds = elapsed % 60;
+          
+          // Cores baseadas no tempo
+          let bgColor = 'bg-green-100 text-green-700';
+          if (minutes >= 15) bgColor = 'bg-yellow-100 text-yellow-700';
+          if (minutes >= 25) bgColor = 'bg-orange-100 text-orange-700';
+          if (minutes >= 35) bgColor = 'bg-red-100 text-red-700';
+          
+          return (
+            <span className={`${bgColor} text-xs px-2 py-1 rounded font-mono font-bold`}>
+              ⏱️ {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            </span>
+          );
+        };
         
         // ============ COMPONENTES AUXILIARES ============
         
@@ -207,85 +246,725 @@
           );
         };
         
-        // ============ SIMULADOR DE PEDIDOS ============
+        // ============ FORMULÁRIO DE NOVO PEDIDO (MANUAL) ============
         
-        const OrderSimulator = ({ onOrderCreated }) => {
+        const NewOrderForm = ({ onOrderCreated, simulatedDate }) => {
           const [loading, setLoading] = useState(false);
+          const [status, setStatus] = useState('');
+          const [errorMsg, setErrorMsg] = useState('');
           
-          const fakeAddresses = [
-            // Centro de Ribeirão Preto
-            { text: 'Av. Presidente Vargas, 500 - Centro', lat: -21.1780, lng: -47.8100 },
-            { text: 'Rua General Osório, 800 - Centro', lat: -21.1760, lng: -47.8080 },
-            { text: 'Rua Visconde de Inhaúma, 300 - Centro', lat: -21.1770, lng: -47.8120 },
-            // Zona Sul (Fiúsa / Jardim Botânico)
-            { text: 'Av. Professor João Fiúsa, 1200 - Jardim Botânico', lat: -21.2050, lng: -47.8200 },
-            { text: 'Rua Minas Gerais, 600 - Jardim Sumaré', lat: -21.2000, lng: -47.8150 },
-            { text: 'Av. Wladimir Meirelles Ferreira, 800 - Jardim Botânico', lat: -21.2100, lng: -47.8250 },
-            // Zona Norte (Campos Elíseos / Ipiranga)
-            { text: 'Av. Independência, 1500 - Campos Elíseos', lat: -21.1550, lng: -47.8050 },
-            { text: 'Rua Capitão Salomão, 400 - Alto do Ipiranga', lat: -21.1500, lng: -47.8000 },
-            // Zona Oeste (Ribeirânia / Califórnia)
-            { text: 'Av. Costábile Romano, 2000 - Ribeirânia', lat: -21.1700, lng: -47.8400 },
-            { text: 'Rua João Arcadepani, 300 - Jardim Califórnia', lat: -21.1650, lng: -47.8350 },
-            // Zona Leste (Vila Tibério / Quintino)
-            { text: 'Av. Jerônimo Gonçalves, 1000 - Vila Tibério', lat: -21.1800, lng: -47.7900 },
-            { text: 'Rua Quintino Bocaiúva, 500 - Quintino Facci II', lat: -21.1850, lng: -47.7850 },
-          ];
+          // Campos do formulário
+          const [phone, setPhone] = useState('');
+          const [customerName, setCustomerName] = useState('');
+          const [selectedItemId, setSelectedItemId] = useState('');
           
-          const createRandomOrder = async () => {
-            setLoading(true);
-            const addr = fakeAddresses[Math.floor(Math.random() * fakeAddresses.length)];
-            const names = ['João', 'Maria', 'Pedro', 'Ana', 'Carlos', 'Fernanda', 'Lucas', 'Julia'];
-            const name = names[Math.floor(Math.random() * names.length)];
-            const prepType = Math.random() > 0.3 ? 'short' : 'long';
+          // Campos de endereço SEPARADOS
+          const [cep, setCep] = useState('');           // CEP
+          const [street, setStreet] = useState('');       // Rua
+          const [number, setNumber] = useState('');       // Número
+          const [neighborhood, setNeighborhood] = useState(''); // Bairro
+          const [city, setCity] = useState('Ribeirão Preto');   // Cidade
+          const [complement, setComplement] = useState(''); // Complemento
+          const [loadingCep, setLoadingCep] = useState(false); // Loading do CEP
+          
+          // Cliente encontrado
+          const [foundCustomer, setFoundCustomer] = useState(null);
+          const [searchingCustomer, setSearchingCustomer] = useState(false);
+          
+          // Modo "outro endereço" - quando cliente quer entregar em lugar diferente
+          const [useOtherAddress, setUseOtherAddress] = useState(false);
+          
+          // Sugestões de clientes (autocomplete por nome)
+          const [nameSuggestions, setNameSuggestions] = useState([]);
+          const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+          
+          // Autocomplete de endereço (Photon)
+          const [streetSuggestions, setStreetSuggestions] = useState([]);
+          const [showStreetSuggestions, setShowStreetSuggestions] = useState(false);
+          const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState([]);
+          const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
+          const [citySuggestions, setCitySuggestions] = useState([]);
+          const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+          
+          // Cardápio
+          const [menuData, setMenuData] = useState([]);
+          const [loadingMenu, setLoadingMenu] = useState(true);
+          
+          // Formata telefone
+          const formatPhone = (value) => {
+            const numbers = value.replace(/\D/g, '');
+            if (numbers.length <= 2) return `(${numbers}`;
+            if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
+            return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
+          };
+          
+          // Formata CEP enquanto digita
+          const formatCep = (value) => {
+            const numbers = value.replace(/\D/g, '');
+            if (numbers.length <= 5) return numbers;
+            return `${numbers.slice(0,5)}-${numbers.slice(5,8)}`;
+          };
+          
+          // Busca endereço pelo CEP (ViaCEP)
+          const handleCepChange = async (e) => {
+            const formatted = formatCep(e.target.value);
+            setCep(formatted);
+            
+            const numbers = formatted.replace(/\D/g, '');
+            
+            // Busca quando tiver 8 dígitos
+            if (numbers.length === 8) {
+              setLoadingCep(true);
+              try {
+                const res = await fetch(`https://viacep.com.br/ws/${numbers}/json/`);
+                if (res.ok) {
+                  const data = await res.json();
+                  if (!data.erro) {
+                    setStreet(data.logradouro || '');
+                    setNeighborhood(data.bairro || '');
+                    setCity(data.localidade || '');
+                    // Foca no campo número após preencher
+                    setTimeout(() => {
+                      document.getElementById('numberInput')?.focus();
+                    }, 100);
+                  }
+                }
+              } catch (err) {
+                console.error('Erro ViaCEP:', err);
+              }
+              setLoadingCep(false);
+            }
+          };
+          
+          // Remove acentos para API Photon
+          const removeAccents = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          
+          // Busca sugestões no Photon
+          const searchPhoton = async (query, type) => {
+            if (query.trim().length < 3) return [];
             
             try {
+              const cleanQuery = removeAccents(query);
+              const fullQuery = type === 'city' 
+                ? `${cleanQuery} Brasil`
+                : `${cleanQuery} ${removeAccents(city || 'Ribeirao Preto')}`;
+              
+              const res = await fetch(
+                `https://photon.komoot.io/api/?q=${encodeURIComponent(fullQuery)}&limit=5&lat=-21.17&lon=-47.80`
+              );
+              
+              if (res.ok) {
+                const data = await res.json();
+                if (data.features && data.features.length > 0) {
+                  // Extrai valores únicos baseado no tipo
+                  const values = new Set();
+                  data.features.forEach(f => {
+                    const p = f.properties;
+                    if (type === 'street') {
+                      const name = p.name || p.street;
+                      if (name) values.add(name);
+                    } else if (type === 'neighborhood') {
+                      const bairro = p.suburb || p.district || p.locality || p.neighbourhood;
+                      if (bairro && bairro !== p.city) values.add(bairro);
+                    } else if (type === 'city') {
+                      if (p.city) values.add(p.city);
+                    }
+                  });
+                  return Array.from(values);
+                }
+              }
+            } catch (err) {
+              console.error('Erro Photon:', err);
+            }
+            return [];
+          };
+          
+          // Busca cliente por telefone
+          const handlePhoneChange = async (e) => {
+            const formatted = formatPhone(e.target.value);
+            setPhone(formatted);
+            
+            const numbers = formatted.replace(/\D/g, '');
+            
+            if (numbers.length >= 10) {
+              setSearchingCustomer(true);
+              try {
+                const res = await fetch(`${API_URL}/customers/phone/${numbers}`);
+                if (res.ok) {
+                  const customer = await res.json();
+                  selectCustomer(customer);
+                  setStatus('✅ Cliente encontrado!');
+                  setTimeout(() => setStatus(''), 2000);
+                } else {
+                  setFoundCustomer(null);
+                  setUseOtherAddress(false);
+                }
+              } catch (err) {
+                setFoundCustomer(null);
+              }
+              setSearchingCustomer(false);
+            } else {
+              setFoundCustomer(null);
+              setUseOtherAddress(false);
+            }
+          };
+          
+          // Busca clientes por nome
+          const handleNameChange = async (e) => {
+            const value = e.target.value;
+            setCustomerName(value);
+            setFoundCustomer(null);
+            
+            if (value.trim().length >= 2) {
+              try {
+                const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(value)}`);
+                if (res.ok) {
+                  const customers = await res.json();
+                  setNameSuggestions(customers.slice(0, 5));
+                  setShowNameSuggestions(customers.length > 0);
+                }
+              } catch (err) {
+                setNameSuggestions([]);
+              }
+            } else {
+              setNameSuggestions([]);
+              setShowNameSuggestions(false);
+            }
+          };
+          
+          // Seleciona cliente
+          const selectCustomer = (customer) => {
+            setFoundCustomer(customer);
+            setCustomerName(customer.name);
+            setPhone(formatPhone(customer.phone));
+            setComplement(customer.complement || '');
+            setNameSuggestions([]);
+            setShowNameSuggestions(false);
+            setUseOtherAddress(false);
+            
+            // Parseia endereço se existir
+            if (customer.address) {
+              parseAddress(customer.address);
+            }
+          };
+          
+          // Tenta parsear endereço em campos separados
+          // Formato esperado: "Rua X, 123 - Bairro, Cidade"
+          const parseAddress = (fullAddress) => {
+            // Primeiro separa por " - " para pegar o bairro
+            const dashParts = fullAddress.split(' - ');
+            
+            if (dashParts.length >= 2) {
+              // Tem " - ", então: "Rua X, 123" - "Bairro, Cidade"
+              const ruaENumero = dashParts[0]; // "Rua X, 123"
+              const bairroECidade = dashParts.slice(1).join(' - '); // "Bairro, Cidade"
+              
+              // Separa rua e número por vírgula
+              const ruaParts = ruaENumero.split(',').map(p => p.trim());
+              if (ruaParts.length >= 2) {
+                setStreet(ruaParts[0]); // "Rua X"
+                setNumber(ruaParts[1]); // "123"
+              } else {
+                setStreet(ruaParts[0]);
+              }
+              
+              // Separa bairro e cidade por vírgula
+              const bairroParts = bairroECidade.split(',').map(p => p.trim());
+              if (bairroParts.length >= 2) {
+                setNeighborhood(bairroParts[0]); // "Bairro"
+                setCity(bairroParts[1]); // "Cidade"
+              } else if (bairroParts.length === 1) {
+                setNeighborhood(bairroParts[0]);
+              }
+            } else {
+              // Não tem " - ", tenta separar só por vírgula
+              const parts = fullAddress.split(',').map(p => p.trim());
+              if (parts.length >= 1) setStreet(parts[0]);
+              if (parts.length >= 2) setNumber(parts[1]);
+              if (parts.length >= 3) setNeighborhood(parts[2]);
+              if (parts.length >= 4) setCity(parts[3]);
+            }
+          };
+          
+          // Autocomplete de Rua
+          const handleStreetChange = async (e) => {
+            const value = e.target.value;
+            setStreet(value);
+            
+            const suggestions = await searchPhoton(value, 'street');
+            setStreetSuggestions(suggestions);
+            setShowStreetSuggestions(suggestions.length > 0);
+          };
+          
+          // Autocomplete de Bairro
+          const handleNeighborhoodChange = async (e) => {
+            const value = e.target.value;
+            setNeighborhood(value);
+            
+            const suggestions = await searchPhoton(value, 'neighborhood');
+            setNeighborhoodSuggestions(suggestions);
+            setShowNeighborhoodSuggestions(suggestions.length > 0);
+          };
+          
+          // Autocomplete de Cidade
+          const handleCityChange = async (e) => {
+            const value = e.target.value;
+            setCity(value);
+            
+            const suggestions = await searchPhoton(value, 'city');
+            setCitySuggestions(suggestions);
+            setShowCitySuggestions(suggestions.length > 0);
+          };
+          
+          // Monta endereço completo
+          const getFullAddress = () => {
+            let addr = street;
+            if (number) addr += `, ${number}`;
+            if (neighborhood) addr += ` - ${neighborhood}`;
+            if (city) addr += `, ${city}`;
+            return addr;
+          };
+          
+          // Clica em "Entregar em outro endereço"
+          const handleUseOtherAddress = () => {
+            setUseOtherAddress(true);
+            setCep('');
+            setStreet('');
+            setNumber('');
+            setNeighborhood('');
+            setCity('Ribeirão Preto');
+            setComplement('');
+          };
+          
+          // Volta pro endereço do cadastro
+          const handleUseCadastroAddress = () => {
+            setUseOtherAddress(false);
+            if (foundCustomer?.address) {
+              parseAddress(foundCustomer.address);
+            }
+            setComplement(foundCustomer?.complement || '');
+          };
+          
+          // Busca cardápio
+          useEffect(() => {
+            const fetchMenu = async () => {
+              try {
+                const res = await fetch(`${API_URL}/menu/full`);
+                if (res.ok) {
+                  const data = await res.json();
+                  setMenuData(data);
+                  setSelectedItemId('');
+                }
+              } catch (err) {
+                console.error('Erro ao buscar cardápio:', err);
+              }
+              setLoadingMenu(false);
+            };
+            fetchMenu();
+          }, []);
+          
+          const getSelectedItem = () => {
+            for (const cat of menuData) {
+              const item = cat.items.find(i => i.id === selectedItemId);
+              if (item) return { ...item, categoryName: cat.name };
+            }
+            return null;
+          };
+          
+          // Cria pedido
+          const createOrder = async (e) => {
+            e.preventDefault();
+            
+            if (!customerName.trim()) {
+              setErrorMsg('Digite o nome do cliente');
+              return;
+            }
+            if (!selectedItemId) {
+              setErrorMsg('Selecione um item do cardápio');
+              return;
+            }
+            if (!street.trim()) {
+              setErrorMsg('Digite a rua');
+              return;
+            }
+            if (!number.trim()) {
+              setErrorMsg('Digite o número');
+              return;
+            }
+            if (!city.trim()) {
+              setErrorMsg('Digite a cidade');
+              return;
+            }
+            
+            const fullAddress = getFullAddress();
+            const selectedItem = getSelectedItem();
+            
+            setLoading(true);
+            setErrorMsg('');
+            setStatus('🔍 Buscando coordenadas...');
+            
+            try {
+              // Se é cliente novo, salva primeiro
+              if (!foundCustomer && phone.replace(/\D/g, '').length >= 10) {
+                try {
+                  await fetch(`${API_URL}/customers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      phone: phone.replace(/\D/g, ''),
+                      name: customerName.trim(),
+                      address: fullAddress,
+                      complement: complement.trim() || null
+                    })
+                  });
+                } catch (err) {
+                  // Ignora se já existe
+                }
+              }
+              
+              // Cria pedido (endereço vai no PEDIDO, não atualiza cadastro!)
               const res = await fetch(`${API_URL}/orders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  customer_name: name,
-                  address_text: addr.text,
-                  lat: addr.lat + (Math.random() - 0.5) * 0.01,
-                  lng: addr.lng + (Math.random() - 0.5) * 0.01,
-                  prep_type: prepType,
+                  customer_name: customerName.trim(),
+                  address_text: fullAddress + (complement ? ` - ${complement}` : ''),
+                  item: selectedItem ? selectedItem.name : 'Pedido',
+                  prep_type: 'short',
+                  simulated_date: simulatedDate,
                 }),
               });
-              if (res.ok) onOrderCreated();
+              
+              if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.detail || 'Erro ao criar pedido');
+              }
+              
+              setStatus('✅ Pedido criado com sucesso!');
+              // Limpa formulário
+              setPhone('');
+              setCustomerName('');
+              setCep('');
+              setStreet('');
+              setNumber('');
+              setNeighborhood('');
+              setCity('Ribeirão Preto');
+              setComplement('');
+              setFoundCustomer(null);
+              setUseOtherAddress(false);
+              onOrderCreated();
+              
+              setTimeout(() => setStatus(''), 3000);
+              
             } catch (err) {
-              console.error('Erro ao criar pedido:', err);
+              console.error('Erro:', err);
+              setErrorMsg(`❌ ${err.message}`);
             }
+            
             setLoading(false);
           };
           
-          const createMultipleOrders = async (count) => {
-            setLoading(true);
-            for (let i = 0; i < count; i++) {
-              await createRandomOrder();
-              await new Promise(r => setTimeout(r, 200));
-            }
-            setLoading(false);
+          const formatPrice = (price) => {
+            return new Intl.NumberFormat('pt-BR', {
+              style: 'currency',
+              currency: 'BRL'
+            }).format(price);
           };
+          
+          const hasMenuItems = menuData.some(cat => cat.items.length > 0);
+          
+          // Mostra campos separados quando: cliente novo OU clicou em "outro endereço"
+          const showAddressFields = !foundCustomer || useOtherAddress;
           
           return (
             <Card className="p-4 mb-6">
-              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                🧪 Simulador de Pedidos
+              <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                📝 Novo Pedido
+                <span className="text-xs font-normal text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                  Google Maps
+                </span>
               </h3>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={createRandomOrder} disabled={loading}>
-                  + 1 Pedido
+              
+              <form onSubmit={createOrder} className="space-y-4">
+                {/* Telefone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Telefone do Cliente
+                    {searchingCustomer && <span className="ml-2 text-orange-500">🔍 Buscando...</span>}
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    placeholder="(16) 99999-1234"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                    maxLength={15}
+                    disabled={loading}
+                  />
+                </div>
+                
+                {/* CARD DO CLIENTE ENCONTRADO */}
+                {foundCustomer && !useOtherAddress && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        {foundCustomer.name.charAt(0).toUpperCase()}
+                      </span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-800">{foundCustomer.name}</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          📍 {foundCustomer.address}
+                        </div>
+                        {foundCustomer.complement && (
+                          <div className="text-sm text-gray-500">
+                            🏠 {foundCustomer.complement}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleUseOtherAddress}
+                      className="mt-3 w-full py-2 text-sm text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+                    >
+                      📍 Entregar em outro endereço
+                    </button>
+                  </div>
+                )}
+                
+                {/* ALERTA: Outro endereço */}
+                {foundCustomer && useOtherAddress && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-yellow-700">⚠️ Entrega em endereço diferente do cadastro</span>
+                      <button
+                        type="button"
+                        onClick={handleUseCadastroAddress}
+                        className="text-blue-600 hover:underline text-xs"
+                      >
+                        ↩️ Usar endereço do cadastro
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Nome - só mostra se não encontrou cliente */}
+                {!foundCustomer && (
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Nome do Cliente
+                    </label>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={handleNameChange}
+                      onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
+                      onFocus={() => nameSuggestions.length > 0 && setShowNameSuggestions(true)}
+                      placeholder="Digite o nome..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                      disabled={loading}
+                      autoComplete="off"
+                    />
+                    
+                    {showNameSuggestions && nameSuggestions.length > 0 && (
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {nameSuggestions.map(customer => (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => selectCustomer(customer)}
+                            className="w-full px-3 py-2 text-left hover:bg-orange-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
+                          >
+                            <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-sm">
+                              {customer.name.charAt(0).toUpperCase()}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-800 truncate">{customer.name}</div>
+                              <div className="text-xs text-gray-500 truncate">📞 {customer.phone}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {phone.replace(/\D/g, '').length >= 10 && (
+                      <p className="text-xs text-blue-600 mt-1">📝 Cliente novo - será cadastrado automaticamente</p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Item do Cardápio */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Item</label>
+                  
+                  {loadingMenu ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400">
+                      Carregando cardápio...
+                    </div>
+                  ) : hasMenuItems ? (
+                    <select
+                      value={selectedItemId}
+                      onChange={(e) => setSelectedItemId(e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none bg-white ${!selectedItemId ? 'text-gray-400' : 'text-gray-800'}`}
+                      disabled={loading}
+                    >
+                      <option value="" disabled>Selecione um item...</option>
+                      {menuData.map(category => (
+                        <optgroup key={category.id} label={category.name}>
+                          {category.items.map(item => (
+                            <option key={item.id} value={item.id} disabled={item.out_of_stock}>
+                              {item.name} - {formatPrice(item.price)} {item.out_of_stock ? '(Esgotado)' : ''}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="w-full px-3 py-2 border border-orange-300 rounded-lg bg-orange-50 text-orange-600 text-sm">
+                      ⚠️ Nenhum item. <a href="/cardapio" className="underline">Cadastrar cardápio</a>
+                    </div>
+                  )}
+                </div>
+                
+                {/* ========== CAMPOS DE ENDEREÇO SEPARADOS ========== */}
+                {showAddressFields && (
+                  <>
+                    {/* CEP */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                        CEP
+                        {loadingCep && <span className="ml-2 text-orange-500">🔍 Buscando...</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={cep}
+                        onChange={handleCepChange}
+                        placeholder="14090-000"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                        maxLength={9}
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Digite o CEP para preencher automaticamente</p>
+                    </div>
+                    
+                    {/* Rua */}
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Rua *</label>
+                      <input
+                        type="text"
+                        value={street}
+                        onChange={handleStreetChange}
+                        onBlur={() => setTimeout(() => setShowStreetSuggestions(false), 200)}
+                        onFocus={() => streetSuggestions.length > 0 && setShowStreetSuggestions(true)}
+                        placeholder="Ex: Rua Rangel Pestana"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                        disabled={loading}
+                        autoComplete="off"
+                      />
+                      {showStreetSuggestions && streetSuggestions.length > 0 && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {streetSuggestions.map((s, i) => (
+                            <button key={i} type="button" onClick={() => { setStreet(s); setShowStreetSuggestions(false); }}
+                              className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
+                              📍 {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Número + Bairro (lado a lado) */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Número *</label>
+                        <input
+                          id="numberInput"
+                          type="text"
+                          value={number}
+                          onChange={(e) => setNumber(e.target.value)}
+                          placeholder="834"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                          disabled={loading}
+                        />
+                      </div>
+                      
+                      <div className="col-span-2 relative">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Bairro</label>
+                        <input
+                          type="text"
+                          value={neighborhood}
+                          onChange={handleNeighborhoodChange}
+                          onBlur={() => setTimeout(() => setShowNeighborhoodSuggestions(false), 200)}
+                          onFocus={() => neighborhoodSuggestions.length > 0 && setShowNeighborhoodSuggestions(true)}
+                          placeholder="Ex: Vila Virginia"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                          disabled={loading}
+                          autoComplete="off"
+                        />
+                        {showNeighborhoodSuggestions && neighborhoodSuggestions.length > 0 && (
+                          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                            {neighborhoodSuggestions.map((s, i) => (
+                              <button key={i} type="button" onClick={() => { setNeighborhood(s); setShowNeighborhoodSuggestions(false); }}
+                                className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
+                                📍 {s}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Cidade */}
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Cidade *</label>
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={handleCityChange}
+                        onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
+                        onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                        placeholder="Ex: Ribeirão Preto"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                        disabled={loading}
+                        autoComplete="off"
+                      />
+                      {showCitySuggestions && citySuggestions.length > 0 && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {citySuggestions.map((s, i) => (
+                            <button key={i} type="button" onClick={() => { setCity(s); setShowCitySuggestions(false); }}
+                              className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
+                              📍 {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Complemento */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                        Complemento <span className="text-gray-400 font-normal">(opcional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={complement}
+                        onChange={(e) => setComplement(e.target.value)}
+                        placeholder="Apto 45, Bloco B, Portão azul..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                        disabled={loading}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {/* Botão */}
+                <Button type="submit" disabled={loading || (!hasMenuItems && !loadingMenu)} className="w-full">
+                  {loading ? '⏳ Criando...' : '✓ Criar Pedido'}
                 </Button>
-                <Button onClick={() => createMultipleOrders(3)} disabled={loading} variant="secondary">
-                  + 3 Pedidos
-                </Button>
-                <Button onClick={() => createMultipleOrders(5)} disabled={loading} variant="secondary">
-                  + 5 Pedidos
-                </Button>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Cria pedidos com endereços aleatórios de Ribeirão Preto para teste
-              </p>
+              </form>
+              
+              {status && <p className="text-sm text-green-600 mt-3 text-center animate-pulse">{status}</p>}
+              {errorMsg && <p className="text-sm text-red-600 mt-3 text-center">{errorMsg}</p>}
             </Card>
           );
         };
@@ -309,11 +988,19 @@
           const OrderCard = ({ order, showScan = false }) => (
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-gray-800">{order.customer_name}</span>
                   <StatusBadge status={order.status} />
                   {order.prep_type === 'long' && (
                     <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Demorado</span>
+                  )}
+                  {/* Cronômetro - mostra desde criação até ficar pronto */}
+                  {['created', 'preparing'].includes(order.status) && order.created_at && (
+                    <Timer startTime={order.created_at} />
+                  )}
+                  {/* Cronômetro - mostra tempo esperando motoboy */}
+                  {order.status === 'ready' && order.ready_at && (
+                    <Timer startTime={order.ready_at} />
                   )}
                 </div>
                 <div className="text-sm text-gray-500 mt-1">{order.address_text}</div>
@@ -578,6 +1265,12 @@
           const [connected, setConnected] = useState(false);
           const [error, setError] = useState(null);
           
+          // Data simulada para testes
+          const [simulatedDate, setSimulatedDate] = useState(() => {
+            const today = new Date();
+            return today.toISOString().split('T')[0]; // formato YYYY-MM-DD
+          });
+          
           const fetchAll = useCallback(async () => {
             try {
               const [ordersRes, couriersRes, batchesRes, statsRes, alertsRes, recoRes] = await Promise.all([
@@ -615,21 +1308,53 @@
               {/* Header */}
               <header className="bg-white shadow-sm border-b border-orange-100">
                 <div className="max-w-7xl mx-auto px-4 py-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                        <span className="text-white text-xl">🏍️</span>
-                      </div>
+                      {/* LOGO MOTOFLASH */}
+                      <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                        <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+                      </svg>
                       <div>
                         <h1 className="text-xl font-bold text-gray-800">MotoFlash</h1>
                         <p className="text-xs text-gray-500">Despacho Inteligente v0.3</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                      <span className="text-sm text-gray-500">
-                        {connected ? 'Conectado' : 'Desconectado'}
+                    
+                    {/* Seletor de Data para Simulação */}
+                    <div className="flex items-center gap-3 bg-purple-50 px-4 py-2 rounded-lg border border-purple-200">
+                      <span className="text-purple-700 text-sm font-medium">📅 Simular data:</span>
+                      <input
+                        type="date"
+                        value={simulatedDate}
+                        onChange={(e) => setSimulatedDate(e.target.value)}
+                        className="px-3 py-1 border border-purple-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <span className="text-xs text-purple-500">
+                        {new Date(simulatedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })}
                       </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <a 
+                        href="/cardapio" 
+                        className="flex items-center gap-2 bg-orange-100 hover:bg-orange-200 text-orange-700 px-4 py-2 rounded-lg font-medium transition-all"
+                      >
+                        🍽️ Cardápio
+                      </a>
+                      <a 
+                        href="/clientes" 
+                        className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-medium transition-all"
+                      >
+                        👥 Clientes
+                      </a>
+                      
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="text-sm text-gray-500">
+                          {connected ? 'Conectado' : 'Desconectado'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -653,7 +1378,7 @@
                 
                 <div className="grid lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2">
-                    <OrderSimulator onOrderCreated={fetchAll} />
+                    <NewOrderForm onOrderCreated={fetchAll} simulatedDate={simulatedDate} />
                     <DispatchControl onDispatch={fetchAll} stats={stats} />
                     <OrdersList orders={orders} onRefresh={fetchAll} />
                   </div>
@@ -666,7 +1391,7 @@
               </main>
               
               <footer className="text-center py-4 text-sm text-gray-400">
-                MotoFlash MVP v0.3 - Sistema de Despacho Inteligente com Alertas
+                MotoFlash MVP v0.3 - Sistema de Despacho Inteligente com Geocoding Automático
               </footer>
             </div>
           );

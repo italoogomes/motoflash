@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f97316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="MotoFlash">
+    <meta name="application-name" content="MotoFlash">
+    <meta name="description" content="App do entregador MotoFlash - Gerencie suas entregas">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="msapplication-TileColor" content="#f97316">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <title>MotoFlash - Motoboy v1.2.2</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Ícones para iOS -->
+    <link rel="apple-touch-icon" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/icons/icon-72.png">
+    <link rel="apple-touch-icon" sizes="96x96" href="/icons/icon-96.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="/icons/icon-128.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="384x384" href="/icons/icon-384.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72.png">
+    
+    <!-- Splash Screens iOS -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React 18 -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Som e Vibração (substituiu Firebase Push) -->
+    
+    <style>
+        body { 
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+        .pulse-green {
+            animation: pulse-green 2s infinite;
+        }
+        @keyframes bounce-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .bounce-in {
+            animation: bounce-in 0.3s ease-out;
+        }
+        .leaflet-control-attribution { font-size: 8px !important; }
+        .leaflet-pane { z-index: 1; }
+        .leaflet-top, .leaflet-bottom { z-index: 2; }
+        
+        /* PWA Install Banner */
+        .pwa-install-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 16px;
+            z-index: 9999;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+            animation: slide-up 0.3s ease-out;
+        }
+        @keyframes slide-up {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+    </style>
+    
+    <!-- Registro do Service Worker -->
+    <script>
+        // Registra Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registrado:', registration.scope);
+                        
+                        // Verifica atualizações silenciosamente
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Nova versão disponível - atualiza silenciosamente
+                                    console.log('🔄 Nova versão do Service Worker disponível');
+                                    newWorker.postMessage('skipWaiting');
+                                }
+                            });
+                        });
+                        
+                        // Recarrega quando o novo SW assumir
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            console.log('🔄 Service Worker atualizado, recarregando...');
+                            // Usa flag para evitar loop de recarregamento
+                            if (!window.swReloading) {
+                                window.swReloading = true;
+                                window.location.reload();
+                            }
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('❌ Erro ao registrar Service Worker:', error);
+                    });
+            });
+        }
+        
+        // Variável global para o evento de instalação
+        let deferredPrompt = null;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('📱 App pode ser instalado!');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Dispara evento customizado para o React
+            window.dispatchEvent(new CustomEvent('pwaInstallAvailable'));
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            console.log('🎉 App instalado com sucesso!');
+            deferredPrompt = null;
+        });
+        
+        // Função global para instalar o app
+        window.installPWA = async () => {
+            if (!deferredPrompt) {
+                console.log('❌ Instalação não disponível');
+                return false;
+            }
+            
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log('📱 Resultado da instalação:', outcome);
+            deferredPrompt = null;
+            return outcome === 'accepted';
+        };
+        
+        // Verifica se está rodando como PWA
+        window.isPWA = () => {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.navigator.standalone === true;
+        };
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        // ============ CONFIGURAÇÃO ============
+        const API_URL = window.location.origin;
+        const ARRIVAL_DISTANCE_METERS = 50; // Distância para considerar "chegou"
+        
+        let RESTAURANT_LOCATION = {
+            lat: null,
+            lng: null,
+            name: 'Restaurante',
+            address: ''
+        };
+        
+        // ============ SOM E VIBRAÇÃO ============
+        
+        // Contexto de áudio (criado uma vez)
+        let audioContext = null;
+        
+        // Inicializa o contexto de áudio (precisa de interação do usuário primeiro)
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            // Resume se estiver suspenso
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+        
+        // Toca um som de "ding" usando Web Audio API
+        // Toca som "Sino Triplo" + Vibração SINCRONIZADA
+        function playNotificationSound() {
+            try {
+                initAudio();
+                
+                // Vibra JUNTO com o som (sincronizado com as 3 notas)
+                // 150ms vibra, 50ms pausa, 150ms vibra, 50ms pausa, 200ms vibra
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([150, 50, 150, 50, 200]);
+                }
+                
+                const notes = [1047, 1319, 1568]; // C6, E6, G6
+                
+                notes.forEach((freq, i) => {
+                    const osc = audioContext.createOscillator();
+                    const gain = audioContext.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioContext.destination);
+                    
+                    const startTime = audioContext.currentTime + i * 0.15;
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    gain.gain.setValueAtTime(0.3, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+                    
+                    osc.type = 'sine';
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.4);
+                });
+                
+                console.log('🔊📳 Som + Vibração sincronizados!');
+            } catch (err) {
+                console.error('Erro ao tocar som:', err);
+            }
+        }
+        
+        // Vibra o celular (função separada para uso individual)
+        function vibratePhone() {
+            if ('vibrate' in navigator) {
+                navigator.vibrate([150, 50, 150, 50, 200]);
+            }
+        }
+        
+        // ============ ALERTA CONTÍNUO ============
+        
+        // Intervalo do alerta (para poder parar depois)
+        let alertInterval = null;
+        let isAlerting = false;
+        
+        // Inicia alerta contínuo (som + vibração a cada 3 segundos)
+        function startContinuousAlert() {
+            if (isAlerting) return; // Já está alertando
+            
+            isAlerting = true;
+            console.log('🔔 Iniciando alerta contínuo...');
+            
+            // Toca imediatamente (som + vibração já estão juntos)
+            playNotificationSound();
+            
+            // Repete a cada 3 segundos
+            alertInterval = setInterval(() => {
+                playNotificationSound();
+                console.log('🔔 Alerta repetido...');
+            }, 3000);
+        }
+        
+        // Para o alerta contínuo
+        function stopContinuousAlert() {
+            if (alertInterval) {
+                clearInterval(alertInterval);
+                alertInterval = null;
+            }
+            isAlerting = false;
+            // Para a vibração imediatamente
+            if ('vibrate' in navigator) {
+                navigator.vibrate(0);
+            }
+            console.log('🔕 Alerta parado');
+        }
+        
+        // Alerta simples (para botão de teste)
+        function alertNewBatch() {
+            playNotificationSound();
+        }
+        
+        // Busca configurações do restaurante do banco de dados
+        // NÃO chama Geocoding! Pega lat/lng já salvos = R$ 0,00
+        async function loadRestaurantLocation() {
+            try {
+                const res = await fetch(`${API_URL}/settings`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.lat && data.lng) {
+                        RESTAURANT_LOCATION.lat = data.lat;
+                        RESTAURANT_LOCATION.lng = data.lng;
+                        RESTAURANT_LOCATION.name = data.restaurant_name || 'Restaurante';
+                        RESTAURANT_LOCATION.address = data.address || '';
+                        console.log('📍 Restaurante carregado do banco:', data.lat, data.lng);
+                        return true;
+                    } else {
+                        console.warn('⚠️ Restaurante não tem coordenadas configuradas');
+                        return false;
+                    }
+                }
+                return false;
+            } catch (err) {
+                console.error('❌ Erro ao buscar configurações:', err);
+                return false;
+            }
+        }
+        
+        // ============ COMPONENTE LOGO ============
+        
+        const Logo = ({ size = 40 }) => (
+            <svg width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+            </svg>
+        );
+        
+        const LogoLight = ({ size = 40 }) => (
+            <svg width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="34" fill="white"/>
+                <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="#FF6B00"/>
+            </svg>
+        );
+        
+        // ============ FUNÇÕES AUXILIARES ============
+        
+        const fetchOSRMRoute = async (coordinates) => {
+            const coordString = coordinates.map(c => `${c[1]},${c[0]}`).join(';');
+            const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
+            
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return null;
+                const data = await res.json();
+                if (data.code !== 'Ok' || !data.routes?.[0]) return null;
+                
+                return {
+                    coordinates: data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]),
+                    distance: data.routes[0].distance,
+                    duration: data.routes[0].duration,
+                };
+            } catch (err) {
+                console.error('Erro OSRM:', err);
+                return null;
+            }
+        };
+        
+        const calculateDistance = (lat1, lng1, lat2, lng2) => {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        };
+        
+        // ============ COMPONENTES AUXILIARES ============
+        
+        const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '', size = 'normal' }) => {
+            const variants = {
+                primary: 'bg-orange-500 hover:bg-orange-600 text-white',
+                secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700',
+                success: 'bg-green-500 hover:bg-green-600 text-white',
+                danger: 'bg-red-500 hover:bg-red-600 text-white',
+                navigation: 'bg-blue-500 hover:bg-blue-600 text-white',
+                waze: 'bg-[#33ccff] hover:bg-[#00b8f0] text-white',
+                google: 'bg-[#4285f4] hover:bg-[#3367d6] text-white',
+            };
+            
+            const sizes = {
+                small: 'px-3 py-1.5 text-sm',
+                normal: 'px-4 py-2',
+                large: 'px-6 py-3 text-lg',
+            };
+            
+            return (
+                <button
+                    onClick={onClick}
+                    disabled={disabled}
+                    className={`${variants[variant]} ${sizes[size]} rounded-xl font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+                >
+                    {children}
+                </button>
+            );
+        };
+        
+        const Card = ({ children, className = '' }) => (
+            <div className={`bg-white rounded-2xl shadow-sm ${className}`}>
+                {children}
+            </div>
+        );
+        
+        // ============ MODAL DE CHEGADA ============
+        
+        const ArrivalModal = ({ order, onConfirm, onCancel }) => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="bg-white rounded-2xl p-6 max-w-sm w-full bounce-in">
+                    <div className="text-center">
+                        <div className="text-5xl mb-3">📍</div>
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Você chegou!</h2>
+                        <p className="text-gray-600 mb-1">{order.customer_name}</p>
+                        <p className="text-sm text-gray-500 mb-4">{order.address_text}</p>
+                        
+                        <div className="space-y-2">
+                            <button
+                                onClick={onConfirm}
+                                className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold active:scale-95 transition-all"
+                            >
+                                ✅ Marcar como Entregue
+                            </button>
+                            <button
+                                onClick={onCancel}
+                                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-xl font-semibold active:scale-95 transition-all"
+                            >
+                                Ainda não entreguei
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+        
+        // ============ SELETOR DE APP DE NAVEGAÇÃO ============
+        
+        const NavAppSelector = ({ selectedApp, onSelect, lat, lng, onNavigate }) => {
+            return (
+                <div className="flex items-center gap-2 mt-3">
+                    {/* Toggle entre apps */}
+                    <div className="flex bg-gray-100 rounded-xl p-1 flex-1">
+                        <button
+                            onClick={() => onSelect('google')}
+                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
+                                selectedApp === 'google' 
+                                    ? 'bg-white shadow text-blue-600' 
+                                    : 'text-gray-500'
+                            }`}
+                        >
+                            <span>🗺️</span> Maps
+                        </button>
+                        <button
+                            onClick={() => onSelect('waze')}
+                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
+                                selectedApp === 'waze' 
+                                    ? 'bg-white shadow text-cyan-600' 
+                                    : 'text-gray-500'
+                            }`}
+                        >
+                            <span>🚗</span> Waze
+                        </button>
+                    </div>
+                    
+                    {/* Botão Navegar */}
+                    <button
+                        onClick={() => onNavigate(lat, lng)}
+                        className={`py-2 px-4 rounded-xl font-semibold text-white active:scale-95 transition-all ${
+                            selectedApp === 'waze' ? 'bg-cyan-500' : 'bg-blue-500'
+                        }`}
+                    >
+                        Navegar →
+                    </button>
+                </div>
+            );
+        };
+        
+        // ============ TELA DE LOGIN ============
+        
+        const LoginScreen = ({ onLogin }) => {
+            const [couriers, setCouriers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [selectedCourier, setSelectedCourier] = useState(null);
+            
+            useEffect(() => {
+                fetchCouriers();
+            }, []);
+            
+            const fetchCouriers = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/couriers`);
+                    if (!res.ok) throw new Error('Falha ao buscar');
+                    const data = await res.json();
+                    setCouriers(data);
+                    setError(null);
+                } catch (err) {
+                    setError('Não foi possível conectar ao servidor');
+                }
+                setLoading(false);
+            };
+            
+            const handleLogin = async () => {
+                if (selectedCourier) {
+                    localStorage.setItem('motoboy_id', selectedCourier.id);
+                    localStorage.setItem('motoboy_name', selectedCourier.name);
+                    
+                    onLogin(selectedCourier);
+                }
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-600 flex items-center justify-center">
+                        <div className="text-center text-white">
+                            <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                            <div className="text-xl">Carregando...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-600 flex flex-col items-center justify-center p-6">
+                    <div className="text-center mb-8">
+                        <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                        <h1 className="text-3xl font-bold text-white">MotoFlash</h1>
+                        <p className="text-orange-100 mt-2">App do Motoboy</p>
+                    </div>
+                    
+                    <Card className="w-full max-w-sm p-6">
+                        <h2 className="text-lg font-semibold text-gray-700 mb-4 text-center">Selecione seu nome</h2>
+                        
+                        {error ? (
+                            <div className="text-center py-8">
+                                <div className="text-4xl mb-2">⚠️</div>
+                                <p className="text-red-500 mb-4">{error}</p>
+                                <Button onClick={fetchCouriers}>🔄 Tentar novamente</Button>
+                            </div>
+                        ) : couriers.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <div className="text-4xl mb-2">😕</div>
+                                <p>Nenhum motoboy cadastrado</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
+                                    {couriers.map(courier => (
+                                        <button
+                                            key={courier.id}
+                                            onClick={() => setSelectedCourier(courier)}
+                                            className={`w-full p-4 rounded-xl text-left transition-all flex items-center gap-3 ${
+                                                selectedCourier?.id === courier.id
+                                                    ? 'bg-orange-100 border-2 border-orange-500'
+                                                    : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
+                                                selectedCourier?.id === courier.id ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600'
+                                            }`}>
+                                                {courier.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-gray-800">{courier.name}</div>
+                                                <div className={`text-xs ${
+                                                    courier.status === 'available' ? 'text-green-600' : 
+                                                    courier.status === 'busy' ? 'text-orange-600' : 'text-gray-500'
+                                                }`}>
+                                                    {courier.status === 'available' ? '🟢 Disponível' : 
+                                                     courier.status === 'busy' ? '🟠 Em entrega' : '⚫ Offline'}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                                <Button onClick={handleLogin} disabled={!selectedCourier} className="w-full" size="large">
+                                    Entrar
+                                </Button>
+                            </>
+                        )}
+                    </Card>
+                    <p className="text-orange-200 text-sm mt-6">MotoFlash v0.6</p>
+                </div>
+            );
+        };
+        
+        // ============ COMPONENTE DO MAPA (LEAFLET) ============
+        
+        const DeliveryMap = ({ orders, restaurantLocation, currentPosition, routeStarted, returningHome }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const markersLayerRef = useRef(null);
+            const routeLayerRef = useRef(null);
+            const positionMarkerRef = useRef(null);
+            const initialFitDoneRef = useRef(false);
+            
+            const createIcon = (html, size = [36, 36]) => {
+                return L.divIcon({
+                    html: html,
+                    className: '',
+                    iconSize: size,
+                    iconAnchor: [size[0]/2, size[1]/2],
+                });
+            };
+            
+            const restaurantIcon = createIcon(`
+                <svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="22" cy="22" r="20" fill="#22c55e" stroke="white" stroke-width="3"/>
+                    <text x="22" y="28" text-anchor="middle" font-size="20">🏪</text>
+                </svg>
+            `, [44, 44]);
+            
+            const positionIcon = createIcon(`
+                <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="14" cy="14" r="12" fill="#3b82f6" stroke="white" stroke-width="3"/>
+                </svg>
+            `, [28, 28]);
+            
+            useEffect(() => {
+                if (mapInstanceRef.current || !mapRef.current) return;
+                
+                const initialLat = currentPosition?.lat || restaurantLocation.lat;
+                const initialLng = currentPosition?.lng || restaurantLocation.lng;
+                
+                mapInstanceRef.current = L.map(mapRef.current, {
+                    center: [initialLat, initialLng],
+                    zoom: 15,
+                    zoomControl: false,
+                    attributionControl: true,
+                });
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(mapInstanceRef.current);
+                
+                markersLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+                routeLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+                
+                return () => {
+                    if (mapInstanceRef.current) {
+                        mapInstanceRef.current.remove();
+                        mapInstanceRef.current = null;
+                    }
+                };
+            }, []);
+            
+            useEffect(() => {
+                if (!mapInstanceRef.current || !currentPosition) return;
+                
+                const pos = [currentPosition.lat, currentPosition.lng];
+                
+                if (positionMarkerRef.current) {
+                    positionMarkerRef.current.setLatLng(pos);
+                } else {
+                    positionMarkerRef.current = L.marker(pos, { 
+                        icon: positionIcon,
+                        zIndexOffset: 1000 
+                    }).addTo(mapInstanceRef.current);
+                }
+            }, [currentPosition]);
+            
+            useEffect(() => {
+                if (!mapInstanceRef.current) return;
+                
+                markersLayerRef.current.clearLayers();
+                routeLayerRef.current.clearLayers();
+                
+                L.marker([restaurantLocation.lat, restaurantLocation.lng], { icon: restaurantIcon })
+                    .addTo(markersLayerRef.current);
+                
+                const routeCoords = [];
+                
+                if (currentPosition) {
+                    routeCoords.push([currentPosition.lat, currentPosition.lng]);
+                } else {
+                    routeCoords.push([restaurantLocation.lat, restaurantLocation.lng]);
+                }
+                
+                const pendingOrders = orders.filter(o => o.status !== 'delivered');
+                const deliveredOrders = orders.filter(o => o.status === 'delivered');
+                
+                deliveredOrders.forEach(order => {
+                    const deliveredIcon = createIcon(`
+                        <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="18" cy="18" r="16" fill="#9ca3af" stroke="white" stroke-width="3"/>
+                            <text x="18" y="24" text-anchor="middle" font-size="16" fill="white">✓</text>
+                        </svg>
+                    `);
+                    L.marker([order.lat, order.lng], { icon: deliveredIcon })
+                        .addTo(markersLayerRef.current);
+                });
+                
+                pendingOrders.forEach((order, index) => {
+                    const isNext = index === 0;
+                    const color = isNext ? '#f97316' : '#fb923c';
+                    const size = isNext ? 44 : 36;
+                    
+                    const orderIcon = createIcon(`
+                        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="${size/2}" cy="${size/2}" r="${size/2-3}" fill="${color}" stroke="white" stroke-width="3"/>
+                            <text x="${size/2}" y="${size/2+6}" text-anchor="middle" font-size="${isNext ? 18 : 14}" fill="white" font-weight="bold">${order.stop_order}</text>
+                        </svg>
+                    `, [size, size]);
+                    
+                    L.marker([order.lat, order.lng], { icon: orderIcon })
+                        .addTo(markersLayerRef.current);
+                    
+                    routeCoords.push([order.lat, order.lng]);
+                });
+                
+                if (returningHome) {
+                    routeCoords.push([restaurantLocation.lat, restaurantLocation.lng]);
+                }
+                
+                if (routeStarted && routeCoords.length > 1) {
+                    const routeColor = returningHome ? '#22c55e' : '#f97316';
+                    
+                    fetchOSRMRoute(routeCoords).then(routeData => {
+                        if (!mapInstanceRef.current) return;
+                        routeLayerRef.current.clearLayers();
+                        
+                        if (routeData?.coordinates) {
+                            L.polyline(routeData.coordinates, {
+                                color: routeColor,
+                                weight: 6,
+                                opacity: 0.85,
+                            }).addTo(routeLayerRef.current);
+                        } else {
+                            L.polyline(routeCoords, {
+                                color: routeColor,
+                                weight: 5,
+                                opacity: 0.8,
+                                dashArray: '10, 10',
+                            }).addTo(routeLayerRef.current);
+                        }
+                    });
+                    
+                    if (!initialFitDoneRef.current) {
+                        const bounds = L.latLngBounds(routeCoords);
+                        mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40] });
+                        
+                        setTimeout(() => {
+                            if (mapInstanceRef.current.getZoom() > 15) {
+                                mapInstanceRef.current.setZoom(15);
+                            }
+                            initialFitDoneRef.current = true;
+                        }, 100);
+                    }
+                }
+                
+            }, [orders, restaurantLocation, routeStarted, returningHome, currentPosition]);
+            
+            const centerOnMe = () => {
+                if (mapInstanceRef.current && currentPosition) {
+                    mapInstanceRef.current.setView([currentPosition.lat, currentPosition.lng], 16);
+                }
+            };
+            
+            const showFullRoute = () => {
+                if (!mapInstanceRef.current) return;
+                
+                const allCoords = [];
+                if (currentPosition) {
+                    allCoords.push([currentPosition.lat, currentPosition.lng]);
+                }
+                orders.forEach(order => {
+                    allCoords.push([order.lat, order.lng]);
+                });
+                allCoords.push([restaurantLocation.lat, restaurantLocation.lng]);
+                
+                if (allCoords.length > 0) {
+                    const bounds = L.latLngBounds(allCoords);
+                    mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40] });
+                }
+            };
+            
+            return (
+                <div className="relative">
+                    <div ref={mapRef} style={{ width: '100%', height: '280px', borderRadius: '12px' }} />
+                    <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-2">
+                        <button 
+                            onClick={centerOnMe}
+                            className="bg-white p-3 rounded-xl shadow-lg text-blue-600 hover:bg-blue-50 active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/>
+                            </svg>
+                        </button>
+                        <button 
+                            onClick={showFullRoute}
+                            className="bg-white p-3 rounded-xl shadow-lg text-orange-600 hover:bg-orange-50 active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ TELA PRINCIPAL ============
+        
+        const MainScreen = ({ courier, onLogout }) => {
+            const [batch, setBatch] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [currentPosition, setCurrentPosition] = useState(null);
+            const [routeStarted, setRouteStarted] = useState(false);
+            const [returningHome, setReturningHome] = useState(false);
+            const [selectedNavApp, setSelectedNavApp] = useState('google'); // 'google' ou 'waze'
+            const [showArrivalModal, setShowArrivalModal] = useState(false);
+            const [arrivedAtOrder, setArrivedAtOrder] = useState(null);
+            const [dismissedArrivals, setDismissedArrivals] = useState(new Set()); // IDs já dispensados
+            const watchIdRef = useRef(null);
+            const lastBatchIdRef = useRef(null); // Guarda o ID do último lote para detectar novo
+            const audioInitializedRef = useRef(false); // Se o áudio já foi inicializado
+            
+            // Inicializa o áudio no primeiro toque (necessário em mobile)
+            const handleFirstInteraction = () => {
+                if (!audioInitializedRef.current) {
+                    initAudio();
+                    audioInitializedRef.current = true;
+                    console.log('🔊 Áudio inicializado pelo usuário');
+                }
+            };
+            
+            const fetchBatch = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/couriers/${courier.id}/current-batch`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        
+                        // Se não tem lote (finalizado pelo dashboard), para o alerta
+                        if (!data || !data.id) {
+                            setBatch(null);
+                            lastBatchIdRef.current = null;
+                            stopContinuousAlert();
+                            setLoading(false);
+                            return;
+                        }
+                        
+                        // 🔊 DETECTA NOVO LOTE E TOCA SOM EM LOOP!
+                        if (data.id !== lastBatchIdRef.current) {
+                            // É um lote novo! Inicia alerta contínuo
+                            if (lastBatchIdRef.current !== null) {
+                                // Só toca se já tinha um lote antes (não é a primeira carga)
+                                console.log('🆕 Novo lote detectado! ID:', data.id);
+                                startContinuousAlert();
+                            } else if (data.orders?.length > 0 && !routeStarted) {
+                                // Primeiro lote carregado e ainda não iniciou rota
+                                console.log('🆕 Lote pendente encontrado! ID:', data.id);
+                                startContinuousAlert();
+                            }
+                            lastBatchIdRef.current = data.id;
+                        }
+                        
+                        // Para o alerta se já iniciou a rota
+                        if (routeStarted) {
+                            stopContinuousAlert();
+                        }
+                        
+                        setBatch(data);
+                        
+                        if (data.orders?.length > 0) {
+                            const allDelivered = data.orders.every(o => o.status === 'delivered');
+                            if (allDelivered && routeStarted) {
+                                setReturningHome(true);
+                            }
+                        }
+                    } else {
+                        setBatch(null);
+                        lastBatchIdRef.current = null; // Reset quando não tem lote
+                        stopContinuousAlert(); // Para o alerta se não tem lote
+                    }
+                } catch (err) {
+                    console.error('Erro ao buscar lote:', err);
+                }
+                setLoading(false);
+            };
+            
+            useEffect(() => {
+                fetchBatch();
+                const interval = setInterval(fetchBatch, 10000);
+                return () => clearInterval(interval);
+            }, [courier.id]);
+            
+            // GPS Tracking com detecção de chegada
+            const startGPSTracking = () => {
+                if (!navigator.geolocation) {
+                    alert('Geolocalização não suportada');
+                    return;
+                }
+                
+                watchIdRef.current = navigator.geolocation.watchPosition(
+                    (position) => {
+                        const newPos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        setCurrentPosition(newPos);
+                        
+                        // Verifica se chegou no destino
+                        checkArrival(newPos);
+                    },
+                    (error) => {
+                        console.error('Erro GPS:', error);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+                );
+            };
+            
+            const stopGPSTracking = () => {
+                if (watchIdRef.current) {
+                    navigator.geolocation.clearWatch(watchIdRef.current);
+                    watchIdRef.current = null;
+                }
+            };
+            
+            // Verifica se chegou no próximo destino
+            const checkArrival = (pos) => {
+                if (!batch?.orders || !routeStarted || showArrivalModal) return;
+                
+                const pendingOrders = batch.orders.filter(o => o.status !== 'delivered');
+                const nextOrder = pendingOrders[0];
+                
+                if (!nextOrder) return;
+                
+                // Já dispensou esse aviso?
+                if (dismissedArrivals.has(nextOrder.id)) return;
+                
+                const distance = calculateDistance(pos.lat, pos.lng, nextOrder.lat, nextOrder.lng);
+                
+                if (distance <= ARRIVAL_DISTANCE_METERS) {
+                    console.log(`📍 Chegou! Distância: ${Math.round(distance)}m`);
+                    setArrivedAtOrder(nextOrder);
+                    setShowArrivalModal(true);
+                }
+            };
+            
+            useEffect(() => {
+                startGPSTracking();
+                return () => stopGPSTracking();
+            }, []);
+            
+            // Re-verifica quando batch muda
+            useEffect(() => {
+                if (currentPosition) {
+                    checkArrival(currentPosition);
+                }
+            }, [batch]);
+            
+            const startRoute = () => {
+                stopContinuousAlert(); // Para o alerta quando aceitar os pedidos
+                setRouteStarted(true);
+            };
+            
+            const getDistanceToRestaurant = () => {
+                if (!currentPosition) return 0;
+                return calculateDistance(
+                    currentPosition.lat, currentPosition.lng,
+                    RESTAURANT_LOCATION.lat, RESTAURANT_LOCATION.lng
+                );
+            };
+            
+            const getDistanceToOrder = (order) => {
+                if (!currentPosition) return null;
+                return calculateDistance(
+                    currentPosition.lat, currentPosition.lng,
+                    order.lat, order.lng
+                );
+            };
+            
+            const openNavigation = (lat, lng) => {
+                if (selectedNavApp === 'waze') {
+                    window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_blank');
+                } else {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+                }
+            };
+            
+            const markDelivered = async (orderId) => {
+                await fetch(`${API_URL}/orders/${orderId}/pickup`, { method: 'POST' });
+                await fetch(`${API_URL}/orders/${orderId}/deliver`, { method: 'POST' });
+                setShowArrivalModal(false);
+                setArrivedAtOrder(null);
+                // Remove dos dispensados já que foi entregue
+                setDismissedArrivals(prev => {
+                    const next = new Set(prev);
+                    next.delete(orderId);
+                    return next;
+                });
+                fetchBatch();
+            };
+            
+            const dismissArrival = () => {
+                if (arrivedAtOrder) {
+                    // Marca como dispensado para não mostrar de novo
+                    setDismissedArrivals(prev => new Set(prev).add(arrivedAtOrder.id));
+                }
+                setShowArrivalModal(false);
+                setArrivedAtOrder(null);
+            };
+            
+            const finishBatch = async () => {
+                if (!confirm('Confirma que chegou no restaurante?')) return;
+                await fetch(`${API_URL}/couriers/${courier.id}/complete-batch`, { method: 'POST' });
+                stopGPSTracking();
+                setRouteStarted(false);
+                setReturningHome(false);
+                setDismissedArrivals(new Set());
+                fetchBatch();
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                        <div className="text-center">
+                            <div className="mb-4 flex justify-center"><Logo size={60} /></div>
+                            <div className="text-gray-500">Carregando...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            const pendingOrders = batch?.orders?.filter(o => o.status !== 'delivered') || [];
+            const deliveredOrders = batch?.orders?.filter(o => o.status === 'delivered') || [];
+            const allDelivered = batch?.orders?.length > 0 && pendingOrders.length === 0;
+            
+            return (
+                <div className="min-h-screen bg-gray-100 pb-24" onClick={handleFirstInteraction}>
+                    {/* Modal de chegada */}
+                    {showArrivalModal && arrivedAtOrder && (
+                        <ArrivalModal
+                            order={arrivedAtOrder}
+                            onConfirm={() => markDelivered(arrivedAtOrder.id)}
+                            onCancel={dismissArrival}
+                        />
+                    )}
+                    
+                    {/* Header */}
+                    <div className="bg-orange-500 text-white p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Logo size={40} />
+                                <div>
+                                    <h1 className="font-bold text-lg">MotoFlash</h1>
+                                    <p className="text-orange-100 text-sm">{courier.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={onLogout} className="bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded-lg text-sm">
+                                Sair
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Sem lote */}
+                    {!batch && (
+                        <div className="p-6 text-center">
+                            <Card className="p-8">
+                                <div className="text-5xl mb-4">☕</div>
+                                <h2 className="text-xl font-semibold text-gray-700 mb-2">Aguardando pedidos</h2>
+                                <p className="text-gray-500">Relaxa! Você será notificado com som quando houver entregas.</p>
+                                <div className="flex flex-col gap-3 mt-4">
+                                    <Button onClick={fetchBatch}>🔄 Atualizar</Button>
+                                    <Button onClick={alertNewBatch} variant="secondary">🔊 Testar Som</Button>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+                    
+                    {/* Com lote */}
+                    {batch && batch.orders && (
+                        <>
+                            {/* Mapa */}
+                            <div className="p-4">
+                                <DeliveryMap
+                                    orders={batch.orders}
+                                    restaurantLocation={RESTAURANT_LOCATION}
+                                    currentPosition={currentPosition}
+                                    routeStarted={routeStarted}
+                                    returningHome={returningHome}
+                                />
+                            </div>
+                            
+                            {/* Botão iniciar rota */}
+                            {!routeStarted && (
+                                <div className="px-4 mb-4">
+                                    <Button onClick={startRoute} variant="success" size="large" className="w-full">
+                                        🚀 Iniciar Rota ({batch.orders.length} entrega{batch.orders.length > 1 ? 's' : ''})
+                                    </Button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                    
+                    {/* Voltando ao restaurante */}
+                    {returningHome && (
+                        <div className="px-4 mb-4">
+                            <Card className="p-4 bg-green-50 border-2 border-green-500">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-3xl">🏪</div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-green-700">Volte ao restaurante</h3>
+                                        <p className="text-sm text-green-600">{RESTAURANT_LOCATION.address}</p>
+                                        {currentPosition && (
+                                            <p className="text-xs text-green-500 mt-1">📍 {Math.round(getDistanceToRestaurant())}m</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <NavAppSelector
+                                    selectedApp={selectedNavApp}
+                                    onSelect={setSelectedNavApp}
+                                    lat={RESTAURANT_LOCATION.lat}
+                                    lng={RESTAURANT_LOCATION.lng}
+                                    onNavigate={openNavigation}
+                                />
+                            </Card>
+                        </div>
+                    )}
+                    
+                    {/* Lista de entregas */}
+                    {!returningHome && routeStarted && batch?.orders && (
+                        <div className="px-4">
+                            <h3 className="font-semibold text-gray-700 mb-3">
+                                📍 Suas entregas ({deliveredOrders.length}/{batch.orders.length})
+                            </h3>
+                            
+                            <div className="space-y-3">
+                                {batch.orders.map((order) => {
+                                    const isDelivered = order.status === 'delivered';
+                                    const isNext = !isDelivered && pendingOrders[0]?.id === order.id;
+                                    const distance = getDistanceToOrder(order);
+                                    
+                                    return (
+                                        <Card key={order.id} className={`p-4 ${isDelivered ? 'opacity-60' : isNext ? 'border-2 border-orange-500 bg-orange-50' : ''}`}>
+                                            <div className="flex items-start gap-3">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${isDelivered ? 'bg-gray-400' : 'bg-orange-500'}`}>
+                                                    {isDelivered ? '✓' : order.stop_order}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-semibold text-gray-800">{order.customer_name}</span>
+                                                        {isDelivered && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✓ Entregue</span>}
+                                                        {isNext && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Próxima</span>}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 mt-1">{order.address_text}</p>
+                                                    
+                                                    {isNext && distance && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            📍 {distance < 1000 ? `${Math.round(distance)}m` : `${(distance/1000).toFixed(1)}km`}
+                                                            {distance <= ARRIVAL_DISTANCE_METERS && <span className="text-green-600 font-medium"> - Você chegou!</span>}
+                                                        </p>
+                                                    )}
+                                                    
+                                                    {isNext && (
+                                                        <>
+                                                            <NavAppSelector
+                                                                selectedApp={selectedNavApp}
+                                                                onSelect={setSelectedNavApp}
+                                                                lat={order.lat}
+                                                                lng={order.lng}
+                                                                onNavigate={openNavigation}
+                                                            />
+                                                            <Button 
+                                                                onClick={() => markDelivered(order.id)} 
+                                                                variant="success" 
+                                                                size="small" 
+                                                                className="w-full mt-2"
+                                                            >
+                                                                ✅ Marcar como Entregue
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Footer */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg">
+                        {returningHome ? (
+                            <Button onClick={finishBatch} variant="success" size="large" className="w-full">
+                                ✅ Cheguei no restaurante!
+                            </Button>
+                        ) : (
+                            <div className="text-center text-gray-500 text-sm">
+                                {allDelivered ? 'Todas entregas concluídas! Volte ao restaurante.' : routeStarted ? `Entregue os ${pendingOrders.length} pedido(s)` : batch ? 'Clique em "Iniciar Rota"' : 'Aguardando pedidos...'}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ PWA INSTALL BANNER ============
+        
+        const PWAInstallBanner = () => {
+            const [showBanner, setShowBanner] = useState(false);
+            const [isInstalled, setIsInstalled] = useState(false);
+            
+            useEffect(() => {
+                // Verifica se já está instalado
+                if (window.isPWA && window.isPWA()) {
+                    setIsInstalled(true);
+                    return;
+                }
+                
+                // Verifica se já foi dispensado recentemente
+                const dismissed = localStorage.getItem('pwa_banner_dismissed');
+                if (dismissed) {
+                    const dismissedTime = parseInt(dismissed);
+                    const hoursSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60);
+                    if (hoursSinceDismissed < 24) return; // Não mostra por 24h
+                }
+                
+                // Escuta evento de instalação disponível
+                const handleInstallAvailable = () => {
+                    setTimeout(() => setShowBanner(true), 3000); // Mostra após 3s
+                };
+                
+                window.addEventListener('pwaInstallAvailable', handleInstallAvailable);
+                
+                // Se já tem o deferredPrompt disponível
+                if (window.deferredPrompt) {
+                    setTimeout(() => setShowBanner(true), 3000);
+                }
+                
+                return () => {
+                    window.removeEventListener('pwaInstallAvailable', handleInstallAvailable);
+                };
+            }, []);
+            
+            const handleInstall = async () => {
+                if (window.installPWA) {
+                    const installed = await window.installPWA();
+                    if (installed) {
+                        setShowBanner(false);
+                        setIsInstalled(true);
+                    }
+                }
+            };
+            
+            const handleDismiss = () => {
+                localStorage.setItem('pwa_banner_dismissed', Date.now().toString());
+                setShowBanner(false);
+            };
+            
+            if (!showBanner || isInstalled) return null;
+            
+            return (
+                <div className="pwa-install-banner">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0">
+                            <span className="text-2xl">🏍️</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-bold text-lg">Instalar MotoFlash</div>
+                            <div className="text-sm text-orange-100">
+                                Acesse mais rápido direto da tela inicial!
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleDismiss}
+                            className="p-2 text-white/70 hover:text-white"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className="flex gap-3 mt-4">
+                        <button
+                            onClick={handleDismiss}
+                            className="flex-1 py-3 rounded-xl bg-white/20 text-white font-semibold"
+                        >
+                            Agora não
+                        </button>
+                        <button
+                            onClick={handleInstall}
+                            className="flex-1 py-3 rounded-xl bg-white text-orange-500 font-bold"
+                        >
+                            📲 Instalar
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ APP PRINCIPAL ============
+        
+        const App = () => {
+            const [courier, setCourier] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                const savedId = localStorage.getItem('motoboy_id');
+                const savedName = localStorage.getItem('motoboy_name');
+                
+                if (savedId && savedName) {
+                    fetch(`${API_URL}/couriers`)
+                        .then(res => res.json())
+                        .then(async (couriers) => {
+                            const found = couriers.find(c => c.id === savedId);
+                            if (found) {
+                                setCourier(found);
+                            }
+                            else {
+                                localStorage.removeItem('motoboy_id');
+                                localStorage.removeItem('motoboy_name');
+                            }
+                            setLoading(false);
+                        })
+                        .catch(() => setLoading(false));
+                } else {
+                    setLoading(false);
+                }
+            }, []);
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-orange-500">
+                        <div className="text-center text-white">
+                            <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                            <div className="text-xl font-semibold">MotoFlash</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            if (!courier) return (
+                <>
+                    <LoginScreen onLogin={setCourier} />
+                    <PWAInstallBanner />
+                </>
+            );
+            
+            return (
+                <>
+                    <MainScreen courier={courier} onLogout={() => { localStorage.clear(); setCourier(null); }} />
+                    <PWAInstallBanner />
+                </>
+            );
+        };
+        
+        // ============ RENDER ============
+        (async function init() {
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            
+            root.render(
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-orange-500 to-orange-600">
+                    <div className="text-center text-white">
+                        <div className="mb-4 flex justify-center"><LogoLight size={80} /></div>
+                        <div className="text-xl font-semibold mb-2">MotoFlash</div>
+                        <div className="text-orange-100">Carregando...</div>
+                    </div>
+                </div>
+            );
+            
+            const success = await loadRestaurantLocation();
+            
+            if (!success) {
+                root.render(
+                    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+                        <div className="text-center">
+                            <div className="text-5xl mb-4">⚠️</div>
+                            <h2 className="text-xl font-semibold text-red-600 mb-2">Erro ao carregar</h2>
+                            <p className="text-gray-600 mb-4">Verifique se o backend está rodando</p>
+                            <button onClick={() => location.reload()} className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold">
+                                🔄 Tentar Novamente
+                            </button>
+                        </div>
+                    </div>
+                );
+                return;
+            }
+            
+            root.render(<App />);
+        })();
+    </script>
+</body>
+</html>

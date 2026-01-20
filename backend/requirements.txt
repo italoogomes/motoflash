@@ -17,3 +17,4 @@ pydantic==2.5.3
 
 # Utilitários
 python-multipart==0.0.6
+httpx==0.26.0

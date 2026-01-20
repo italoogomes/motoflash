@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoFlash - Cardápio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const API_URL = window.location.origin;
+        
+        // ============ COMPONENTES AUXILIARES ============
+        
+        const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '', size = 'normal' }) => {
+            const variants = {
+                primary: 'bg-orange-500 hover:bg-orange-600 text-white',
+                secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700',
+                success: 'bg-green-500 hover:bg-green-600 text-white',
+                danger: 'bg-red-500 hover:bg-red-600 text-white',
+                ghost: 'bg-transparent hover:bg-gray-100 text-gray-600',
+            };
+            
+            const sizes = {
+                small: 'px-3 py-1.5 text-sm',
+                normal: 'px-4 py-2',
+                large: 'px-6 py-3 text-lg',
+            };
+            
+            return (
+                <button
+                    onClick={onClick}
+                    disabled={disabled}
+                    className={`${variants[variant]} ${sizes[size]} rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+                >
+                    {children}
+                </button>
+            );
+        };
+        
+        const Card = ({ children, className = '' }) => (
+            <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
+                {children}
+            </div>
+        );
+        
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                        </div>
+                        <div className="p-4">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ FORMULÁRIO DE CATEGORIA ============
+        
+        const CategoryForm = ({ category, onSave, onCancel }) => {
+            const [name, setName] = useState(category?.name || '');
+            const [order, setOrder] = useState(category?.order || 0);
+            const [loading, setLoading] = useState(false);
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                
+                try {
+                    const url = category 
+                        ? `${API_URL}/menu/categories/${category.id}`
+                        : `${API_URL}/menu/categories`;
+                    
+                    const res = await fetch(url, {
+                        method: category ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, order: parseInt(order) })
+                    });
+                    
+                    if (res.ok) {
+                        onSave();
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Erro ao salvar');
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+                
+                setLoading(false);
+            };
+            
+            return (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Categoria</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Ex: Hambúrgueres, Bebidas, Pizzas..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ordem de exibição</label>
+                        <input
+                            type="number"
+                            value={order}
+                            onChange={(e) => setOrder(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            min="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Menor número aparece primeiro</p>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                        <Button type="button" variant="secondary" onClick={onCancel} className="flex-1">
+                            Cancelar
+                        </Button>
+                        <Button type="submit" disabled={loading || !name.trim()} className="flex-1">
+                            {loading ? 'Salvando...' : category ? 'Atualizar' : 'Criar'}
+                        </Button>
+                    </div>
+                </form>
+            );
+        };
+        
+        // ============ FORMULÁRIO DE ITEM ============
+        
+        const ItemForm = ({ item, categories, onSave, onCancel }) => {
+            const [name, setName] = useState(item?.name || '');
+            const [description, setDescription] = useState(item?.description || '');
+            const [price, setPrice] = useState(item?.price || '');
+            const [categoryId, setCategoryId] = useState(item?.category_id || categories[0]?.id || '');
+            const [imageUrl, setImageUrl] = useState(item?.image_url || '');
+            const [loading, setLoading] = useState(false);
+            const [uploading, setUploading] = useState(false);
+            
+            // Faz upload da imagem
+            const handleImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Verifica tamanho (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Imagem muito grande! Máximo: 5MB');
+                    return;
+                }
+                
+                setUploading(true);
+                
+                try {
+                    // FormData é como um "envelope" pra enviar arquivos
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const res = await fetch(`${API_URL}/upload`, {
+                        method: 'POST',
+                        body: formData  // Não precisa de headers, o browser configura
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        setImageUrl(data.url);  // Salva a URL retornada
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Erro ao enviar imagem');
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+                
+                setUploading(false);
+            };
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                
+                try {
+                    const url = item 
+                        ? `${API_URL}/menu/items/${item.id}`
+                        : `${API_URL}/menu/items`;
+                    
+                    const res = await fetch(url, {
+                        method: item ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name,
+                            description: description || null,
+                            price: parseFloat(price),
+                            category_id: categoryId,
+                            image_url: imageUrl || null  // Inclui a URL da imagem
+                        })
+                    });
+                    
+                    if (res.ok) {
+                        onSave();
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Erro ao salvar');
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+                
+                setLoading(false);
+            };
+            
+            return (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* FOTO DO ITEM */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Foto do Item <span className="text-gray-400 font-normal">(opcional)</span>
+                        </label>
+                        
+                        <div className="flex items-start gap-4">
+                            {/* Preview da imagem */}
+                            <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-300">
+                                {imageUrl ? (
+                                    <img 
+                                        src={`${API_URL}${imageUrl}`} 
+                                        alt="Preview" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="text-3xl text-gray-300">📷</span>
+                                )}
+                            </div>
+                            
+                            {/* Botão de upload */}
+                            <div className="flex-1">
+                                <label className={`
+                                    block w-full px-4 py-2 text-center rounded-lg cursor-pointer transition-all
+                                    ${uploading 
+                                        ? 'bg-gray-100 text-gray-400' 
+                                        : 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                                    }
+                                `}>
+                                    {uploading ? '⏳ Enviando...' : imageUrl ? '🔄 Trocar foto' : '📤 Escolher foto'}
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp,image/gif"
+                                        onChange={handleImageUpload}
+                                        className="hidden"
+                                        disabled={uploading}
+                                    />
+                                </label>
+                                <p className="text-xs text-gray-500 mt-1">JPG, PNG ou WebP. Máx: 5MB</p>
+                                
+                                {imageUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setImageUrl('')}
+                                        className="text-xs text-red-500 hover:text-red-600 mt-1"
+                                    >
+                                        🗑️ Remover foto
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Item</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Ex: X-Burguer Especial"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Descrição (opcional)</label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Pão, carne 180g, queijo, bacon, alface..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            rows={2}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={price}
+                            onChange={(e) => setPrice(e.target.value)}
+                            placeholder="29.90"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                        <select
+                            value={categoryId}
+                            onChange={(e) => setCategoryId(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            required
+                        >
+                            {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                        <Button type="button" variant="secondary" onClick={onCancel} className="flex-1">
+                            Cancelar
+                        </Button>
+                        <Button type="submit" disabled={loading || !name.trim() || !price} className="flex-1">
+                            {loading ? 'Salvando...' : item ? 'Atualizar' : 'Criar'}
+                        </Button>
+                    </div>
+                </form>
+            );
+        };
+        
+        // ============ LISTA DE CATEGORIAS ============
+        
+        const CategoryList = ({ categories, onEdit, onDelete, onSelectCategory, selectedCategoryId }) => {
+            const handleDelete = async (category) => {
+                if (!confirm(`Excluir categoria "${category.name}"?`)) return;
+                
+                try {
+                    const res = await fetch(`${API_URL}/menu/categories/${category.id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (res.ok) {
+                        onDelete();
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Erro ao excluir');
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+            };
+            
+            return (
+                <div className="space-y-2">
+                    {categories.map(category => (
+                        <div 
+                            key={category.id} 
+                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                                selectedCategoryId === category.id 
+                                    ? 'bg-orange-100 border-2 border-orange-500' 
+                                    : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                            }`}
+                            onClick={() => onSelectCategory(category.id)}
+                        >
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">📂</span>
+                                <div>
+                                    <div className="font-medium text-gray-800">{category.name}</div>
+                                    <div className="text-xs text-gray-500">{category.items_count} item(ns)</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onEdit(category); }}
+                                    className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
+                                >
+                                    ✏️
+                                </button>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(category); }}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                    title={category.items_count > 0 ? 'Remova os itens primeiro' : 'Excluir'}
+                                >
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    
+                    {categories.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                            <div className="text-4xl mb-2">📋</div>
+                            <p>Nenhuma categoria cadastrada</p>
+                            <p className="text-sm">Crie sua primeira categoria!</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // ============ LISTA DE ITENS ============
+        
+        const ItemsList = ({ items, categories, onEdit, onRefresh, selectedCategoryId }) => {
+            const filteredItems = selectedCategoryId 
+                ? items.filter(item => item.category_id === selectedCategoryId)
+                : items;
+            
+            const handleDelete = async (item) => {
+                if (!confirm(`Excluir item "${item.name}"?`)) return;
+                
+                try {
+                    const res = await fetch(`${API_URL}/menu/items/${item.id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (res.ok) {
+                        onRefresh();
+                    } else {
+                        const err = await res.json();
+                        alert(err.detail || 'Erro ao excluir');
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+            };
+            
+            const toggleStock = async (item) => {
+                try {
+                    const res = await fetch(`${API_URL}/menu/items/${item.id}/toggle-stock`, {
+                        method: 'POST'
+                    });
+                    
+                    if (res.ok) {
+                        onRefresh();
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                }
+            };
+            
+            const formatPrice = (price) => {
+                return new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                }).format(price);
+            };
+            
+            return (
+                <div className="space-y-2">
+                    {filteredItems.map(item => (
+                        <div 
+                            key={item.id} 
+                            className={`flex items-center gap-4 p-4 rounded-lg border transition-all ${
+                                item.out_of_stock ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'
+                            }`}
+                        >
+                            {/* Foto do item */}
+                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                {item.image_url ? (
+                                    <img 
+                                        src={`${API_URL}${item.image_url}`} 
+                                        alt={item.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">
+                                        🍽️
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Informações */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-medium text-gray-800 truncate">{item.name}</span>
+                                    {item.out_of_stock && (
+                                        <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full flex-shrink-0">Esgotado</span>
+                                    )}
+                                </div>
+                                {item.description && (
+                                    <p className="text-sm text-gray-500 mt-1 truncate">{item.description}</p>
+                                )}
+                                <div className="flex items-center gap-3 mt-2">
+                                    <span className="font-bold text-green-600">{formatPrice(item.price)}</span>
+                                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                                        {item.category_name}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {/* Ações */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                                <button 
+                                    onClick={() => toggleStock(item)}
+                                    className={`p-2 rounded-lg ${
+                                        item.out_of_stock 
+                                            ? 'text-green-500 hover:bg-green-50' 
+                                            : 'text-gray-400 hover:bg-gray-100'
+                                    }`}
+                                    title={item.out_of_stock ? 'Marcar disponível' : 'Marcar esgotado'}
+                                >
+                                    {item.out_of_stock ? '✅' : '❌'}
+                                </button>
+                                <button 
+                                    onClick={() => onEdit(item)}
+                                    className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
+                                >
+                                    ✏️
+                                </button>
+                                <button 
+                                    onClick={() => handleDelete(item)}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    
+                    {filteredItems.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                            <div className="text-4xl mb-2">🍽️</div>
+                            <p>Nenhum item {selectedCategoryId ? 'nesta categoria' : 'cadastrado'}</p>
+                            <p className="text-sm">Adicione seu primeiro item!</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // ============ APP PRINCIPAL ============
+        
+        const MenuApp = () => {
+            const [categories, setCategories] = useState([]);
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+            
+            // Modais
+            const [showCategoryModal, setShowCategoryModal] = useState(false);
+            const [showItemModal, setShowItemModal] = useState(false);
+            const [editingCategory, setEditingCategory] = useState(null);
+            const [editingItem, setEditingItem] = useState(null);
+            
+            const fetchData = async () => {
+                try {
+                    const [catRes, itemsRes] = await Promise.all([
+                        fetch(`${API_URL}/menu/categories?include_inactive=true`),
+                        fetch(`${API_URL}/menu/items?include_inactive=true`)
+                    ]);
+                    
+                    if (catRes.ok) {
+                        setCategories(await catRes.json());
+                    }
+                    if (itemsRes.ok) {
+                        setItems(await itemsRes.json());
+                    }
+                } catch (err) {
+                    console.error('Erro ao carregar dados:', err);
+                }
+                setLoading(false);
+            };
+            
+            useEffect(() => {
+                fetchData();
+            }, []);
+            
+            const handleSaveCategory = () => {
+                setShowCategoryModal(false);
+                setEditingCategory(null);
+                fetchData();
+            };
+            
+            const handleSaveItem = () => {
+                setShowItemModal(false);
+                setEditingItem(null);
+                fetchData();
+            };
+            
+            const openEditCategory = (category) => {
+                setEditingCategory(category);
+                setShowCategoryModal(true);
+            };
+            
+            const openEditItem = (item) => {
+                setEditingItem(item);
+                setShowItemModal(true);
+            };
+            
+            const openNewCategory = () => {
+                setEditingCategory(null);
+                setShowCategoryModal(true);
+            };
+            
+            const openNewItem = () => {
+                setEditingItem(null);
+                setShowItemModal(true);
+            };
+            
+            const totalItems = items.length;
+            const outOfStock = items.filter(i => i.out_of_stock).length;
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="text-5xl mb-4">🍽️</div>
+                            <div className="text-gray-500">Carregando cardápio...</div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <header className="bg-white border-b sticky top-0 z-10">
+                        <div className="max-w-6xl mx-auto px-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <a href="/dashboard" className="text-gray-400 hover:text-gray-600">
+                                        ← Voltar
+                                    </a>
+                                    <div>
+                                        <h1 className="text-xl font-bold text-gray-800">🍽️ Cardápio</h1>
+                                        <p className="text-sm text-gray-500">
+                                            {categories.length} categoria(s) • {totalItems} item(ns)
+                                            {outOfStock > 0 && <span className="text-red-500"> • {outOfStock} esgotado(s)</span>}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    {/* Main */}
+                    <main className="max-w-6xl mx-auto px-4 py-6">
+                        <div className="grid lg:grid-cols-3 gap-6">
+                            {/* Coluna Categorias */}
+                            <div>
+                                <Card className="p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="font-semibold text-gray-800">📂 Categorias</h2>
+                                        <Button onClick={openNewCategory} size="small">
+                                            + Nova
+                                        </Button>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => setSelectedCategoryId(null)}
+                                        className={`w-full text-left p-3 rounded-lg mb-2 transition-all ${
+                                            selectedCategoryId === null 
+                                                ? 'bg-orange-100 border-2 border-orange-500' 
+                                                : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                                        }`}
+                                    >
+                                        <span className="font-medium">📋 Todos os itens</span>
+                                        <span className="text-xs text-gray-500 ml-2">({totalItems})</span>
+                                    </button>
+                                    
+                                    <CategoryList 
+                                        categories={categories}
+                                        onEdit={openEditCategory}
+                                        onDelete={fetchData}
+                                        onSelectCategory={setSelectedCategoryId}
+                                        selectedCategoryId={selectedCategoryId}
+                                    />
+                                </Card>
+                            </div>
+                            
+                            {/* Coluna Itens */}
+                            <div className="lg:col-span-2">
+                                <Card className="p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="font-semibold text-gray-800">
+                                            🍔 Itens
+                                            {selectedCategoryId && (
+                                                <span className="text-orange-500 ml-2">
+                                                    - {categories.find(c => c.id === selectedCategoryId)?.name}
+                                                </span>
+                                            )}
+                                        </h2>
+                                        <Button 
+                                            onClick={openNewItem} 
+                                            size="small"
+                                            disabled={categories.length === 0}
+                                            title={categories.length === 0 ? 'Crie uma categoria primeiro' : ''}
+                                        >
+                                            + Novo Item
+                                        </Button>
+                                    </div>
+                                    
+                                    {categories.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <div className="text-4xl mb-2">⚠️</div>
+                                            <p>Crie uma categoria primeiro</p>
+                                            <p className="text-sm">Antes de adicionar itens, você precisa ter pelo menos uma categoria.</p>
+                                        </div>
+                                    ) : (
+                                        <ItemsList 
+                                            items={items}
+                                            categories={categories}
+                                            onEdit={openEditItem}
+                                            onRefresh={fetchData}
+                                            selectedCategoryId={selectedCategoryId}
+                                        />
+                                    )}
+                                </Card>
+                            </div>
+                        </div>
+                    </main>
+                    
+                    {/* Modal Categoria */}
+                    <Modal 
+                        isOpen={showCategoryModal} 
+                        onClose={() => { setShowCategoryModal(false); setEditingCategory(null); }}
+                        title={editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+                    >
+                        <CategoryForm 
+                            category={editingCategory}
+                            onSave={handleSaveCategory}
+                            onCancel={() => { setShowCategoryModal(false); setEditingCategory(null); }}
+                        />
+                    </Modal>
+                    
+                    {/* Modal Item */}
+                    <Modal 
+                        isOpen={showItemModal} 
+                        onClose={() => { setShowItemModal(false); setEditingItem(null); }}
+                        title={editingItem ? 'Editar Item' : 'Novo Item'}
+                    >
+                        <ItemForm 
+                            item={editingItem}
+                            categories={categories}
+                            onSave={handleSaveItem}
+                            onCancel={() => { setShowItemModal(false); setEditingItem(null); }}
+                        />
+                    </Modal>
+                    
+                    <footer className="text-center py-4 text-sm text-gray-400">
+                        MotoFlash - Gerenciamento de Cardápio
+                    </footer>
+                </div>
+            );
+        };
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<MenuApp />);
+    </script>
+</body>
+</html>

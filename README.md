@@ -1,124 +1,106 @@
-# 🏍️ MotoFlash - Sistema de Despacho Inteligente
+# 🏍️ MotoFlash - Deploy no Render
 
 Sistema de despacho inteligente para restaurantes com entregadores próprios.
-
-## 🎯 O que esse sistema faz
-
-1. **Gerencia pedidos** com QR Code para rastrear quando ficam prontos
-2. **Agrupa pedidos** por proximidade geográfica (clustering)
-3. **Distribui automaticamente** para motoqueiros disponíveis
-4. **Calcula rotas** otimizadas para cada entrega
-
-## 🚀 Como rodar
-
-### Passo 1: Instalar dependências do Python
-
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-### Passo 2: Rodar o backend
-
-```bash
-cd backend
-uvicorn main:app --reload
-```
-
-O servidor vai rodar em `http://localhost:8000`
-
-- Documentação da API: http://localhost:8000/docs
-- Health check: http://localhost:8000/health
-
-### Passo 3: Abrir o frontend
-
-Basta abrir o arquivo `frontend/index.html` no navegador!
-
-O frontend conecta automaticamente no backend em localhost:8000.
-
-## 🧪 Como testar
-
-1. **Adicione alguns motoboys** (ex: João, Maria, Pedro)
-2. **Ative os motoboys** clicando em "Ativar"
-3. **Crie alguns pedidos** usando o simulador
-4. **Bipe os pedidos** (simula o QR code sendo lido quando fica pronto)
-5. **Execute o Dispatch** para distribuir os pedidos para os motoboys
-6. **Finalize as entregas** clicando em "Finalizar" no motoboy
 
 ## 📁 Estrutura do Projeto
 
 ```
-motoboy-app/
+motoflash/
 ├── backend/
-│   ├── main.py              # Ponto de entrada FastAPI
-│   ├── models.py            # Modelos de dados (Order, Courier, Batch)
-│   ├── database.py          # Configuração SQLite
-│   ├── requirements.txt     # Dependências Python
-│   ├── routers/
-│   │   ├── orders.py        # Endpoints de pedidos
-│   │   ├── couriers.py      # Endpoints de motoqueiros
-│   │   └── dispatch.py      # Endpoints do algoritmo de dispatch
-│   └── services/
-│       ├── qrcode_service.py    # Geração de QR Code
-│       └── dispatch_service.py  # Algoritmo de distribuição
+│   ├── main.py           # API FastAPI
+│   ├── database.py       # Configuração SQLite
+│   ├── models.py         # Modelos do banco
+│   ├── requirements.txt  # Dependências Python
+│   ├── routers/          # Rotas da API
+│   ├── services/         # Lógica de negócio
+│   └── uploads/          # Imagens (não commitado)
 ├── frontend/
-│   ├── index.html           # Interface web (standalone)
-│   └── App.jsx              # Componente React (para projeto completo)
-└── README.md
+│   ├── index.html        # Dashboard
+│   ├── motoboy.html      # App do Motoboy (PWA)
+│   └── icons/            # Ícones do PWA
+├── render.yaml           # Configuração do Render
+└── .gitignore
 ```
 
-## 🔧 API Endpoints
+## 🚀 Deploy no Render (Passo a Passo)
 
-### Pedidos
-- `POST /orders` - Criar pedido
-- `GET /orders` - Listar pedidos
-- `GET /orders/{id}` - Buscar pedido
-- `GET /orders/{id}/qrcode` - Gerar QR Code
-- `POST /orders/{id}/scan` - Bipar QR (marca como PRONTO)
-- `POST /orders/{id}/pickup` - Marcar como coletado
-- `POST /orders/{id}/deliver` - Marcar como entregue
+### 1. Crie uma conta no GitHub (se não tiver)
+- Acesse: https://github.com
+- Crie uma conta gratuita
 
-### Motoqueiros
-- `POST /couriers` - Cadastrar motoqueiro
-- `GET /couriers` - Listar motoqueiros
-- `POST /couriers/{id}/available` - Marcar como disponível
-- `POST /couriers/{id}/offline` - Marcar como offline
-- `GET /couriers/{id}/current-batch` - Ver entregas atuais
-- `POST /couriers/{id}/complete-batch` - Finalizar entregas
+### 2. Crie um repositório no GitHub
+- Clique em "New repository"
+- Nome: `motoflash`
+- Marque "Private" (privado)
+- Clique em "Create repository"
 
-### Dispatch
-- `POST /dispatch/run` - Executar algoritmo de distribuição
-- `GET /dispatch/batches` - Ver lotes ativos
-- `GET /dispatch/stats` - Estatísticas do sistema
+### 3. Faça upload dos arquivos
+- Na página do repositório, clique em "uploading an existing file"
+- Arraste TODOS os arquivos desta pasta
+- Clique em "Commit changes"
 
-## ⚙️ Configurações do Algoritmo (V0.1)
+### 4. Crie uma conta no Render
+- Acesse: https://render.com
+- Clique em "Get Started for Free"
+- Faça login com sua conta GitHub
 
-No arquivo `backend/services/dispatch_service.py`:
+### 5. Crie o Web Service
+- No dashboard do Render, clique em "New +"
+- Selecione "Web Service"
+- Conecte ao seu repositório `motoflash`
+- Configure:
+  - **Name**: motoflash
+  - **Region**: Oregon (US West)
+  - **Branch**: main
+  - **Root Directory**: backend
+  - **Runtime**: Python 3
+  - **Build Command**: `pip install -r requirements.txt`
+  - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-```python
-# Janela de tempo: pedidos prontos nos últimos X minutos
-READY_WINDOW_MINUTES = 7
+### 6. Adicione o Disco Persistente
+- Na página do serviço, vá em "Disks"
+- Clique em "Add Disk"
+- **Name**: motoflash-data
+- **Mount Path**: /data
+- **Size**: 1 GB
 
-# Raio máximo para agrupar pedidos (km)
-MAX_CLUSTER_RADIUS_KM = 3.0
+### 7. Adicione as Variáveis de Ambiente
+- Vá em "Environment"
+- Adicione:
+  - `DATA_DIR` = `/data`
+  - `PYTHON_VERSION` = `3.11`
 
-# Máximo de pedidos por motoqueiro
-MAX_ORDERS_PER_COURIER = 2
+### 8. Deploy!
+- Clique em "Create Web Service"
+- Aguarde o deploy (cerca de 2-5 minutos)
+- Quando aparecer "Live", seu app está no ar! 🎉
 
-# Se tem motoboys sobrando, prefere 1 pedido por motoboy
-PREFER_SINGLE_DELIVERY = True
+## 🌐 Acessando o App
+
+Após o deploy, você terá uma URL tipo:
+- `https://motoflash-xxxx.onrender.com`
+
+Páginas:
+- `/` - Dashboard principal
+- `/motoboy` - App do Motoboy (PWA)
+- `/docs` - Documentação da API
+
+## ⚠️ Limitações do Plano Gratuito
+
+- O app "dorme" após 15 minutos sem acesso
+- Demora ~30 segundos para "acordar"
+- Para uso em produção, considere o plano pago (~$7/mês)
+
+## 🔧 Desenvolvimento Local
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
 ```
 
-## 🔮 Próximos passos (V0.2)
+Acesse: http://localhost:8000
 
-- [ ] App mobile para motoqueiro (React Native)
-- [ ] Integração com Google Maps para rotas reais
-- [ ] Tempo médio de preparo por tipo de pedido
-- [ ] Alertas de fila cheia
-- [ ] Dashboard com métricas históricas
-- [ ] Leitor de QR Code real na câmera
-- [ ] Integração com WhatsApp para pedidos
+## 📞 Suporte
 
-## 📝 Licença
-
-Projeto pessoal - MVP para validação de ideia.
+Dúvidas? Entre em contato com o desenvolvedor.

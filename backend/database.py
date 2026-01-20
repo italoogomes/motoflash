@@ -1,10 +1,14 @@
 """
 Configuração do banco de dados SQLite
 """
+import os
 from sqlmodel import SQLModel, create_engine, Session
 
-# SQLite - simples e portátil para MVP
-DATABASE_URL = "sqlite:///./motoboy.db"
+# Verifica se está em produção (Render) ou desenvolvimento local
+# No Render, usa /data para persistência
+DATA_DIR = os.environ.get("DATA_DIR", ".")
+DATABASE_PATH = os.path.join(DATA_DIR, "motoboy.db")
+DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 engine = create_engine(
     DATABASE_URL, 
