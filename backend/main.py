@@ -24,10 +24,17 @@ from routers.settings import router as settings_router
 from services.geocoding_service import geocode_address_detailed
 
 # Pasta para uploads de imagens
-# Em produção (Render), usa /data/uploads para persistência
-DATA_DIR = os.environ.get("DATA_DIR", str(Path(__file__).parent))
+# Em produção (Railway), usa /data/uploads para persistência
+DATA_DIR = os.environ.get("DATA_DIR", "/data")
+# Se /data não existir, usa a pasta local
+if not os.path.exists(DATA_DIR):
+    DATA_DIR = str(Path(__file__).parent)
+
 UPLOAD_DIR = Path(DATA_DIR) / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)  # Cria a pasta se não existir
+
+# Pasta do frontend (agora em static/)
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
@@ -75,10 +82,14 @@ app.add_middleware(
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Serve ícones do PWA
-# Exemplo: /icons/icon-192.png → frontend/icons/icon-192.png
-ICONS_DIR = Path(__file__).parent.parent / "frontend" / "icons"
+# Exemplo: /icons/icon-192.png → static/icons/icon-192.png
+ICONS_DIR = STATIC_DIR / "icons"
 if ICONS_DIR.exists():
     app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
+
+# Serve arquivos estáticos (CSS, JS, etc)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Registra as rotas
 app.include_router(orders_router)
@@ -142,7 +153,7 @@ async def upload_image(file: UploadFile = File(...)):
 def root():
     return {
         "app": "MotoFlash",
-        "version": "0.3.0",
+        "version": "0.8.0",
         "docs": "/docs",
         "status": "running"
     }
@@ -169,15 +180,15 @@ def geocode(address: str, city: str = "Ribeirão Preto", state: str = "SP"):
 
 
 # ============ SERVE FRONTEND ============
-# Permite acessar o app pelo mesmo servidor (só precisa 1 ngrok!)
+# Agora os arquivos estão em static/
 
 # PWA - Manifest
 @app.get("/manifest.json", tags=["PWA"])
 def serve_manifest():
     """Manifest do PWA"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "manifest.json")
-    if os.path.exists(frontend_path):
-        with open(frontend_path, "r", encoding="utf-8") as f:
+    manifest_path = STATIC_DIR / "manifest.json"
+    if manifest_path.exists():
+        with open(manifest_path, "r", encoding="utf-8") as f:
             return Response(content=f.read(), media_type="application/manifest+json")
     return Response(content="{}", media_type="application/json", status_code=404)
 
@@ -185,9 +196,9 @@ def serve_manifest():
 @app.get("/sw.js", tags=["PWA"])
 def serve_service_worker():
     """Service Worker do PWA"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "sw.js")
-    if os.path.exists(frontend_path):
-        with open(frontend_path, "r", encoding="utf-8") as f:
+    sw_path = STATIC_DIR / "sw.js"
+    if sw_path.exists():
+        with open(sw_path, "r", encoding="utf-8") as f:
             return Response(content=f.read(), media_type="application/javascript")
     return Response(content="// Service Worker not found", media_type="application/javascript", status_code=404)
 
@@ -195,41 +206,41 @@ def serve_service_worker():
 @app.get("/motoboy.html", response_class=HTMLResponse, tags=["Frontend"])
 def serve_motoboy():
     """App do Motoboy - acesse /motoboy no celular"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "motoboy.html")
-    if os.path.exists(frontend_path):
-        with open(frontend_path, "r", encoding="utf-8") as f:
+    motoboy_path = STATIC_DIR / "motoboy.html"
+    if motoboy_path.exists():
+        with open(motoboy_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque o frontend na pasta ../frontend/</p>", status_code=404)
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque motoboy.html na pasta static/</p>", status_code=404)
 
 
 @app.get("/dashboard", response_class=HTMLResponse, tags=["Frontend"])
 @app.get("/index.html", response_class=HTMLResponse, tags=["Frontend"])
 def serve_dashboard():
     """Dashboard do Restaurante - acesse /dashboard"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
-    if os.path.exists(frontend_path):
-        with open(frontend_path, "r", encoding="utf-8") as f:
+    index_path = STATIC_DIR / "index.html"
+    if index_path.exists():
+        with open(index_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque o frontend na pasta ../frontend/</p>", status_code=404)
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque index.html na pasta static/</p>", status_code=404)
 
 
 @app.get("/cardapio", response_class=HTMLResponse, tags=["Frontend"])
 @app.get("/cardapio.html", response_class=HTMLResponse, tags=["Frontend"])
 def serve_cardapio():
     """Gerenciamento de Cardápio - acesse /cardapio"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "cardapio.html")
-    if os.path.exists(frontend_path):
-        with open(frontend_path, "r", encoding="utf-8") as f:
+    cardapio_path = STATIC_DIR / "cardapio.html"
+    if cardapio_path.exists():
+        with open(cardapio_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque o frontend na pasta ../frontend/</p>", status_code=404)
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque cardapio.html na pasta static/</p>", status_code=404)
 
 
 @app.get("/clientes", response_class=HTMLResponse, tags=["Frontend"])
 @app.get("/clientes.html", response_class=HTMLResponse, tags=["Frontend"])
 def serve_clientes():
     """Cadastro de Clientes - acesse /clientes"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "clientes.html")
-    if os.path.exists(frontend_path):
-        with open(frontend_path, "r", encoding="utf-8") as f:
+    clientes_path = STATIC_DIR / "clientes.html"
+    if clientes_path.exists():
+        with open(clientes_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque o frontend na pasta ../frontend/</p>", status_code=404)
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque clientes.html na pasta static/</p>", status_code=404)
