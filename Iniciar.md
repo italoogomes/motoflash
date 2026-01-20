@@ -23,4 +23,4 @@
    {
      "restaurant_name": "Nome do Restaurante",
      "address": "Rua Visconde de Inhauma, 2235 - Jardim Sumaré, Ribeirão Preto"
-   }
+   } 
