@@ -143,6 +143,9 @@ class Courier(SQLModel, table=True):
     last_lat: Optional[float] = None
     last_lng: Optional[float] = None
     
+    # Token para Push Notifications (Firebase Cloud Messaging)
+    push_token: Optional[str] = None
+    
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)

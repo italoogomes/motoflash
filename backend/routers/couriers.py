@@ -225,3 +225,34 @@ def update_location(
     session.commit()
     
     return {"message": "Localização atualizada"}
+
+
+@router.put("/{courier_id}/push-token")
+def update_push_token(
+    courier_id: str,
+    token: str,
+    session: Session = Depends(get_session)
+):
+    """
+    Salva o token de Push Notification do motoboy
+    
+    O app do motoboy chama isso quando:
+    1. Usuário dá permissão para notificações
+    2. Firebase gera o token único do dispositivo
+    3. App envia o token pra cá → salva no banco
+    
+    Depois, o backend usa esse token para enviar notificações!
+    """
+    courier = session.get(Courier, courier_id)
+    if not courier:
+        raise HTTPException(status_code=404, detail="Motoqueiro não encontrado")
+    
+    courier.push_token = token
+    courier.updated_at = datetime.now()
+    
+    session.add(courier)
+    session.commit()
+    
+    print(f"✅ Push token salvo para {courier.name}")
+    
+    return {"message": "Token salvo com sucesso"}

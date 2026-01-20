@@ -22,6 +22,7 @@ from models import (
     OrderStatus, CourierStatus, BatchStatus,
     DispatchResult
 )
+from services.push_service import notify_new_batch
 
 
 # ============ CONFIGURAÇÕES DO DISPATCH V0.5 ============
@@ -438,8 +439,10 @@ def run_dispatch(session: Session) -> DispatchResult:
         
         # Ordena pedidos do cluster pela ROTA REAL (Google Directions API)
         # Considera sentido das vias, mão única, etc.
-        start_lat = courier.last_lat or -21.2020  # Restaurante: Rua Visconde de Inhaúma, 2235
-        start_lng = courier.last_lng or -47.8130
+        # SEMPRE usa o restaurante como ponto de partida (não a posição do motoboy)
+        # O motoboy sai do restaurante com os pedidos, então a rota começa de lá
+        start_lat = -21.2020  # Restaurante: Rua Visconde de Inhaúma, 2235
+        start_lng = -47.8130
         
         # USA GOOGLE PARA OTIMIZAR! (com fallback para distância euclidiana)
         sorted_cluster = optimize_route_with_google(cluster, start_lat, start_lng)
@@ -455,6 +458,14 @@ def run_dispatch(session: Session) -> DispatchResult:
         courier.status = CourierStatus.BUSY
         courier.updated_at = datetime.now()
         session.add(courier)
+        
+        # 🔔 ENVIA PUSH NOTIFICATION para o motoboy!
+        if courier.push_token:
+            notify_new_batch(
+                token=courier.push_token,
+                order_count=len(cluster),
+                batch_id=batch.id
+            )
         
         # Guarda referência para possível adição de pedidos órfãos
         batch_orders_map[batch.id] = sorted_cluster.copy()

@@ -13,7 +13,7 @@
     <meta name="msapplication-TileColor" content="#f97316">
     <meta name="msapplication-tap-highlight" content="no">
     
-    <title>MotoFlash - Motoboy v0.7</title>
+    <title>MotoFlash - Motoboy v0.8</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -47,6 +47,10 @@
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js"></script>
     
     <style>
         body { 
@@ -100,18 +104,26 @@
                     .then((registration) => {
                         console.log('✅ Service Worker registrado:', registration.scope);
                         
-                        // Verifica atualizações
+                        // Verifica atualizações silenciosamente
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // Nova versão disponível
-                                    if (confirm('Nova versão disponível! Deseja atualizar?')) {
-                                        newWorker.postMessage('skipWaiting');
-                                        window.location.reload();
-                                    }
+                                    // Nova versão disponível - atualiza silenciosamente
+                                    console.log('🔄 Nova versão do Service Worker disponível');
+                                    newWorker.postMessage('skipWaiting');
                                 }
                             });
+                        });
+                        
+                        // Recarrega quando o novo SW assumir
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            console.log('🔄 Service Worker atualizado, recarregando...');
+                            // Usa flag para evitar loop de recarregamento
+                            if (!window.swReloading) {
+                                window.swReloading = true;
+                                window.location.reload();
+                            }
                         });
                     })
                     .catch((error) => {
@@ -199,6 +211,126 @@
                 console.error('❌ Erro ao buscar configurações:', err);
                 return false;
             }
+        }
+        
+        // ============ FIREBASE PUSH NOTIFICATIONS ============
+        
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAiSSKyuApZdCauW40rWkz5V-0F0IiKyuk",
+            authDomain: "motoflash-80f6a.firebaseapp.com",
+            projectId: "motoflash-80f6a",
+            storageBucket: "motoflash-80f6a.firebasestorage.app",
+            messagingSenderId: "567462227460",
+            appId: "1:567462227460:web:9349a2e8425fb358398f51"
+        };
+        
+        // VAPID Key para Web Push
+        const VAPID_KEY = "BJzpNCAxOA2i6mD5atvVDECIq60dozyGZPHYxrVAuCX8q5K2p9M2jfcLZ8oRH06DP7AVB8rb6khsTGi8d_CY19s";
+        
+        let messaging = null;
+        
+        // Inicializa Firebase
+        function initFirebase() {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                messaging = firebase.messaging();
+                console.log('🔥 Firebase inicializado');
+                return true;
+            } catch (err) {
+                console.error('❌ Erro ao inicializar Firebase:', err);
+                return false;
+            }
+        }
+        
+        // Solicita permissão e obtém token
+        async function requestNotificationPermission(courierId) {
+            try {
+                // Verifica se o navegador suporta notificações
+                if (!('Notification' in window)) {
+                    console.warn('⚠️ Navegador não suporta notificações');
+                    return null;
+                }
+                
+                // Solicita permissão
+                const permission = await Notification.requestPermission();
+                console.log('🔔 Permissão de notificação:', permission);
+                
+                if (permission !== 'granted') {
+                    console.warn('⚠️ Permissão negada para notificações');
+                    return null;
+                }
+                
+                // Inicializa Firebase se ainda não foi
+                if (!messaging) {
+                    if (!initFirebase()) return null;
+                }
+                
+                // Registra o Service Worker do Firebase
+                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                console.log('📱 Service Worker Firebase registrado');
+                
+                // Obtém o token FCM
+                const token = await messaging.getToken({
+                    vapidKey: VAPID_KEY,
+                    serviceWorkerRegistration: registration
+                });
+                
+                if (token) {
+                    console.log('🎫 Token FCM obtido:', token.substring(0, 20) + '...');
+                    
+                    // Envia o token para o backend salvar
+                    await savePushToken(courierId, token);
+                    
+                    return token;
+                } else {
+                    console.warn('⚠️ Não foi possível obter token FCM');
+                    return null;
+                }
+                
+            } catch (err) {
+                console.error('❌ Erro ao solicitar permissão:', err);
+                return null;
+            }
+        }
+        
+        // Salva o token no backend
+        async function savePushToken(courierId, token) {
+            try {
+                const res = await fetch(`${API_URL}/couriers/${courierId}/push-token?token=${encodeURIComponent(token)}`, {
+                    method: 'PUT'
+                });
+                
+                if (res.ok) {
+                    console.log('✅ Token salvo no backend');
+                } else {
+                    console.error('❌ Erro ao salvar token:', res.status);
+                }
+            } catch (err) {
+                console.error('❌ Erro ao salvar token:', err);
+            }
+        }
+        
+        // Configura listener para mensagens em foreground
+        function setupForegroundMessages() {
+            if (!messaging) return;
+            
+            messaging.onMessage((payload) => {
+                console.log('📩 Push recebido em foreground:', payload);
+                
+                // Mostra notificação mesmo com app aberto
+                if (Notification.permission === 'granted') {
+                    new Notification(payload.notification?.title || '🏍️ MotoFlash', {
+                        body: payload.notification?.body || 'Nova notificação',
+                        icon: '/icons/icon-192.png',
+                        badge: '/icons/icon-96.png',
+                        tag: 'motoflash-foreground',
+                        vibrate: [200, 100, 200]
+                    });
+                }
+            });
         }
         
         // ============ COMPONENTE LOGO ============
@@ -384,10 +516,17 @@
                 setLoading(false);
             };
             
-            const handleLogin = () => {
+            const handleLogin = async () => {
                 if (selectedCourier) {
                     localStorage.setItem('motoboy_id', selectedCourier.id);
                     localStorage.setItem('motoboy_name', selectedCourier.name);
+                    
+                    // Solicita permissão de notificação e salva token
+                    await requestNotificationPermission(selectedCourier.id);
+                    
+                    // Configura listener para mensagens em foreground
+                    setupForegroundMessages();
+                    
                     onLogin(selectedCourier);
                 }
             };
@@ -1138,9 +1277,15 @@
                 if (savedId && savedName) {
                     fetch(`${API_URL}/couriers`)
                         .then(res => res.json())
-                        .then(couriers => {
+                        .then(async (couriers) => {
                             const found = couriers.find(c => c.id === savedId);
-                            if (found) setCourier(found);
+                            if (found) {
+                                setCourier(found);
+                                
+                                // Solicita permissão de notificação (se ainda não tem)
+                                await requestNotificationPermission(found.id);
+                                setupForegroundMessages();
+                            }
                             else {
                                 localStorage.removeItem('motoboy_id');
                                 localStorage.removeItem('motoboy_name');

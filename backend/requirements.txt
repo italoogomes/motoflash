@@ -18,3 +18,8 @@ pydantic==2.5.3
 # Utilitários
 python-multipart==0.0.6
 httpx==0.26.0
+
+# Firebase Push Notifications
+google-auth==2.27.0
+google-auth-httplib2==0.2.0
+requests==2.31.0

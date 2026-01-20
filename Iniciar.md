@@ -17,3 +17,10 @@
 * **Abrir App Motoboy:** https://luxuriant-staci-uncheckmated.ngrok-free.dev/motoboy
 
 * **Rodar Painel de Controle:** https://luxuriant-staci-uncheckmated.ngrok-free.dev/dashboard
+
+* **Configure o endereço do restaurante:** http://localhost:8000/docs
+
+   {
+     "restaurant_name": "Nome do Restaurante",
+     "address": "Rua Visconde de Inhauma, 2235 - Jardim Sumaré, Ribeirão Preto"
+   }
