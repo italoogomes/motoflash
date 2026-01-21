@@ -5,10 +5,10 @@ Algoritmo inteligente que:
 1. PRIMEIRO: Agrupa pedidos do MESMO endereço (nunca separa!)
 2. SEGUNDO: SEMPRE agrupa pedidos próximos (até 3km) - otimiza rotas!
 3. TERCEIRO: USA GOOGLE DIRECTIONS para ordenar pela ROTA REAL (considera mão única!)
-4. QUARTO: Distribui lotes otimizados para motoqueiros
+4. QUARTO: Se pedidos na MESMA RUA → ordena por distância do restaurante
 5. QUINTO: Pedidos órfãos vão pra rota mais próxima (NUNCA fica parado!)
 
-Versão V0.6 - Otimização SEM considerar volta ao restaurante
+Versão V0.7 - Detecção de mesma rua + ordenação por distância
 """
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional, Dict
@@ -25,7 +25,7 @@ from models import (
 from services.push_service import notify_new_batch
 
 
-# ============ CONFIGURAÇÕES DO DISPATCH V0.6 ============
+# ============ CONFIGURAÇÕES DO DISPATCH V0.7 ============
 
 # API Key do Google Maps (mesma usada no frontend)
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "AIzaSyDAMV5FvQAEPacHSSBLScr5LIALFQ6qpmU")
@@ -137,6 +137,39 @@ def sort_orders_by_distance(orders: List[Order], start_lat: float, start_lng: fl
     return sorted_orders
 
 
+# ============ DETECÇÃO DE MESMA RUA ============
+
+def extract_street_name(address: str) -> str:
+    """
+    Extrai o nome da rua de um endereço
+    Ex: "Rua General Osório, 634 - Centro" -> "rua general osorio"
+    """
+    if not address:
+        return ""
+    
+    # Pega a parte antes da vírgula (nome da rua)
+    parts = address.split(",")
+    street = parts[0].strip().lower()
+    
+    # Remove acentos para comparação
+    import unicodedata
+    street = unicodedata.normalize('NFD', street)
+    street = ''.join(c for c in street if unicodedata.category(c) != 'Mn')
+    
+    return street
+
+
+def are_same_street(orders: List[Order]) -> bool:
+    """
+    Verifica se todos os pedidos estão na mesma rua
+    """
+    if len(orders) <= 1:
+        return True
+    
+    streets = [extract_street_name(o.address_text) for o in orders]
+    return len(set(streets)) == 1
+
+
 # ============ OTIMIZAÇÃO VIA GOOGLE DIRECTIONS API ============
 
 def optimize_route_with_google(
@@ -147,40 +180,53 @@ def optimize_route_with_google(
     """
     USA A API DO GOOGLE PARA OTIMIZAR A ORDEM DAS ENTREGAS!
     
-    VERSÃO V0.6: NÃO considera a volta ao restaurante!
-    Isso faz o algoritmo priorizar a ordem natural da ida.
+    VERSÃO V0.7: 
+    - Se todos os pedidos estão na MESMA RUA → ordena por distância do restaurante
+    - Se estão em ruas diferentes → usa Google Directions API
     
-    Isso considera:
-    - Distância real pelas ruas (não linha reta)
-    - Sentido das vias (mão única, retornos proibidos)
-    - Melhor ordem para minimizar tempo/distância NA IDA
-    
-    Se a API falhar, usa o fallback de distância euclidiana.
+    Isso resolve o problema do Google inverter pedidos na mesma rua.
     """
     if len(orders) <= 1:
         return orders
     
-    try:
-        # Encontra o pedido mais distante do restaurante para usar como destino final
-        # Assim o Google otimiza a IDA sem considerar volta
-        farthest_order = max(
+    # NOVO: Se todos os pedidos estão na mesma rua, usa distância simples
+    if are_same_street(orders):
+        print(f"📍 Pedidos na MESMA RUA detectados! Usando distância do restaurante...")
+        sorted_orders = sorted(
             orders,
             key=lambda o: haversine_distance(start_lat, start_lng, o.lat, o.lng)
         )
-        
-        # Separa: waypoints = todos exceto o mais distante, destination = mais distante
-        waypoint_orders = [o for o in orders if o.id != farthest_order.id]
+        print(f"   Ordem por distância: {[o.address_text[:30] for o in sorted_orders]}")
+        return sorted_orders
+    
+    try:
+        # Log dos pedidos recebidos
+        print(f"🗺️ === DEBUG GOOGLE DIRECTIONS API ===")
+        print(f"   Restaurante: {start_lat}, {start_lng}")
+        print(f"   Pedidos recebidos ({len(orders)}):")
+        for i, o in enumerate(orders):
+            dist = haversine_distance(start_lat, start_lng, o.lat, o.lng)
+            print(f"      [{i}] {o.address_text[:40]} | lat={o.lat}, lng={o.lng} | dist={dist:.3f}km")
         
         # Monta a requisição para a API
         origin = f"{start_lat},{start_lng}"
-        destination = f"{farthest_order.lat},{farthest_order.lng}"
+        
+        # Usa o último pedido da lista como destino (não volta ao restaurante)
+        # Ordena por distância para pegar o mais longe
+        orders_by_distance = sorted(
+            orders,
+            key=lambda o: haversine_distance(start_lat, start_lng, o.lat, o.lng)
+        )
+        final_order = orders_by_distance[-1]
+        destination = f"{final_order.lat},{final_order.lng}"
+        
+        # Waypoints são todos os outros
+        waypoint_orders = [o for o in orders if o.id != final_order.id]
         
         if waypoint_orders:
-            # Tem pontos intermediários para otimizar
             waypoints = "|".join([f"{o.lat},{o.lng}" for o in waypoint_orders])
             waypoints_param = f"optimize:true|{waypoints}"
         else:
-            # Só tem 1 pedido além do destino - não precisa de waypoints
             waypoints_param = None
         
         url = "https://maps.googleapis.com/maps/api/directions/json"
@@ -195,40 +241,46 @@ def optimize_route_with_google(
         if waypoints_param:
             params["waypoints"] = waypoints_param
         
-        print(f"🗺️ Chamando Google Directions API para otimizar {len(orders)} entregas (SEM volta)...")
+        print(f"   === CHAMADA API ===")
+        print(f"   origin: {origin}")
+        print(f"   destination: {destination} ({final_order.address_text[:30]})")
+        print(f"   waypoints: {waypoints_param}")
         
         with httpx.Client(timeout=10.0) as client:
             response = client.get(url, params=params)
             data = response.json()
         
+        print(f"   === RESPOSTA API ===")
+        print(f"   status: {data.get('status')}")
+        
         if data.get("status") != "OK":
-            print(f"⚠️ Google API retornou: {data.get('status')} - usando fallback")
+            print(f"⚠️ Google API erro: {data.get('status')} - usando fallback")
             return sort_orders_by_distance(orders, start_lat, start_lng)
         
+        # Log detalhado da resposta
+        route = data["routes"][0]
+        waypoint_order = route.get("waypoint_order", [])
+        print(f"   waypoint_order retornado: {waypoint_order}")
+        
+        # Mostra as legs da rota
+        legs = route.get("legs", [])
+        print(f"   legs ({len(legs)}):")
+        for i, leg in enumerate(legs):
+            print(f"      Leg {i}: {leg.get('start_address', 'N/A')[:30]} -> {leg.get('end_address', 'N/A')[:30]}")
+            print(f"              Distância: {leg.get('distance', {}).get('text', 'N/A')}, Duração: {leg.get('duration', {}).get('text', 'N/A')}")
+        
         # Monta a rota otimizada
-        if waypoint_orders:
-            # Pega a ordem otimizada dos waypoints
-            waypoint_order = data["routes"][0].get("waypoint_order", [])
-            
-            if waypoint_order:
-                # Reordena os waypoints conforme a otimização do Google
-                optimized_waypoints = [waypoint_orders[i] for i in waypoint_order]
-            else:
-                optimized_waypoints = waypoint_orders
-            
-            # A rota final é: waypoints otimizados + destino (mais distante) no final
-            optimized_orders = optimized_waypoints + [farthest_order]
+        if waypoint_orders and waypoint_order:
+            optimized_waypoints = [waypoint_orders[i] for i in waypoint_order]
+            optimized_orders = optimized_waypoints + [final_order]
+        elif waypoint_orders:
+            optimized_orders = waypoint_orders + [final_order]
         else:
-            # Só tinha 2 pedidos: origem -> destino direto
-            optimized_orders = [farthest_order]
+            optimized_orders = [final_order]
         
-        print(f"✅ Rota otimizada pelo Google (SEM volta)!")
-        
-        # Log da diferença
-        original_order = [o.address_text[:30] for o in orders]
-        optimized_order = [o.address_text[:30] for o in optimized_orders]
-        print(f"   Original: {original_order}")
-        print(f"   Otimizada: {optimized_order}")
+        print(f"   === RESULTADO ===")
+        print(f"   Ordem final: {[o.address_text[:30] for o in optimized_orders]}")
+        print(f"🗺️ === FIM DEBUG ===")
         
         return optimized_orders
         
