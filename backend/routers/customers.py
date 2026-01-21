@@ -10,6 +10,7 @@ Cada função é uma AÇÃO que alguém pode pedir:
 """
 from datetime import datetime
 from typing import List
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
@@ -20,6 +21,24 @@ from models import Customer, CustomerCreate, CustomerUpdate, CustomerResponse
 # prefix="/customers" = todas as rotas começam com /customers
 # tags=["Clientes"] = organiza na documentação
 router = APIRouter(prefix="/customers", tags=["Clientes"])
+
+
+# ============ FUNÇÃO AUXILIAR PARA NORMALIZAR TEXTO ============
+
+def normalize_text(text: str) -> str:
+    """
+    Remove acentos e converte para minúsculas.
+    "Ítalo" → "italo"
+    "João" → "joao"
+    """
+    if not text:
+        return ""
+    # Remove acentos usando NFD (decompõe caracteres acentuados)
+    normalized = unicodedata.normalize('NFD', text)
+    # Remove os caracteres de combinação (acentos)
+    without_accents = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    # Converte para minúsculas
+    return without_accents.lower()
 
 
 # ============ CRIAR CLIENTE ============
@@ -100,22 +119,24 @@ def list_customers(
     
     Pode filtrar por nome ou telefone usando ?search=texto
     Exemplo: /customers?search=joao
+    
+    A busca ignora acentos e maiúsculas/minúsculas!
+    "italo" encontra "Ítalo"
+    "joao" encontra "João"
     """
     
-    # Começa a busca
+    # Busca todos os clientes ordenados por nome
     query = select(Customer).order_by(Customer.name)
-    
-    # Se passou um filtro, aplica
-    if search:
-        # ilike = busca ignorando maiúsculas/minúsculas
-        # % = qualquer coisa antes ou depois
-        search_term = f"%{search}%"
-        query = query.where(
-            (Customer.name.ilike(search_term)) | 
-            (Customer.phone.ilike(search_term))
-        )
-    
     customers = session.exec(query).all()
+    
+    # Se passou um filtro, aplica no Python (ignora acentos e case)
+    if search:
+        search_normalized = normalize_text(search)
+        customers = [
+            c for c in customers
+            if search_normalized in normalize_text(c.name or '') or
+               search_normalized in normalize_text(c.phone or '')
+        ]
     
     return [
         CustomerResponse(
