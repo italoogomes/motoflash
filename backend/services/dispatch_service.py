@@ -7,8 +7,9 @@ Algoritmo inteligente que:
 3. TERCEIRO: Calcula distância REAL por rota (não linha reta) de cada pedido
 4. QUARTO: Ordena pelo mais perto POR ROTA primeiro
 5. QUINTO: Pedidos órfãos vão pra rota mais próxima (NUNCA fica parado!)
+6. NOVO: Retorna polyline da rota para desenhar no mapa!
 
-Versão V0.8 - Usa distância REAL por rota (Google) ao invés de linha reta
+Versão V0.9 - Adiciona polyline da rota real (Google)
 """
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional, Dict
@@ -25,7 +26,7 @@ from models import (
 from services.push_service import notify_new_batch
 
 
-# ============ CONFIGURAÇÕES DO DISPATCH V0.8 ============
+# ============ CONFIGURAÇÕES DO DISPATCH V0.9 ============
 
 # API Key do Google Maps (mesma usada no frontend)
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "AIzaSyDAMV5FvQAEPacHSSBLScr5LIALFQ6qpmU")
@@ -197,6 +198,126 @@ def get_driving_distance(start_lat: float, start_lng: float, end_lat: float, end
             return haversine_distance(start_lat, start_lng, end_lat, end_lng) * 1000 * 1.4
     except:
         return haversine_distance(start_lat, start_lng, end_lat, end_lng) * 1000 * 1.4
+
+
+# ============ POLYLINE DA ROTA (NOVO V0.9) ============
+
+def get_route_polyline(
+    orders: List[Order], 
+    start_lat: float, 
+    start_lng: float,
+    include_return: bool = False
+) -> Optional[str]:
+    """
+    NOVO V0.9: Obtém a polyline encoded da rota completa
+    
+    Chama o Google Directions API UMA vez com todos os waypoints
+    e retorna a polyline que pode ser desenhada no mapa.
+    
+    Args:
+        orders: Lista de pedidos ordenados
+        start_lat, start_lng: Coordenadas do restaurante
+        include_return: Se deve incluir volta ao restaurante
+    
+    Returns:
+        String da polyline encoded ou None se falhar
+    """
+    if not orders:
+        return None
+    
+    try:
+        # Origem: restaurante
+        origin = f"{start_lat},{start_lng}"
+        
+        # Destino: último pedido (ou restaurante se include_return)
+        if include_return:
+            destination = origin
+            # Todos os pedidos são waypoints
+            waypoint_coords = [f"{o.lat},{o.lng}" for o in orders]
+        else:
+            # Último pedido é o destino
+            destination = f"{orders[-1].lat},{orders[-1].lng}"
+            # Pedidos intermediários são waypoints
+            waypoint_coords = [f"{o.lat},{o.lng}" for o in orders[:-1]]
+        
+        url = "https://maps.googleapis.com/maps/api/directions/json"
+        params = {
+            "origin": origin,
+            "destination": destination,
+            "mode": "driving",
+            "key": GOOGLE_MAPS_API_KEY
+        }
+        
+        # Adiciona waypoints se houver
+        if waypoint_coords:
+            # SEM optimize:true para manter a ordem que já calculamos
+            params["waypoints"] = "|".join(waypoint_coords)
+        
+        print(f"🗺️ Buscando polyline da rota...")
+        print(f"   Origin: {origin}")
+        print(f"   Destination: {destination}")
+        if waypoint_coords:
+            print(f"   Waypoints: {len(waypoint_coords)}")
+        
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(url, params=params)
+            data = response.json()
+        
+        if data.get("status") == "OK":
+            polyline = data["routes"][0]["overview_polyline"]["points"]
+            print(f"✅ Polyline obtida! ({len(polyline)} chars)")
+            return polyline
+        else:
+            print(f"⚠️ Google API retornou: {data.get('status')}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Erro ao buscar polyline: {e}")
+        return None
+
+
+def get_batch_route_polyline(session: Session, batch_id: str) -> Optional[dict]:
+    """
+    NOVO V0.9: Endpoint helper para obter a polyline de um batch
+    
+    Retorna dict com:
+        - polyline: string encoded
+        - start: {lat, lng} do restaurante
+        - orders: lista de {lat, lng, address} na ordem
+    """
+    # Busca os pedidos do batch ordenados
+    orders = session.exec(
+        select(Order)
+        .where(Order.batch_id == batch_id)
+        .order_by(Order.stop_order)
+    ).all()
+    
+    if not orders:
+        return None
+    
+    # Busca configurações do restaurante
+    from models import Settings
+    settings = session.exec(select(Settings)).first()
+    
+    if not settings or not settings.lat or not settings.lng:
+        # Fallback para coordenadas hardcoded
+        start_lat = -21.2020
+        start_lng = -47.8130
+    else:
+        start_lat = settings.lat
+        start_lng = settings.lng
+    
+    # Obtém a polyline
+    polyline = get_route_polyline(list(orders), start_lat, start_lng)
+    
+    return {
+        "polyline": polyline,
+        "start": {"lat": start_lat, "lng": start_lng},
+        "orders": [
+            {"lat": o.lat, "lng": o.lng, "address": o.address_text}
+            for o in orders
+        ]
+    }
 
 
 # ============ OTIMIZAÇÃO VIA GOOGLE DIRECTIONS API ============

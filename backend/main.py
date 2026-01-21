@@ -1,7 +1,7 @@
 """
 MotoFlash - Sistema de Despacho Inteligente para Entregas
 
-MVP V0.8
+MVP V0.9 - Polyline da rota real (Google)
 
 Execute com: uvicorn main:app --reload
 Docs: http://localhost:8000/docs
@@ -16,12 +16,15 @@ import uuid
 import shutil
 from pathlib import Path
 
-from database import create_db_and_tables
+from database import create_db_and_tables, get_session
+from sqlmodel import Session
+from fastapi import Depends
 from routers import orders_router, couriers_router, dispatch_router
 from routers.menu import router as menu_router
 from routers.customers import router as customers_router
 from routers.settings import router as settings_router
 from services.geocoding_service import geocode_address_detailed
+from services.dispatch_service import get_batch_route_polyline
 
 # Pasta para uploads de imagens
 # Em produção (Railway), usa /data/uploads para persistência
@@ -64,7 +67,7 @@ app = FastAPI(
     4. Motoqueiro recebe lote de entregas
     5. Motoqueiro finaliza → Disponível para novo lote
     """,
-    version="0.8.0",
+    version="0.9.0",
     lifespan=lifespan
 )
 
@@ -153,7 +156,7 @@ async def upload_image(file: UploadFile = File(...)):
 def root():
     return {
         "app": "MotoFlash",
-        "version": "0.8.0",
+        "version": "0.9.0",
         "docs": "/docs",
         "status": "running"
     }
@@ -176,6 +179,29 @@ def geocode(address: str, city: str = "Ribeirão Preto", state: str = "SP"):
     Exemplo: /geocode?address=Rua Visconde de Inhaúma, 2235
     """
     result = geocode_address_detailed(address, city, state)
+    return result
+
+
+# ============ POLYLINE DA ROTA (V0.9) ============
+
+@app.get("/batches/{batch_id}/polyline", tags=["Dispatch"])
+def get_polyline(batch_id: str, session: Session = Depends(get_session)):
+    """
+    Retorna a polyline da rota do batch para desenhar no mapa.
+    
+    Usa Google Directions API para obter a rota REAL
+    (seguindo as ruas, não linha reta).
+    
+    Retorna:
+    - polyline: string encoded (formato Google)
+    - start: coordenadas do restaurante
+    - orders: lista de coordenadas dos pedidos
+    
+    O frontend decodifica a polyline e desenha no mapa Leaflet.
+    """
+    result = get_batch_route_polyline(session, batch_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Batch não encontrado ou sem pedidos")
     return result
 
 

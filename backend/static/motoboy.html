@@ -13,7 +13,7 @@
     <meta name="msapplication-TileColor" content="#f97316">
     <meta name="msapplication-tap-highlight" content="no">
     
-    <title>MotoFlash - Motoboy v1.2.2</title>
+    <title>MotoFlash - Motoboy v1.2.3</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -351,6 +351,74 @@
             }
         };
         
+        // ============ POLYLINE DO GOOGLE (V0.9) ============
+        
+        // Decodifica polyline encoded do Google para array de [lat, lng]
+        const decodePolyline = (encoded) => {
+            if (!encoded) return [];
+            
+            const points = [];
+            let index = 0;
+            let lat = 0;
+            let lng = 0;
+            
+            while (index < encoded.length) {
+                let shift = 0;
+                let result = 0;
+                let byte;
+                
+                // Decodifica latitude
+                do {
+                    byte = encoded.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+                
+                const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+                lat += dlat;
+                
+                // Decodifica longitude
+                shift = 0;
+                result = 0;
+                
+                do {
+                    byte = encoded.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+                
+                const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
+                lng += dlng;
+                
+                points.push([lat / 1e5, lng / 1e5]);
+            }
+            
+            return points;
+        };
+        
+        // Busca polyline da rota do backend (usa Google Directions API)
+        const fetchGooglePolyline = async (batchId) => {
+            if (!batchId) return null;
+            
+            try {
+                const res = await fetch(`${API_URL}/batches/${batchId}/polyline`);
+                if (!res.ok) return null;
+                
+                const data = await res.json();
+                if (!data?.polyline) return null;
+                
+                console.log('✅ Polyline do Google recebida!');
+                return {
+                    coordinates: decodePolyline(data.polyline),
+                    start: data.start,
+                    orders: data.orders
+                };
+            } catch (err) {
+                console.error('Erro ao buscar polyline:', err);
+                return null;
+            }
+        };
+        
         const calculateDistance = (lat1, lng1, lat2, lng2) => {
             const R = 6371000;
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -574,20 +642,21 @@
                             </>
                         )}
                     </Card>
-                    <p className="text-orange-200 text-sm mt-6">MotoFlash v0.6</p>
+                    <p className="text-orange-200 text-sm mt-6">MotoFlash v1.2.3</p>
                 </div>
             );
         };
         
         // ============ COMPONENTE DO MAPA (LEAFLET) ============
         
-        const DeliveryMap = ({ orders, restaurantLocation, currentPosition, routeStarted, returningHome }) => {
+        const DeliveryMap = ({ orders, restaurantLocation, currentPosition, routeStarted, returningHome, batchId }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
             const markersLayerRef = useRef(null);
             const routeLayerRef = useRef(null);
             const positionMarkerRef = useRef(null);
             const initialFitDoneRef = useRef(false);
+            const googlePolylineRef = useRef(null); // Cache da polyline do Google
             
             const createIcon = (html, size = [36, 36]) => {
                 return L.divIcon({
@@ -710,25 +779,51 @@
                 if (routeStarted && routeCoords.length > 1) {
                     const routeColor = returningHome ? '#22c55e' : '#f97316';
                     
-                    fetchOSRMRoute(routeCoords).then(routeData => {
+                    // NOVO V0.9: Tenta usar polyline do Google primeiro
+                    const drawRoute = async () => {
                         if (!mapInstanceRef.current) return;
                         routeLayerRef.current.clearLayers();
                         
+                        // 1. Tenta polyline do Google (se tiver batchId)
+                        if (batchId && !googlePolylineRef.current) {
+                            const googleData = await fetchGooglePolyline(batchId);
+                            if (googleData?.coordinates?.length > 0) {
+                                googlePolylineRef.current = googleData.coordinates;
+                                console.log('🗺️ Usando rota do Google!');
+                            }
+                        }
+                        
+                        if (googlePolylineRef.current) {
+                            // Desenha a polyline do Google (rota real!)
+                            L.polyline(googlePolylineRef.current, {
+                                color: routeColor,
+                                weight: 6,
+                                opacity: 0.85,
+                            }).addTo(routeLayerRef.current);
+                            return;
+                        }
+                        
+                        // 2. Fallback: OSRM
+                        const routeData = await fetchOSRMRoute(routeCoords);
                         if (routeData?.coordinates) {
                             L.polyline(routeData.coordinates, {
                                 color: routeColor,
                                 weight: 6,
                                 opacity: 0.85,
                             }).addTo(routeLayerRef.current);
-                        } else {
-                            L.polyline(routeCoords, {
-                                color: routeColor,
-                                weight: 5,
-                                opacity: 0.8,
-                                dashArray: '10, 10',
-                            }).addTo(routeLayerRef.current);
+                            return;
                         }
-                    });
+                        
+                        // 3. Último fallback: linhas retas (tracejadas)
+                        L.polyline(routeCoords, {
+                            color: routeColor,
+                            weight: 5,
+                            opacity: 0.8,
+                            dashArray: '10, 10',
+                        }).addTo(routeLayerRef.current);
+                    };
+                    
+                    drawRoute();
                     
                     if (!initialFitDoneRef.current) {
                         const bounds = L.latLngBounds(routeCoords);
@@ -743,7 +838,7 @@
                     }
                 }
                 
-            }, [orders, restaurantLocation, routeStarted, returningHome, currentPosition]);
+            }, [orders, restaurantLocation, routeStarted, returningHome, currentPosition, batchId]);
             
             const centerOnMe = () => {
                 if (mapInstanceRef.current && currentPosition) {
@@ -1075,6 +1170,7 @@
                                     currentPosition={currentPosition}
                                     routeStarted={routeStarted}
                                     returningHome={returningHome}
+                                    batchId={batch.id}
                                 />
                             </div>
                             
