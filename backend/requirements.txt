@@ -1,20 +1,27 @@
-# MotoFlash - Dependências Python
+# MotoFlash - Dependências
 
-# Framework web
-fastapi
-uvicorn[standard]
+# Framework Web
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
 
-# ORM e banco de dados
-sqlmodel
-sqlalchemy
+# Banco de Dados
+sqlmodel>=0.0.14
 
 # QR Code
-qrcode[pil]
-pillow
+qrcode[pil]>=7.4.2
 
-# Validação
-pydantic
+# Requisições HTTP (para Geocoding)
+httpx>=0.26.0
 
-# Utilitários
-python-multipart
-httpx
+# Variáveis de ambiente
+python-dotenv>=1.0.0
+
+# Firebase Admin (Push Notifications)
+firebase-admin>=6.4.0
+
+# Autenticação JWT + Hash de Senha
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+
+# Multipart (upload de arquivos)
+python-multipart>=0.0.6

@@ -1,7 +1,12 @@
 """
 Modelos de dados do sistema de entregas
+
+MULTI-RESTAURANTE (SaaS)
+- Cada restaurante tem seus próprios dados isolados
+- Sistema de trial de 14 dias + planos pagos
+- Autenticação JWT por usuário
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
@@ -34,7 +39,101 @@ class BatchStatus(str, Enum):
     DONE = "done"               # Todas entregas feitas
 
 
-# ============ TABELAS ============
+# ============ NOVOS ENUMS (MULTI-RESTAURANTE) ============
+
+class PlanType(str, Enum):
+    """Planos disponíveis"""
+    TRIAL = "trial"       # Teste grátis (14 dias)
+    BASIC = "basic"       # Plano básico (R$ 79/mês)
+    PRO = "pro"           # Plano profissional (R$ 149/mês)
+
+
+class UserRole(str, Enum):
+    """Papéis de usuário"""
+    OWNER = "owner"       # Dono do restaurante (acesso total)
+    MANAGER = "manager"   # Gerente (acesso limitado)
+
+
+# ============ TABELAS MULTI-RESTAURANTE ============
+
+class Restaurant(SQLModel, table=True):
+    """
+    Restaurante/Estabelecimento
+    
+    Cada restaurante é um "inquilino" do sistema (multi-tenant).
+    Todos os dados (pedidos, motoboys, clientes) são vinculados aqui.
+    """
+    __tablename__ = "restaurants"
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # Identificador único na URL (ex: pizzaria-do-ze)
+    slug: str = Field(index=True, unique=True)
+    
+    # Dados básicos
+    name: str                                    # Nome do restaurante
+    email: str = Field(index=True, unique=True)  # Email principal
+    phone: Optional[str] = None
+    cnpj: Optional[str] = None
+    logo_url: Optional[str] = None
+    
+    # Endereço (com geocoding automático no cadastro)
+    address: str = ""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    
+    # Plano e trial
+    plan: PlanType = Field(default=PlanType.TRIAL)
+    trial_ends_at: datetime = Field(
+        default_factory=lambda: datetime.now() + timedelta(days=14)
+    )
+    blocked: bool = Field(default=False)  # True quando trial vence sem pagar
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    
+    def is_trial_expired(self) -> bool:
+        """Verifica se o trial expirou"""
+        return self.plan == PlanType.TRIAL and datetime.now() > self.trial_ends_at
+    
+    def days_remaining(self) -> int:
+        """Dias restantes do trial"""
+        if self.plan != PlanType.TRIAL:
+            return -1  # Plano pago, não tem limite
+        delta = self.trial_ends_at - datetime.now()
+        return max(0, delta.days)
+
+
+class User(SQLModel, table=True):
+    """
+    Usuário do sistema (dono ou funcionário)
+    
+    Cada usuário pertence a UM restaurante.
+    Autenticação via email + senha (hash).
+    """
+    __tablename__ = "users"
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # Dados do usuário
+    name: str
+    email: str = Field(index=True, unique=True)
+    password_hash: str  # Senha criptografada (bcrypt)
+    
+    # Vínculo com restaurante
+    restaurant_id: str = Field(foreign_key="restaurants.id")
+    role: UserRole = Field(default=UserRole.OWNER)
+    
+    # Status
+    active: bool = Field(default=True)
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    last_login: Optional[datetime] = None
+
+
+# ============ TABELAS EXISTENTES (com restaurant_id) ============
 
 class Customer(SQLModel, table=True):
     """
@@ -47,6 +146,9 @@ class Customer(SQLModel, table=True):
     
     # ID único - como o CPF, cada cliente tem um número só dele
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # NOVO: Vínculo com restaurante (isolamento de dados)
+    restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
     
     # Telefone - é a "chave" pra buscar o cliente (tipo RG)
     phone: str = Field(index=True)  # index=True = busca mais rápida
@@ -77,6 +179,10 @@ class Category(SQLModel, table=True):
     __tablename__ = "categories"
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # NOVO: Vínculo com restaurante
+    restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
+    
     name: str
     order: int = Field(default=0)  # Ordem de exibição
     active: bool = Field(default=True)
@@ -89,6 +195,9 @@ class MenuItem(SQLModel, table=True):
     __tablename__ = "menu_items"
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # NOVO: Vínculo com restaurante
+    restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
     
     name: str
     description: Optional[str] = None
@@ -108,6 +217,9 @@ class Order(SQLModel, table=True):
     __tablename__ = "orders"
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # NOVO: Vínculo com restaurante
+    restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
     
     # Informações do pedido
     customer_name: str = Field(default="Cliente")
@@ -134,6 +246,10 @@ class Courier(SQLModel, table=True):
     __tablename__ = "couriers"
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # NOVO: Vínculo com restaurante
+    restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
+    
     name: str
     phone: Optional[str] = None
     
@@ -157,6 +273,9 @@ class Batch(SQLModel, table=True):
     __tablename__ = "batches"
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # NOVO: Vínculo com restaurante
+    restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
     
     courier_id: str = Field(foreign_key="couriers.id")
     status: BatchStatus = Field(default=BatchStatus.ASSIGNED)
@@ -377,3 +496,86 @@ class SettingsResponse(SQLModel):
     lat: Optional[float]
     lng: Optional[float]
     updated_at: datetime
+
+
+# ============ SCHEMAS MULTI-RESTAURANTE ============
+
+class RestaurantCreate(SQLModel):
+    """Schema para cadastrar restaurante"""
+    name: str                           # Nome do restaurante
+    email: str                          # Email principal (será o login)
+    password: str                       # Senha (será hasheada)
+    phone: Optional[str] = None
+    address: str                        # Endereço (geocoding automático)
+    cnpj: Optional[str] = None
+
+
+class RestaurantUpdate(SQLModel):
+    """Schema para atualizar restaurante"""
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None       # Se mudar, recalcula lat/lng
+    cnpj: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
+class RestaurantResponse(SQLModel):
+    """Schema de resposta do restaurante"""
+    id: str
+    slug: str
+    name: str
+    email: str
+    phone: Optional[str]
+    cnpj: Optional[str]
+    logo_url: Optional[str]
+    address: str
+    lat: Optional[float]
+    lng: Optional[float]
+    plan: PlanType
+    trial_ends_at: datetime
+    blocked: bool
+    days_remaining: int                 # Calculado dinamicamente
+    created_at: datetime
+
+
+class UserCreate(SQLModel):
+    """Schema para criar usuário (funcionário)"""
+    name: str
+    email: str
+    password: str
+    role: UserRole = UserRole.MANAGER
+
+
+class UserUpdate(SQLModel):
+    """Schema para atualizar usuário"""
+    name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None      # Nova senha (será hasheada)
+    role: Optional[UserRole] = None
+    active: Optional[bool] = None
+
+
+class UserResponse(SQLModel):
+    """Schema de resposta do usuário"""
+    id: str
+    name: str
+    email: str
+    restaurant_id: str
+    role: UserRole
+    active: bool
+    created_at: datetime
+    last_login: Optional[datetime]
+
+
+class LoginRequest(SQLModel):
+    """Schema para login"""
+    email: str
+    password: str
+
+
+class LoginResponse(SQLModel):
+    """Schema de resposta do login"""
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+    restaurant: RestaurantResponse

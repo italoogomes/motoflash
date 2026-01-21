@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoFlash - Cadastre seu Restaurante</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-orange-50 to-amber-50 min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const API_URL = window.location.origin;
+        
+        // ============ COMPONENTES ============
+        
+        const Input = ({ label, type = 'text', value, onChange, placeholder, required, error, icon, disabled }) => (
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {label} {required && <span className="text-red-500">*</span>}
+                </label>
+                <div className="relative">
+                    {icon && (
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {icon}
+                        </span>
+                    )}
+                    <input
+                        type={type}
+                        value={value}
+                        onChange={onChange}
+                        placeholder={placeholder}
+                        required={required}
+                        disabled={disabled}
+                        className={`w-full px-4 py-3 ${icon ? 'pl-10' : ''} border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${error ? 'border-red-500 bg-red-50' : 'border-gray-200'} ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    />
+                </div>
+                {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+            </div>
+        );
+        
+        const Button = ({ children, onClick, loading, disabled, variant = 'primary', className = '' }) => {
+            const variants = {
+                primary: 'bg-orange-500 hover:bg-orange-600 text-white',
+                secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700',
+            };
+            
+            return (
+                <button
+                    onClick={onClick}
+                    disabled={disabled || loading}
+                    className={`w-full py-3 px-6 rounded-xl font-semibold transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${variants[variant]} ${className}`}
+                >
+                    {loading ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Aguarde...
+                        </span>
+                    ) : children}
+                </button>
+            );
+        };
+        
+        // ============ APP PRINCIPAL ============
+        
+        function CadastroApp() {
+            // Estados do formulário
+            const [name, setName] = useState('');
+            const [email, setEmail] = useState('');
+            const [phone, setPhone] = useState('');
+            const [password, setPassword] = useState('');
+            const [confirmPassword, setConfirmPassword] = useState('');
+            
+            // Endereço
+            const [cep, setCep] = useState('');
+            const [street, setStreet] = useState('');
+            const [number, setNumber] = useState('');
+            const [neighborhood, setNeighborhood] = useState('');
+            const [city, setCity] = useState('');
+            const [loadingCep, setLoadingCep] = useState(false);
+            
+            // Estados de UI
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [success, setSuccess] = useState(false);
+            const [emailAvailable, setEmailAvailable] = useState(null);
+            const [checkingEmail, setCheckingEmail] = useState(false);
+            
+            // Formata telefone
+            const formatPhone = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 2) return `(${numbers}`;
+                if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
+                return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
+            };
+            
+            // Formata CEP
+            const formatCep = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 5) return numbers;
+                return `${numbers.slice(0,5)}-${numbers.slice(5,8)}`;
+            };
+            
+            // Busca CEP
+            const handleCepChange = async (e) => {
+                const formatted = formatCep(e.target.value);
+                setCep(formatted);
+                
+                const numbers = formatted.replace(/\D/g, '');
+                
+                if (numbers.length === 8) {
+                    setLoadingCep(true);
+                    try {
+                        const res = await fetch(`https://viacep.com.br/ws/${numbers}/json/`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (!data.erro) {
+                                setStreet(data.logradouro || '');
+                                setNeighborhood(data.bairro || '');
+                                setCity(data.localidade || '');
+                                setTimeout(() => document.getElementById('numberInput')?.focus(), 100);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Erro ViaCEP:', err);
+                    }
+                    setLoadingCep(false);
+                }
+            };
+            
+            // Verifica email disponível
+            const checkEmail = async (emailValue) => {
+                if (!emailValue || !emailValue.includes('@')) {
+                    setEmailAvailable(null);
+                    return;
+                }
+                
+                setCheckingEmail(true);
+                try {
+                    const res = await fetch(`${API_URL}/auth/check-email?email=${encodeURIComponent(emailValue)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setEmailAvailable(data.available);
+                    }
+                } catch (err) {
+                    console.error('Erro ao verificar email:', err);
+                }
+                setCheckingEmail(false);
+            };
+            
+            // Debounce para verificar email
+            useEffect(() => {
+                const timer = setTimeout(() => {
+                    if (email) checkEmail(email);
+                }, 500);
+                return () => clearTimeout(timer);
+            }, [email]);
+            
+            // Monta endereço completo
+            const getFullAddress = () => {
+                let addr = street;
+                if (number) addr += `, ${number}`;
+                if (neighborhood) addr += ` - ${neighborhood}`;
+                if (city) addr += `, ${city}`;
+                return addr;
+            };
+            
+            // Submit
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                
+                // Validações
+                if (!name.trim()) {
+                    setError('Digite o nome do restaurante');
+                    return;
+                }
+                
+                if (!email.trim() || !email.includes('@')) {
+                    setError('Digite um email válido');
+                    return;
+                }
+                
+                if (emailAvailable === false) {
+                    setError('Este email já está cadastrado');
+                    return;
+                }
+                
+                if (password.length < 6) {
+                    setError('A senha deve ter pelo menos 6 caracteres');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    setError('As senhas não coincidem');
+                    return;
+                }
+                
+                if (!street.trim() || !number.trim()) {
+                    setError('Preencha o endereço completo');
+                    return;
+                }
+                
+                setLoading(true);
+                
+                try {
+                    const res = await fetch(`${API_URL}/auth/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: name.trim(),
+                            email: email.trim().toLowerCase(),
+                            password,
+                            phone: phone.replace(/\D/g, ''),
+                            address: getFullAddress()
+                        })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (!res.ok) {
+                        throw new Error(data.detail || 'Erro ao cadastrar');
+                    }
+                    
+                    // Salva token no localStorage
+                    localStorage.setItem('motoflash_token', data.access_token);
+                    localStorage.setItem('motoflash_user', JSON.stringify(data.user));
+                    localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
+                    
+                    setSuccess(true);
+                    
+                    // Redireciona para dashboard após 2 segundos
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2000);
+                    
+                } catch (err) {
+                    setError(err.message);
+                }
+                
+                setLoading(false);
+            };
+            
+            // Tela de sucesso
+            if (success) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4">
+                        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full text-center">
+                            <div className="text-6xl mb-4 float-animation">🎉</div>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                                Cadastro realizado!
+                            </h2>
+                            <p className="text-gray-600 mb-4">
+                                Seu período de teste de <strong>14 dias</strong> começou.
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                Redirecionando para o dashboard...
+                            </p>
+                            <div className="mt-6">
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div className="bg-orange-500 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div className="min-h-screen py-8 px-4">
+                    {/* Header */}
+                    <div className="text-center mb-8">
+                        <a href="/" className="inline-flex items-center gap-3 mb-4">
+                            <svg width="50" height="50" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                                <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+                            </svg>
+                            <span className="text-2xl font-bold text-gray-800">MotoFlash</span>
+                        </a>
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                            Cadastre seu restaurante
+                        </h1>
+                        <p className="text-gray-600">
+                            Comece seu teste grátis de 14 dias
+                        </p>
+                    </div>
+                    
+                    {/* Formulário */}
+                    <div className="max-w-lg mx-auto">
+                        <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl p-8">
+                            
+                            {/* Dados do Restaurante */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    🏪 Dados do Restaurante
+                                </h3>
+                                
+                                <Input
+                                    label="Nome do Restaurante"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Ex: Pizzaria do Zé"
+                                    required
+                                    icon="🏪"
+                                />
+                                
+                                <Input
+                                    label="Email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="contato@seurestaurante.com"
+                                    required
+                                    icon="📧"
+                                    error={emailAvailable === false ? 'Este email já está cadastrado' : null}
+                                />
+                                {checkingEmail && (
+                                    <p className="text-xs text-gray-500 -mt-3 mb-4">Verificando...</p>
+                                )}
+                                {emailAvailable === true && (
+                                    <p className="text-xs text-green-600 -mt-3 mb-4">✓ Email disponível</p>
+                                )}
+                                
+                                <Input
+                                    label="Telefone / WhatsApp"
+                                    type="tel"
+                                    value={phone}
+                                    onChange={(e) => setPhone(formatPhone(e.target.value))}
+                                    placeholder="(16) 99999-1234"
+                                    icon="📱"
+                                />
+                            </div>
+                            
+                            {/* Endereço */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    📍 Endereço
+                                </h3>
+                                
+                                <Input
+                                    label="CEP"
+                                    value={cep}
+                                    onChange={handleCepChange}
+                                    placeholder="14000-000"
+                                    disabled={loadingCep}
+                                    icon={loadingCep ? "⏳" : "📮"}
+                                />
+                                
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-2">
+                                        <Input
+                                            label="Rua"
+                                            value={street}
+                                            onChange={(e) => setStreet(e.target.value)}
+                                            placeholder="Rua das Flores"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <Input
+                                            label="Número"
+                                            value={number}
+                                            onChange={(e) => setNumber(e.target.value)}
+                                            placeholder="123"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Input
+                                        label="Bairro"
+                                        value={neighborhood}
+                                        onChange={(e) => setNeighborhood(e.target.value)}
+                                        placeholder="Centro"
+                                    />
+                                    <Input
+                                        label="Cidade"
+                                        value={city}
+                                        onChange={(e) => setCity(e.target.value)}
+                                        placeholder="Ribeirão Preto"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Senha */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    🔐 Senha de Acesso
+                                </h3>
+                                
+                                <Input
+                                    label="Senha"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Mínimo 6 caracteres"
+                                    required
+                                    icon="🔑"
+                                    error={password && password.length < 6 ? 'Mínimo 6 caracteres' : null}
+                                />
+                                
+                                <Input
+                                    label="Confirmar Senha"
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Repita a senha"
+                                    required
+                                    icon="🔑"
+                                    error={confirmPassword && password !== confirmPassword ? 'As senhas não coincidem' : null}
+                                />
+                            </div>
+                            
+                            {/* Erro */}
+                            {error && (
+                                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                                    ⚠️ {error}
+                                </div>
+                            )}
+                            
+                            {/* Botão */}
+                            <Button loading={loading} disabled={loading || emailAvailable === false}>
+                                🚀 Começar Teste Grátis
+                            </Button>
+                            
+                            {/* Trial info */}
+                            <div className="mt-4 text-center text-sm text-gray-500">
+                                <p>✓ 14 dias grátis • ✓ Sem cartão de crédito • ✓ Cancele quando quiser</p>
+                            </div>
+                        </form>
+                        
+                        {/* Link para login */}
+                        <p className="text-center mt-6 text-gray-600">
+                            Já tem uma conta?{' '}
+                            <a href="/login" className="text-orange-500 hover:text-orange-600 font-semibold">
+                                Faça login
+                            </a>
+                        </p>
+                    </div>
+                    
+                    {/* Footer */}
+                    <footer className="text-center mt-8 text-sm text-gray-400">
+                        MotoFlash © 2025 - Sistema de Despacho Inteligente
+                    </footer>
+                </div>
+            );
+        }
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<CadastroApp />);
+    </script>
+</body>
+</html>

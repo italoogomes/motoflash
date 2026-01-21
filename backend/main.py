@@ -23,6 +23,7 @@ from routers import orders_router, couriers_router, dispatch_router
 from routers.menu import router as menu_router
 from routers.customers import router as customers_router
 from routers.settings import router as settings_router
+from routers.auth import router as auth_router
 from services.geocoding_service import geocode_address_detailed
 from services.dispatch_service import get_batch_route_polyline
 
@@ -101,6 +102,7 @@ app.include_router(dispatch_router)
 app.include_router(menu_router)
 app.include_router(customers_router)
 app.include_router(settings_router)
+app.include_router(auth_router)
 
 
 # ============ UPLOAD DE IMAGENS ============
@@ -270,3 +272,27 @@ def serve_clientes():
         with open(clientes_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque clientes.html na pasta static/</p>", status_code=404)
+
+
+# ============ AUTENTICAÇÃO (MULTI-RESTAURANTE) ============
+
+@app.get("/cadastro", response_class=HTMLResponse, tags=["Autenticação"])
+@app.get("/cadastro.html", response_class=HTMLResponse, tags=["Autenticação"])
+def serve_cadastro():
+    """Cadastro de Restaurante - acesse /cadastro"""
+    cadastro_path = STATIC_DIR / "cadastro.html"
+    if cadastro_path.exists():
+        with open(cadastro_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque cadastro.html na pasta static/</p>", status_code=404)
+
+
+@app.get("/login", response_class=HTMLResponse, tags=["Autenticação"])
+@app.get("/login.html", response_class=HTMLResponse, tags=["Autenticação"])
+def serve_login():
+    """Login - acesse /login"""
+    login_path = STATIC_DIR / "login.html"
+    if login_path.exists():
+        with open(login_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque login.html na pasta static/</p>", status_code=404)
