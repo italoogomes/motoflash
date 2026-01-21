@@ -4,11 +4,11 @@ Serviço de Dispatch - O CORAÇÃO do MotoFlash
 Algoritmo inteligente que:
 1. PRIMEIRO: Agrupa pedidos do MESMO endereço (nunca separa!)
 2. SEGUNDO: SEMPRE agrupa pedidos próximos (até 3km) - otimiza rotas!
-3. TERCEIRO: USA GOOGLE DIRECTIONS para ordenar pela ROTA REAL (considera mão única!)
-4. QUARTO: Se pedidos na MESMA RUA → ordena por distância do restaurante
+3. TERCEIRO: Calcula distância REAL por rota (não linha reta) de cada pedido
+4. QUARTO: Ordena pelo mais perto POR ROTA primeiro
 5. QUINTO: Pedidos órfãos vão pra rota mais próxima (NUNCA fica parado!)
 
-Versão V0.7 - Detecção de mesma rua + ordenação por distância
+Versão V0.8 - Usa distância REAL por rota (Google) ao invés de linha reta
 """
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional, Dict
@@ -25,7 +25,7 @@ from models import (
 from services.push_service import notify_new_batch
 
 
-# ============ CONFIGURAÇÕES DO DISPATCH V0.7 ============
+# ============ CONFIGURAÇÕES DO DISPATCH V0.8 ============
 
 # API Key do Google Maps (mesma usada no frontend)
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "AIzaSyDAMV5FvQAEPacHSSBLScr5LIALFQ6qpmU")
@@ -170,6 +170,35 @@ def are_same_street(orders: List[Order]) -> bool:
     return len(set(streets)) == 1
 
 
+def get_driving_distance(start_lat: float, start_lng: float, end_lat: float, end_lng: float) -> float:
+    """
+    Calcula a distância REAL por rota (não linha reta) usando Google Directions API
+    Retorna a distância em metros
+    """
+    try:
+        url = "https://maps.googleapis.com/maps/api/directions/json"
+        params = {
+            "origin": f"{start_lat},{start_lng}",
+            "destination": f"{end_lat},{end_lng}",
+            "mode": "driving",
+            "key": GOOGLE_MAPS_API_KEY
+        }
+        
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(url, params=params)
+            data = response.json()
+        
+        if data.get("status") == "OK":
+            # Pega a distância da primeira rota
+            distance = data["routes"][0]["legs"][0]["distance"]["value"]  # em metros
+            return distance
+        else:
+            # Fallback: distância em linha reta * 1.4 (fator de correção)
+            return haversine_distance(start_lat, start_lng, end_lat, end_lng) * 1000 * 1.4
+    except:
+        return haversine_distance(start_lat, start_lng, end_lat, end_lng) * 1000 * 1.4
+
+
 # ============ OTIMIZAÇÃO VIA GOOGLE DIRECTIONS API ============
 
 def optimize_route_with_google(
@@ -180,107 +209,48 @@ def optimize_route_with_google(
     """
     USA A API DO GOOGLE PARA OTIMIZAR A ORDEM DAS ENTREGAS!
     
-    VERSÃO V0.7: 
-    - Se todos os pedidos estão na MESMA RUA → ordena por distância do restaurante
-    - Se estão em ruas diferentes → usa Google Directions API
+    VERSÃO V0.8: 
+    - Calcula distância REAL por rota (não linha reta) de cada pedido
+    - Ordena pelo mais perto POR ROTA primeiro
+    - Não usa optimize:true do Google (que inverte a ordem)
     
     Isso resolve o problema do Google inverter pedidos na mesma rua.
     """
     if len(orders) <= 1:
         return orders
     
-    # NOVO: Se todos os pedidos estão na mesma rua, usa distância simples
-    if are_same_street(orders):
-        print(f"📍 Pedidos na MESMA RUA detectados! Usando distância do restaurante...")
-        sorted_orders = sorted(
-            orders,
-            key=lambda o: haversine_distance(start_lat, start_lng, o.lat, o.lng)
-        )
-        print(f"   Ordem por distância: {[o.address_text[:30] for o in sorted_orders]}")
-        return sorted_orders
-    
     try:
-        # Log dos pedidos recebidos
-        print(f"🗺️ === DEBUG GOOGLE DIRECTIONS API ===")
+        print(f"🗺️ === OTIMIZAÇÃO DE ROTA V0.8 ===")
         print(f"   Restaurante: {start_lat}, {start_lng}")
         print(f"   Pedidos recebidos ({len(orders)}):")
-        for i, o in enumerate(orders):
-            dist = haversine_distance(start_lat, start_lng, o.lat, o.lng)
-            print(f"      [{i}] {o.address_text[:40]} | lat={o.lat}, lng={o.lng} | dist={dist:.3f}km")
         
-        # Monta a requisição para a API
-        origin = f"{start_lat},{start_lng}"
+        # Calcula a distância REAL por rota de cada pedido até o restaurante
+        orders_with_distance = []
+        for o in orders:
+            # Distância em linha reta (para log)
+            straight_dist = haversine_distance(start_lat, start_lng, o.lat, o.lng)
+            
+            # Distância REAL por rota
+            driving_dist = get_driving_distance(start_lat, start_lng, o.lat, o.lng)
+            
+            orders_with_distance.append({
+                'order': o,
+                'straight_km': straight_dist,
+                'driving_m': driving_dist
+            })
+            print(f"      {o.address_text[:40]}")
+            print(f"         Linha reta: {straight_dist:.2f}km | Por rota: {driving_dist/1000:.2f}km")
         
-        # Usa o último pedido da lista como destino (não volta ao restaurante)
-        # Ordena por distância para pegar o mais longe
-        orders_by_distance = sorted(
-            orders,
-            key=lambda o: haversine_distance(start_lat, start_lng, o.lat, o.lng)
-        )
-        final_order = orders_by_distance[-1]
-        destination = f"{final_order.lat},{final_order.lng}"
+        # Ordena pela distância REAL por rota (mais perto primeiro)
+        orders_with_distance.sort(key=lambda x: x['driving_m'])
         
-        # Waypoints são todos os outros
-        waypoint_orders = [o for o in orders if o.id != final_order.id]
-        
-        if waypoint_orders:
-            waypoints = "|".join([f"{o.lat},{o.lng}" for o in waypoint_orders])
-            waypoints_param = f"optimize:true|{waypoints}"
-        else:
-            waypoints_param = None
-        
-        url = "https://maps.googleapis.com/maps/api/directions/json"
-        params = {
-            "origin": origin,
-            "destination": destination,
-            "mode": "driving",
-            "language": "pt-BR",
-            "key": GOOGLE_MAPS_API_KEY
-        }
-        
-        if waypoints_param:
-            params["waypoints"] = waypoints_param
-        
-        print(f"   === CHAMADA API ===")
-        print(f"   origin: {origin}")
-        print(f"   destination: {destination} ({final_order.address_text[:30]})")
-        print(f"   waypoints: {waypoints_param}")
-        
-        with httpx.Client(timeout=10.0) as client:
-            response = client.get(url, params=params)
-            data = response.json()
-        
-        print(f"   === RESPOSTA API ===")
-        print(f"   status: {data.get('status')}")
-        
-        if data.get("status") != "OK":
-            print(f"⚠️ Google API erro: {data.get('status')} - usando fallback")
-            return sort_orders_by_distance(orders, start_lat, start_lng)
-        
-        # Log detalhado da resposta
-        route = data["routes"][0]
-        waypoint_order = route.get("waypoint_order", [])
-        print(f"   waypoint_order retornado: {waypoint_order}")
-        
-        # Mostra as legs da rota
-        legs = route.get("legs", [])
-        print(f"   legs ({len(legs)}):")
-        for i, leg in enumerate(legs):
-            print(f"      Leg {i}: {leg.get('start_address', 'N/A')[:30]} -> {leg.get('end_address', 'N/A')[:30]}")
-            print(f"              Distância: {leg.get('distance', {}).get('text', 'N/A')}, Duração: {leg.get('duration', {}).get('text', 'N/A')}")
-        
-        # Monta a rota otimizada
-        if waypoint_orders and waypoint_order:
-            optimized_waypoints = [waypoint_orders[i] for i in waypoint_order]
-            optimized_orders = optimized_waypoints + [final_order]
-        elif waypoint_orders:
-            optimized_orders = waypoint_orders + [final_order]
-        else:
-            optimized_orders = [final_order]
+        optimized_orders = [item['order'] for item in orders_with_distance]
         
         print(f"   === RESULTADO ===")
-        print(f"   Ordem final: {[o.address_text[:30] for o in optimized_orders]}")
-        print(f"🗺️ === FIM DEBUG ===")
+        print(f"   Ordem final (por distância de rota):")
+        for i, item in enumerate(orders_with_distance):
+            print(f"      {i+1}. {item['order'].address_text[:40]} ({item['driving_m']/1000:.2f}km)")
+        print(f"🗺️ === FIM ===")
         
         return optimized_orders
         
