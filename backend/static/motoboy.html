@@ -13,7 +13,7 @@
     <meta name="msapplication-TileColor" content="#f97316">
     <meta name="msapplication-tap-highlight" content="no">
     
-    <title>MotoFlash - Motoboy v1.2.4</title>
+    <title>MotoFlash - Motoboy v1.2.5</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -642,7 +642,7 @@
                             </>
                         )}
                     </Card>
-                    <p className="text-orange-200 text-sm mt-6">MotoFlash v1.2.4</p>
+                    <p className="text-orange-200 text-sm mt-6">MotoFlash v1.2.5</p>
                 </div>
             );
         };
@@ -781,11 +781,37 @@
                     // Cor da rota: azul (planejada) → laranja (em andamento) → verde (voltando)
                     const routeColor = returningHome ? '#22c55e' : (routeStarted ? '#f97316' : '#3b82f6');
                     
-                    // NOVO V0.9: Tenta usar polyline do Google primeiro
                     const drawRoute = async () => {
                         if (!mapInstanceRef.current) return;
                         routeLayerRef.current.clearLayers();
                         
+                        // V0.9.2: ROTA DE VOLTA = só posição atual → restaurante (OSRM gratuito)
+                        if (returningHome && currentPosition) {
+                            const returnCoords = [
+                                [currentPosition.lat, currentPosition.lng],
+                                [restaurantLocation.lat, restaurantLocation.lng]
+                            ];
+                            
+                            const routeData = await fetchOSRMRoute(returnCoords);
+                            if (routeData?.coordinates) {
+                                L.polyline(routeData.coordinates, {
+                                    color: '#22c55e',
+                                    weight: 6,
+                                    opacity: 0.85,
+                                }).addTo(routeLayerRef.current);
+                            } else {
+                                // Fallback: linha reta
+                                L.polyline(returnCoords, {
+                                    color: '#22c55e',
+                                    weight: 5,
+                                    opacity: 0.8,
+                                    dashArray: '10, 10',
+                                }).addTo(routeLayerRef.current);
+                            }
+                            return;
+                        }
+                        
+                        // ROTA DE ENTREGA: usa Google (já pago)
                         // 1. Tenta polyline do Google (se tiver batchId)
                         if (batchId && !googlePolylineRef.current) {
                             const googleData = await fetchGooglePolyline(batchId);
