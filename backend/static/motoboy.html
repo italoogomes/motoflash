@@ -13,7 +13,7 @@
     <meta name="msapplication-TileColor" content="#f97316">
     <meta name="msapplication-tap-highlight" content="no">
     
-    <title>MotoFlash - Motoboy v1.2.3</title>
+    <title>MotoFlash - Motoboy v1.2.4</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -642,7 +642,7 @@
                             </>
                         )}
                     </Card>
-                    <p className="text-orange-200 text-sm mt-6">MotoFlash v1.2.3</p>
+                    <p className="text-orange-200 text-sm mt-6">MotoFlash v1.2.4</p>
                 </div>
             );
         };
@@ -776,8 +776,10 @@
                     routeCoords.push([restaurantLocation.lat, restaurantLocation.lng]);
                 }
                 
-                if (routeStarted && routeCoords.length > 1) {
-                    const routeColor = returningHome ? '#22c55e' : '#f97316';
+                // V0.9.1: Mostra rota SEMPRE (mesmo antes de iniciar)
+                if (routeCoords.length > 1) {
+                    // Cor da rota: azul (planejada) → laranja (em andamento) → verde (voltando)
+                    const routeColor = returningHome ? '#22c55e' : (routeStarted ? '#f97316' : '#3b82f6');
                     
                     // NOVO V0.9: Tenta usar polyline do Google primeiro
                     const drawRoute = async () => {
@@ -798,7 +800,7 @@
                             L.polyline(googlePolylineRef.current, {
                                 color: routeColor,
                                 weight: 6,
-                                opacity: 0.85,
+                                opacity: routeStarted ? 0.85 : 0.6,
                             }).addTo(routeLayerRef.current);
                             return;
                         }
@@ -809,7 +811,7 @@
                             L.polyline(routeData.coordinates, {
                                 color: routeColor,
                                 weight: 6,
-                                opacity: 0.85,
+                                opacity: routeStarted ? 0.85 : 0.6,
                             }).addTo(routeLayerRef.current);
                             return;
                         }
