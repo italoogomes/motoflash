@@ -9,7 +9,8 @@ from sqlmodel import Session, select
 from database import get_session
 from models import (
     Courier, CourierCreate, CourierResponse, CourierStatus,
-    Batch, BatchStatus, BatchResponse, Order, OrderStatus
+    Batch, BatchStatus, BatchResponse, Order, OrderStatus,
+    Restaurant
 )
 from services.dispatch_service import get_courier_current_batch, get_batch_orders
 
@@ -256,3 +257,43 @@ def update_push_token(
     print(f"✅ Push token salvo para {courier.name}")
     
     return {"message": "Token salvo com sucesso"}
+
+
+@router.get("/{courier_id}/restaurant")
+def get_courier_restaurant(courier_id: str, session: Session = Depends(get_session)):
+    """
+    Retorna os dados do restaurante associado ao motoboy
+    
+    O app do motoboy usa isso para:
+    - Saber onde fica o restaurante (lat/lng)
+    - Mostrar nome do restaurante
+    - Calcular rota de volta
+    
+    NÃO chama Geocoding! Usa lat/lng já salvos = R$ 0,00
+    """
+    courier = session.get(Courier, courier_id)
+    if not courier:
+        raise HTTPException(status_code=404, detail="Motoqueiro não encontrado")
+    
+    # Se o courier não tem restaurant_id, tenta buscar qualquer restaurante
+    # (compatibilidade com dados antigos)
+    if courier.restaurant_id:
+        restaurant = session.get(Restaurant, courier.restaurant_id)
+    else:
+        # Fallback: pega o primeiro restaurante (dados legados)
+        restaurant = session.exec(select(Restaurant)).first()
+    
+    if not restaurant:
+        raise HTTPException(
+            status_code=404, 
+            detail="Restaurante não encontrado. Configure o restaurante primeiro."
+        )
+    
+    return {
+        "id": restaurant.id,
+        "name": restaurant.name,
+        "address": restaurant.address,
+        "lat": restaurant.lat,
+        "lng": restaurant.lng,
+        "phone": restaurant.phone
+    }

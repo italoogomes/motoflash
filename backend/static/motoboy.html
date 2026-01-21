@@ -13,7 +13,7 @@
     <meta name="msapplication-TileColor" content="#f97316">
     <meta name="msapplication-tap-highlight" content="no">
     
-    <title>MotoFlash - Motoboy v1.2.5</title>
+    <title>MotoFlash - Motoboy v1.3</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -288,8 +288,26 @@
         
         // Busca configurações do restaurante do banco de dados
         // NÃO chama Geocoding! Pega lat/lng já salvos = R$ 0,00
-        async function loadRestaurantLocation() {
+        // V1.3: Agora busca pelo courier_id (multi-restaurante)
+        async function loadRestaurantLocation(courierId) {
             try {
+                // Se tiver courier_id, busca o restaurante dele
+                if (courierId) {
+                    const res = await fetch(`${API_URL}/couriers/${courierId}/restaurant`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.lat && data.lng) {
+                            RESTAURANT_LOCATION.lat = data.lat;
+                            RESTAURANT_LOCATION.lng = data.lng;
+                            RESTAURANT_LOCATION.name = data.name || 'Restaurante';
+                            RESTAURANT_LOCATION.address = data.address || '';
+                            console.log('📍 Restaurante carregado (multi-tenant):', data.lat, data.lng);
+                            return true;
+                        }
+                    }
+                }
+                
+                // Fallback: tenta o endpoint antigo /settings (compatibilidade)
                 const res = await fetch(`${API_URL}/settings`);
                 if (res.ok) {
                     const data = await res.json();
@@ -298,7 +316,7 @@
                         RESTAURANT_LOCATION.lng = data.lng;
                         RESTAURANT_LOCATION.name = data.restaurant_name || 'Restaurante';
                         RESTAURANT_LOCATION.address = data.address || '';
-                        console.log('📍 Restaurante carregado do banco:', data.lat, data.lng);
+                        console.log('📍 Restaurante carregado (legado):', data.lat, data.lng);
                         return true;
                     } else {
                         console.warn('⚠️ Restaurante não tem coordenadas configuradas');
@@ -1413,6 +1431,19 @@
         const App = () => {
             const [courier, setCourier] = useState(null);
             const [loading, setLoading] = useState(true);
+            const [restaurantLoaded, setRestaurantLoaded] = useState(false);
+            
+            // Carrega restaurante quando courier muda
+            useEffect(() => {
+                if (courier?.id) {
+                    loadRestaurantLocation(courier.id).then(success => {
+                        setRestaurantLoaded(success);
+                        if (!success) {
+                            console.warn('⚠️ Não foi possível carregar restaurante');
+                        }
+                    });
+                }
+            }, [courier?.id]);
             
             useEffect(() => {
                 const savedId = localStorage.getItem('motoboy_id');
@@ -1478,23 +1509,8 @@
                 </div>
             );
             
-            const success = await loadRestaurantLocation();
-            
-            if (!success) {
-                root.render(
-                    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
-                        <div className="text-center">
-                            <div className="text-5xl mb-4">⚠️</div>
-                            <h2 className="text-xl font-semibold text-red-600 mb-2">Erro ao carregar</h2>
-                            <p className="text-gray-600 mb-4">Verifique se o backend está rodando</p>
-                            <button onClick={() => location.reload()} className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold">
-                                🔄 Tentar Novamente
-                            </button>
-                        </div>
-                    </div>
-                );
-                return;
-            }
+            // V1.3: Restaurante é carregado quando o courier é selecionado (multi-tenant)
+            // Não bloqueia mais aqui
             
             root.render(<App />);
         })();
