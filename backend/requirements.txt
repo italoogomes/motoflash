@@ -20,7 +20,7 @@ python-dotenv>=1.0.0
 firebase-admin>=6.4.0
 
 # Autenticação JWT + Hash de Senha
-passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0
 python-jose[cryptography]>=3.3.0
 
 # Multipart (upload de arquivos)

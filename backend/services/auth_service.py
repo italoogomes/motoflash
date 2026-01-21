@@ -13,7 +13,7 @@ from typing import Optional
 import re
 import unicodedata
 
-from passlib.context import CryptContext
+import bcrypt
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -33,10 +33,6 @@ ACCESS_TOKEN_EXPIRE_HOURS = 24  # Token válido por 24 horas
 
 # ============ HASH DE SENHA (bcrypt) ============
 
-# Contexto para hash de senhas
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 def hash_password(password: str) -> str:
     """
     Transforma senha em hash seguro
@@ -46,7 +42,13 @@ def hash_password(password: str) -> str:
     Mesmo se alguém roubar o banco, não consegue
     descobrir a senha original!
     """
-    return pwd_context.hash(password)
+    # Converte string para bytes
+    password_bytes = password.encode('utf-8')
+    # Gera o salt e faz o hash
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    # Retorna como string
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -55,7 +57,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     
     verify_password("senha123", "$2b$12$LQv3c1yqBw...") → True ou False
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    password_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
 # ============ JWT (Token) ============
