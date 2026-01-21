@@ -30,12 +30,19 @@
           useEffect(() => {
             if (!startTime) return;
             
-            const start = new Date(startTime).getTime();
+            // FIX: Normaliza a data para UTC se não tiver timezone
+            let dateString = startTime;
+            if (!dateString.endsWith('Z') && !dateString.includes('+')) {
+              dateString = dateString + 'Z'; // Assume UTC se não especificado
+            }
+            
+            const start = new Date(dateString).getTime();
             
             const updateTimer = () => {
               const now = Date.now();
               const diff = Math.floor((now - start) / 1000);
-              setElapsed(diff);
+              // Garante que não seja negativo
+              setElapsed(Math.max(0, diff));
             };
             
             updateTimer();
