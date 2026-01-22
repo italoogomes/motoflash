@@ -10,11 +10,86 @@ from database import get_session
 from models import (
     Courier, CourierCreate, CourierResponse, CourierStatus,
     Batch, BatchStatus, BatchResponse, Order, OrderStatus,
-    Restaurant
+    Restaurant, CourierLoginRequest, CourierLoginResponse
 )
 from services.dispatch_service import get_courier_current_batch, get_batch_orders
+from services.auth_service import hash_password, verify_password
 
 router = APIRouter(prefix="/couriers", tags=["Motoqueiros"])
+
+
+# ============ AUTENTICAÇÃO DO MOTOBOY ============
+
+@router.post("/login", response_model=CourierLoginResponse)
+def courier_login(
+    data: CourierLoginRequest,
+    session: Session = Depends(get_session)
+):
+    """
+    Login do motoboy
+    
+    Busca pelo celular e valida a senha.
+    Retorna dados do motoboy e do restaurante.
+    """
+    
+    # Normaliza telefone (só números)
+    phone_clean = ''.join(filter(str.isdigit, data.phone))
+    
+    if len(phone_clean) < 10:
+        return CourierLoginResponse(
+            success=False,
+            message="Celular inválido"
+        )
+    
+    # Busca motoboy pelo telefone
+    courier = session.exec(
+        select(Courier).where(Courier.phone == phone_clean)
+    ).first()
+    
+    if not courier:
+        return CourierLoginResponse(
+            success=False,
+            message="Celular não cadastrado"
+        )
+    
+    # Valida senha
+    if not courier.password_hash:
+        return CourierLoginResponse(
+            success=False,
+            message="Conta sem senha. Entre em contato com o restaurante."
+        )
+    
+    if not verify_password(data.password, courier.password_hash):
+        return CourierLoginResponse(
+            success=False,
+            message="Senha incorreta"
+        )
+    
+    # Atualiza último login
+    courier.last_login = datetime.now()
+    session.add(courier)
+    session.commit()
+    session.refresh(courier)
+    
+    # Busca nome do restaurante
+    restaurant = session.get(Restaurant, courier.restaurant_id) if courier.restaurant_id else None
+    
+    return CourierLoginResponse(
+        success=True,
+        message=f"Bem-vindo, {courier.name}!",
+        courier=CourierResponse(
+            id=courier.id,
+            name=courier.name,
+            phone=courier.phone,
+            status=courier.status,
+            available_since=courier.available_since,
+            restaurant_id=courier.restaurant_id
+        ),
+        restaurant_name=restaurant.name if restaurant else None
+    )
+
+
+# ============ CRUD DE MOTOQUEIROS ============
 
 
 @router.post("", response_model=CourierResponse)

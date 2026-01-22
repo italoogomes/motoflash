@@ -160,6 +160,8 @@
         const FormScreen = ({ restaurantName, timeRemaining, onSubmit, loading }) => {
             const [name, setName] = useState('');
             const [phone, setPhone] = useState('');
+            const [password, setPassword] = useState('');
+            const [showPassword, setShowPassword] = useState(false);
             
             const formatPhone = (value) => {
                 const numbers = value.replace(/\D/g, '');
@@ -168,10 +170,16 @@
                 return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
             };
             
+            const isValid = name.trim() && phone.replace(/\D/g, '').length >= 10 && password.length >= 4;
+            
             const handleSubmit = (e) => {
                 e.preventDefault();
-                if (name.trim()) {
-                    onSubmit({ name: name.trim(), phone: phone.replace(/\D/g, '') || null });
+                if (isValid) {
+                    onSubmit({ 
+                        name: name.trim(), 
+                        phone: phone.replace(/\D/g, ''),
+                        password: password
+                    });
                 }
             };
             
@@ -213,20 +221,47 @@
                                 />
                                 
                                 <Input
-                                    label="WhatsApp"
+                                    label="Celular"
                                     type="tel"
                                     value={phone}
                                     onChange={(e) => setPhone(formatPhone(e.target.value))}
                                     placeholder="(16) 99999-1234"
+                                    required
                                     icon="📱"
                                 />
                                 
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Senha <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                            🔒
+                                        </span>
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="Mínimo 4 caracteres"
+                                            required
+                                            className="w-full px-4 py-3 pl-10 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-lg"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                        >
+                                            {showPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
+                                </div>
+                                
                                 <p className="text-xs text-gray-400 mb-6 text-center">
-                                    O WhatsApp é opcional, mas ajuda o restaurante a entrar em contato
+                                    Use celular e senha para fazer login no app
                                 </p>
                                 
-                                <Button type="submit" loading={loading} disabled={!name.trim()}>
-                                    ✅ Entrar na Equipe
+                                <Button type="submit" loading={loading} disabled={!isValid}>
+                                    ✅ Criar Minha Conta
                                 </Button>
                             </form>
                         </div>

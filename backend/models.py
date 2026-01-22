@@ -242,7 +242,13 @@ class Order(SQLModel, table=True):
 
 
 class Courier(SQLModel, table=True):
-    """Motoqueiro"""
+    """
+    Motoqueiro
+    
+    AUTENTICAÇÃO:
+    - phone: usado como "login" (único por restaurante)
+    - password_hash: senha com bcrypt
+    """
     __tablename__ = "couriers"
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -251,9 +257,10 @@ class Courier(SQLModel, table=True):
     restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
     
     name: str
-    phone: Optional[str] = None
+    phone: str = Field(index=True)  # Obrigatório - usado como login
+    password_hash: Optional[str] = None  # Senha hasheada com bcrypt
     
-    status: CourierStatus = Field(default=CourierStatus.AVAILABLE)
+    status: CourierStatus = Field(default=CourierStatus.OFFLINE)  # Começa offline
     
     # Última posição conhecida (para cálculo de proximidade)
     last_lat: Optional[float] = None
@@ -266,6 +273,7 @@ class Courier(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     available_since: Optional[datetime] = None  # Quando ficou disponível
+    last_login: Optional[datetime] = None  # Último login
 
 
 class Batch(SQLModel, table=True):
@@ -368,9 +376,10 @@ class OrderResponse(SQLModel):
 
 
 class CourierCreate(SQLModel):
-    """Schema para criar motoqueiro"""
+    """Schema para criar motoqueiro (cadastro manual pelo dono)"""
     name: str
-    phone: Optional[str] = None
+    phone: str
+    password: Optional[str] = None  # Opcional no cadastro manual
 
 
 class CourierResponse(SQLModel):
@@ -380,6 +389,21 @@ class CourierResponse(SQLModel):
     phone: Optional[str]
     status: CourierStatus
     available_since: Optional[datetime]
+    restaurant_id: Optional[str] = None
+
+
+class CourierLoginRequest(SQLModel):
+    """Schema para login do motoboy"""
+    phone: str
+    password: str
+
+
+class CourierLoginResponse(SQLModel):
+    """Schema de resposta do login do motoboy"""
+    success: bool
+    message: str
+    courier: Optional[CourierResponse] = None
+    restaurant_name: Optional[str] = None
 
 
 class BatchResponse(SQLModel):
@@ -660,7 +684,8 @@ class InviteResponse(SQLModel):
 class InviteUse(SQLModel):
     """Schema para usar o convite (motoboy preenche)"""
     name: str
-    phone: Optional[str] = None
+    phone: str  # Obrigatório - usado como login
+    password: str  # Obrigatório - senha de acesso
 
 
 class InviteValidation(SQLModel):

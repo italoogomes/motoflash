@@ -19,7 +19,7 @@ from models import (
     Invite, Restaurant, Courier, CourierStatus,
     InviteResponse, InviteUse, InviteValidation
 )
-from services.auth_service import get_current_user, get_current_restaurant
+from services.auth_service import get_current_user, get_current_restaurant, hash_password
 from models import User
 
 
@@ -209,9 +209,10 @@ def use_invite(
     Usa um convite para criar conta de motoboy (público)
     
     1. Valida o convite
-    2. Cria o Courier vinculado ao restaurante
-    3. Marca convite como usado
-    4. Retorna dados do motoboy criado
+    2. Valida telefone único no restaurante
+    3. Cria o Courier com senha hasheada
+    4. Marca convite como usado
+    5. Retorna dados do motoboy criado
     """
     
     # 1. Busca o convite
@@ -228,14 +229,41 @@ def use_invite(
     if datetime.now() > invite.expires_at:
         raise HTTPException(status_code=400, detail="Este convite expirou")
     
-    # 2. Valida dados
+    # 2. Valida dados obrigatórios
     if not data.name or not data.name.strip():
         raise HTTPException(status_code=400, detail="Nome é obrigatório")
     
-    # 3. Cria o motoboy
+    if not data.phone or not data.phone.strip():
+        raise HTTPException(status_code=400, detail="Celular é obrigatório")
+    
+    if not data.password or len(data.password) < 4:
+        raise HTTPException(status_code=400, detail="Senha deve ter pelo menos 4 caracteres")
+    
+    # Normaliza telefone (só números)
+    phone_clean = ''.join(filter(str.isdigit, data.phone))
+    
+    if len(phone_clean) < 10:
+        raise HTTPException(status_code=400, detail="Celular inválido")
+    
+    # 3. Verifica se telefone já existe neste restaurante
+    existing = session.exec(
+        select(Courier).where(
+            Courier.phone == phone_clean,
+            Courier.restaurant_id == invite.restaurant_id
+        )
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400, 
+            detail="Este celular já está cadastrado. Use a tela de login."
+        )
+    
+    # 4. Cria o motoboy com senha hasheada
     courier = Courier(
         name=data.name.strip(),
-        phone=data.phone,
+        phone=phone_clean,
+        password_hash=hash_password(data.password),
         restaurant_id=invite.restaurant_id,
         status=CourierStatus.OFFLINE
     )
@@ -244,7 +272,7 @@ def use_invite(
     session.commit()
     session.refresh(courier)
     
-    # 4. Marca convite como usado
+    # 5. Marca convite como usado
     invite.used = True
     invite.used_at = datetime.now()
     invite.used_by_courier_id = courier.id
@@ -252,7 +280,7 @@ def use_invite(
     session.add(invite)
     session.commit()
     
-    # 5. Busca nome do restaurante para retorno
+    # 6. Busca nome do restaurante para retorno
     restaurant = session.get(Restaurant, invite.restaurant_id)
     
     return {
