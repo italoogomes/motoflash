@@ -442,7 +442,7 @@
             if (numbers.length >= 10) {
               setSearchingCustomer(true);
               try {
-                const res = await fetch(`${API_URL}/customers/phone/${numbers}`);
+                const res = await authFetch(`${API_URL}/customers/phone/${numbers}`);
                 if (res.ok) {
                   const customer = await res.json();
                   selectCustomer(customer);
@@ -470,7 +470,7 @@
             
             if (value.trim().length >= 2) {
               try {
-                const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(value)}`);
+                const res = await authFetch(`${API_URL}/customers?search=${encodeURIComponent(value)}`);
                 if (res.ok) {
                   const customers = await res.json();
                   setNameSuggestions(customers.slice(0, 5));
@@ -602,7 +602,7 @@
           useEffect(() => {
             const fetchMenu = async () => {
               try {
-                const res = await fetch(`${API_URL}/menu/full`);
+                const res = await authFetch(`${API_URL}/menu/full`);
                 if (res.ok) {
                   const data = await res.json();
                   setMenuData(data);
@@ -660,7 +660,7 @@
               // Se é cliente novo, salva primeiro
               if (!foundCustomer && phone.replace(/\D/g, '').length >= 10) {
                 try {
-                  await fetch(`${API_URL}/customers`, {
+                  await authFetch(`${API_URL}/customers`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1140,7 +1140,7 @@
           const createCourier = async () => {
             if (!newName.trim()) return;
             try {
-              await fetch(`${API_URL}/couriers`, {
+              await authFetch(`${API_URL}/couriers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName }),
@@ -1157,7 +1157,7 @@
               ? `${API_URL}/couriers/${courier.id}/offline`
               : `${API_URL}/couriers/${courier.id}/available`;
             try {
-              await fetch(endpoint, { method: 'POST' });
+              await authFetch(endpoint, { method: 'POST' });
               onRefresh();
             } catch (err) {
               console.error('Erro:', err);
@@ -1166,7 +1166,7 @@
           
           const completeBatch = async (courierId) => {
             try {
-              await fetch(`${API_URL}/couriers/${courierId}/complete-batch`, { method: 'POST' });
+              await authFetch(`${API_URL}/couriers/${courierId}/complete-batch`, { method: 'POST' });
               onRefresh();
             } catch (err) {
               console.error('Erro:', err);
