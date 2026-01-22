@@ -124,9 +124,20 @@
                     <div className="text-6xl mb-4">😕</div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">Ops!</h2>
                     <p className="text-gray-600 mb-6">{message}</p>
-                    <p className="text-sm text-gray-400">
-                        Peça um novo convite ao restaurante
-                    </p>
+                    
+                    {/* Se celular já cadastrado, mostra botão de login */}
+                    {message.includes('já está cadastrado') ? (
+                        <button
+                            onClick={() => window.location.href = '/motoboy'}
+                            className="w-full py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold transition-all"
+                        >
+                            🔑 Ir para Login
+                        </button>
+                    ) : (
+                        <p className="text-sm text-gray-400">
+                            Peça um novo convite ao restaurante
+                        </p>
+                    )}
                 </div>
             </div>
         );
