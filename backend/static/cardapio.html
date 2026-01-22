@@ -20,6 +20,45 @@
         
         const API_URL = window.location.origin;
         
+        // ============ AUTENTICAÇÃO ============
+        
+        const getToken = () => localStorage.getItem('motoflash_token');
+        const isLoggedIn = () => !!getToken();
+        
+        const authFetch = async (url, options = {}) => {
+            const token = getToken();
+            
+            if (!token) {
+                window.location.href = '/login';
+                throw new Error('Não autenticado');
+            }
+            
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+            
+            if (options.body && typeof options.body === 'string') {
+                headers['Content-Type'] = 'application/json';
+            }
+            
+            const response = await fetch(url, { ...options, headers });
+            
+            if (response.status === 401) {
+                localStorage.removeItem('motoflash_token');
+                localStorage.removeItem('motoflash_user');
+                window.location.href = '/login';
+                throw new Error('Sessão expirada');
+            }
+            
+            return response;
+        };
+        
+        // Verifica login ao carregar
+        if (!isLoggedIn()) {
+            window.location.href = '/login';
+        }
+        
         // ============ COMPONENTES AUXILIARES ============
         
         const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '', size = 'normal' }) => {
@@ -88,7 +127,7 @@
                         ? `${API_URL}/menu/categories/${category.id}`
                         : `${API_URL}/menu/categories`;
                     
-                    const res = await fetch(url, {
+                    const res = await authFetch(url, {
                         method: category ? 'PUT' : 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name, order: parseInt(order) })
@@ -172,9 +211,14 @@
                     const formData = new FormData();
                     formData.append('file', file);
                     
+                    // Para upload com FormData, só adiciona o Authorization
+                    const token = getToken();
                     const res = await fetch(`${API_URL}/upload`, {
                         method: 'POST',
-                        body: formData  // Não precisa de headers, o browser configura
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData  // Não precisa de Content-Type, o browser configura
                     });
                     
                     if (res.ok) {
@@ -200,7 +244,7 @@
                         ? `${API_URL}/menu/items/${item.id}`
                         : `${API_URL}/menu/items`;
                     
-                    const res = await fetch(url, {
+                    const res = await authFetch(url, {
                         method: item ? 'PUT' : 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -346,7 +390,7 @@
                 if (!confirm(`Excluir categoria "${category.name}"?`)) return;
                 
                 try {
-                    const res = await fetch(`${API_URL}/menu/categories/${category.id}`, {
+                    const res = await authFetch(`${API_URL}/menu/categories/${category.id}`, {
                         method: 'DELETE'
                     });
                     
@@ -420,7 +464,7 @@
                 if (!confirm(`Excluir item "${item.name}"?`)) return;
                 
                 try {
-                    const res = await fetch(`${API_URL}/menu/items/${item.id}`, {
+                    const res = await authFetch(`${API_URL}/menu/items/${item.id}`, {
                         method: 'DELETE'
                     });
                     
@@ -437,7 +481,7 @@
             
             const toggleStock = async (item) => {
                 try {
-                    const res = await fetch(`${API_URL}/menu/items/${item.id}/toggle-stock`, {
+                    const res = await authFetch(`${API_URL}/menu/items/${item.id}/toggle-stock`, {
                         method: 'POST'
                     });
                     
@@ -556,8 +600,8 @@
             const fetchData = async () => {
                 try {
                     const [catRes, itemsRes] = await Promise.all([
-                        fetch(`${API_URL}/menu/categories?include_inactive=true`),
-                        fetch(`${API_URL}/menu/items?include_inactive=true`)
+                        authFetch(`${API_URL}/menu/categories?include_inactive=true`),
+                        authFetch(`${API_URL}/menu/items?include_inactive=true`)
                     ]);
                     
                     if (catRes.ok) {
