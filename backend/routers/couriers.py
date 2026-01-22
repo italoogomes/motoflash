@@ -1,16 +1,19 @@
 """
 Rotas de Motoqueiros (Couriers)
 """
+import secrets
+import string
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
 from database import get_session
 from models import (
     Courier, CourierCreate, CourierResponse, CourierStatus,
     Batch, BatchStatus, BatchResponse, Order, OrderStatus,
-    Restaurant, CourierLoginRequest, CourierLoginResponse
+    Restaurant, CourierLoginRequest, CourierLoginResponse,
+    PasswordReset
 )
 from services.dispatch_service import get_courier_current_batch, get_batch_orders
 from services.auth_service import hash_password, verify_password
@@ -371,4 +374,136 @@ def get_courier_restaurant(courier_id: str, session: Session = Depends(get_sessi
         "lat": restaurant.lat,
         "lng": restaurant.lng,
         "phone": restaurant.phone
+    }
+
+
+# ============ RECUPERAÇÃO DE SENHA ============
+
+def generate_reset_code(length: int = 12) -> str:
+    """Gera código único para recuperação de senha"""
+    alphabet = string.ascii_lowercase + string.digits
+    alphabet = alphabet.replace('0', '').replace('o', '').replace('l', '').replace('1', '')
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+@router.post("/{courier_id}/password-reset")
+def create_password_reset(
+    courier_id: str,
+    request: Request,
+    session: Session = Depends(get_session)
+):
+    """
+    Gera link de recuperação de senha para o motoboy
+    
+    Chamado pelo DONO no dashboard.
+    O link é válido por 1 hora.
+    """
+    courier = session.get(Courier, courier_id)
+    if not courier:
+        raise HTTPException(status_code=404, detail="Motoqueiro não encontrado")
+    
+    # Gera código único
+    while True:
+        code = generate_reset_code()
+        existing = session.exec(
+            select(PasswordReset).where(PasswordReset.code == code)
+        ).first()
+        if not existing:
+            break
+    
+    # Cria o reset
+    reset = PasswordReset(
+        code=code,
+        courier_id=courier_id
+    )
+    
+    session.add(reset)
+    session.commit()
+    session.refresh(reset)
+    
+    # Monta URL
+    base_url = str(request.base_url).rstrip('/')
+    reset_url = f"{base_url}/recuperar-senha/{reset.code}"
+    
+    return {
+        "success": True,
+        "courier_name": courier.name,
+        "reset_url": reset_url,
+        "expires_in": "1 hora"
+    }
+
+
+@router.get("/password-reset/{code}/validate")
+def validate_password_reset(code: str, session: Session = Depends(get_session)):
+    """
+    Valida um código de recuperação de senha (público)
+    """
+    reset = session.exec(
+        select(PasswordReset).where(PasswordReset.code == code)
+    ).first()
+    
+    if not reset:
+        return {"valid": False, "message": "Link inválido"}
+    
+    if reset.used:
+        return {"valid": False, "message": "Este link já foi utilizado"}
+    
+    if datetime.now() > reset.expires_at:
+        return {"valid": False, "message": "Este link expirou"}
+    
+    # Busca nome do motoboy
+    courier = session.get(Courier, reset.courier_id)
+    
+    return {
+        "valid": True,
+        "courier_name": courier.name if courier else "Motoboy",
+        "message": "Link válido"
+    }
+
+
+@router.post("/password-reset/{code}/use")
+def use_password_reset(
+    code: str,
+    new_password: str,
+    session: Session = Depends(get_session)
+):
+    """
+    Usa o link para redefinir a senha (público)
+    """
+    reset = session.exec(
+        select(PasswordReset).where(PasswordReset.code == code)
+    ).first()
+    
+    if not reset:
+        raise HTTPException(status_code=404, detail="Link inválido")
+    
+    if reset.used:
+        raise HTTPException(status_code=400, detail="Este link já foi utilizado")
+    
+    if datetime.now() > reset.expires_at:
+        raise HTTPException(status_code=400, detail="Este link expirou")
+    
+    if not new_password or len(new_password) < 4:
+        raise HTTPException(status_code=400, detail="Senha deve ter pelo menos 4 caracteres")
+    
+    # Busca o motoboy
+    courier = session.get(Courier, reset.courier_id)
+    if not courier:
+        raise HTTPException(status_code=404, detail="Motoboy não encontrado")
+    
+    # Atualiza a senha
+    courier.password_hash = hash_password(new_password)
+    courier.updated_at = datetime.now()
+    session.add(courier)
+    
+    # Marca o link como usado
+    reset.used = True
+    reset.used_at = datetime.now()
+    session.add(reset)
+    
+    session.commit()
+    
+    return {
+        "success": True,
+        "message": f"Senha atualizada com sucesso, {courier.name}!"
     }

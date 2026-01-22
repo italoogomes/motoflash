@@ -313,3 +313,17 @@ def serve_convite(code: str):
         with open(convite_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque convite.html na pasta static/</p>", status_code=404)
+
+
+@app.get("/recuperar-senha/{code}", response_class=HTMLResponse, tags=["Autenticação"])
+def serve_recuperar_senha(code: str):
+    """
+    Página de recuperação de senha para motoboy
+    
+    O motoboy acessa esse link (recebido por WhatsApp) para redefinir a senha.
+    """
+    recuperar_path = STATIC_DIR / "recuperar-senha.html"
+    if recuperar_path.exists():
+        with open(recuperar_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque recuperar-senha.html na pasta static/</p>", status_code=404)
