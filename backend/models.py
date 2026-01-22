@@ -348,6 +348,49 @@ class Invite(SQLModel, table=True):
         return f"{hours}h {minutes}min"
 
 
+class PasswordReset(SQLModel, table=True):
+    """
+    Link de recuperação de senha para motoboy
+    
+    Fluxo:
+    1. Motoboy esquece a senha
+    2. Pede ajuda ao restaurante
+    3. Dono gera link no dashboard
+    4. Manda no WhatsApp pro motoboy
+    5. Motoboy acessa /recuperar-senha/{code}
+    6. Define nova senha
+    """
+    __tablename__ = "password_resets"
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # Código único (usado na URL)
+    code: str = Field(index=True, unique=True)
+    
+    # Motoboy que vai redefinir a senha
+    courier_id: str = Field(foreign_key="couriers.id", index=True)
+    
+    # Validade (1 hora)
+    expires_at: datetime = Field(
+        default_factory=lambda: datetime.now() + timedelta(hours=1)
+    )
+    
+    # Status de uso
+    used: bool = Field(default=False)
+    used_at: Optional[datetime] = None
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    
+    def is_valid(self) -> bool:
+        """Verifica se o link ainda é válido"""
+        if self.used:
+            return False
+        if datetime.now() > self.expires_at:
+            return False
+        return True
+
+
 # ============ SCHEMAS (para API) ============
 
 class OrderCreate(SQLModel):
