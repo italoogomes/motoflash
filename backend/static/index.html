@@ -22,6 +22,52 @@
         // ============ CONFIGURAÇÃO ============
         const API_URL = window.location.origin;
         
+        // ============ AUTENTICAÇÃO ============
+        
+        // Pega o token do localStorage
+        const getToken = () => localStorage.getItem('motoflash_token');
+        
+        // Verifica se está logado
+        const isLoggedIn = () => !!getToken();
+        
+        // Fetch autenticado - adiciona o token automaticamente
+        const authFetch = async (url, options = {}) => {
+            const token = getToken();
+            
+            if (!token) {
+                // Não está logado, redireciona
+                window.location.href = '/login';
+                throw new Error('Não autenticado');
+            }
+            
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+            
+            // Se for JSON, adiciona content-type
+            if (options.body && typeof options.body === 'string') {
+                headers['Content-Type'] = 'application/json';
+            }
+            
+            const response = await fetch(url, { ...options, headers });
+            
+            // Se receber 401, limpa token e redireciona
+            if (response.status === 401) {
+                localStorage.removeItem('motoflash_token');
+                localStorage.removeItem('motoflash_user');
+                window.location.href = '/login';
+                throw new Error('Sessão expirada');
+            }
+            
+            return response;
+        };
+        
+        // Verifica login ao carregar
+        if (!isLoggedIn()) {
+            window.location.href = '/login';
+        }
+        
         // ============ COMPONENTE DE CRONÔMETRO ============
         
         const Timer = ({ startTime }) => {
@@ -630,7 +676,7 @@
               }
               
               // Cria pedido (endereço vai no PEDIDO, não atualiza cadastro!)
-              const res = await fetch(`${API_URL}/orders`, {
+              const res = await authFetch(`${API_URL}/orders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -985,7 +1031,7 @@
           
           const handleScan = async (orderId) => {
             try {
-              await fetch(`${API_URL}/orders/${orderId}/scan`, { method: 'POST' });
+              await authFetch(`${API_URL}/orders/${orderId}/scan`, { method: 'POST' });
               onRefresh();
             } catch (err) {
               console.error('Erro ao bipar:', err);
@@ -1448,7 +1494,7 @@
           const runDispatch = async () => {
             setLoading(true);
             try {
-              const res = await fetch(`${API_URL}/dispatch/run`, { method: 'POST' });
+              const res = await authFetch(`${API_URL}/dispatch/run`, { method: 'POST' });
               const result = await res.json();
               setLastResult(result);
               onDispatch();
@@ -1537,6 +1583,27 @@
           const [connected, setConnected] = useState(false);
           const [error, setError] = useState(null);
           
+          // Dados do usuário logado
+          const [restaurantName, setRestaurantName] = useState(() => {
+            const restaurantData = localStorage.getItem('motoflash_restaurant');
+            if (restaurantData) {
+              try {
+                const restaurant = JSON.parse(restaurantData);
+                return restaurant.name || 'Restaurante';
+              } catch {
+                return 'Restaurante';
+              }
+            }
+            return 'Restaurante';
+          });
+          
+          // Função de logout
+          const handleLogout = () => {
+            localStorage.removeItem('motoflash_token');
+            localStorage.removeItem('motoflash_user');
+            window.location.href = '/login';
+          };
+          
           // Data simulada para testes
           const [simulatedDate, setSimulatedDate] = useState(() => {
             const today = new Date();
@@ -1546,12 +1613,12 @@
           const fetchAll = useCallback(async () => {
             try {
               const [ordersRes, couriersRes, batchesRes, statsRes, alertsRes, recoRes] = await Promise.all([
-                fetch(`${API_URL}/orders?limit=50`),
-                fetch(`${API_URL}/couriers`),
-                fetch(`${API_URL}/dispatch/batches`),
-                fetch(`${API_URL}/dispatch/stats`),
-                fetch(`${API_URL}/dispatch/alerts`),
-                fetch(`${API_URL}/dispatch/recommendation`),
+                authFetch(`${API_URL}/orders?limit=50`),
+                fetch(`${API_URL}/couriers`),  // Couriers não precisa auth (motoboy acessa)
+                authFetch(`${API_URL}/dispatch/batches`),
+                authFetch(`${API_URL}/dispatch/stats`),
+                authFetch(`${API_URL}/dispatch/alerts`),
+                authFetch(`${API_URL}/dispatch/recommendation`),
               ]);
               
               if (ordersRes.ok) setOrders(await ordersRes.json());
@@ -1564,6 +1631,9 @@
               setConnected(true);
               setError(null);
             } catch (err) {
+              if (err.message === 'Não autenticado' || err.message === 'Sessão expirada') {
+                return; // Já redirecionou
+              }
               setConnected(false);
               setError('Não foi possível conectar ao servidor.');
             }
@@ -1608,6 +1678,12 @@
                     </div>
                     
                     <div className="flex items-center gap-4">
+                      {/* Nome do Restaurante */}
+                      <div className="hidden sm:flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
+                        <span className="text-lg">🏪</span>
+                        <span className="font-medium text-gray-700">{restaurantName}</span>
+                      </div>
+                      
                       <a 
                         href="/cardapio" 
                         className="flex items-center gap-2 bg-orange-100 hover:bg-orange-200 text-orange-700 px-4 py-2 rounded-lg font-medium transition-all"
@@ -1627,6 +1703,14 @@
                           {connected ? 'Conectado' : 'Desconectado'}
                         </span>
                       </div>
+                      
+                      {/* Botão Sair */}
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-all"
+                      >
+                        🚪 Sair
+                      </button>
                     </div>
                   </div>
                 </div>
