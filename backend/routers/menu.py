@@ -1,5 +1,9 @@
 """
 Rotas do Cardápio (Categorias e Itens)
+
+🔒 PROTEÇÃO MULTI-TENANT:
+- Todas as categorias e itens são vinculados ao restaurant_id do usuário logado
+- Listagem filtra apenas dados do restaurante do usuário
 """
 from datetime import datetime
 from typing import List
@@ -9,8 +13,10 @@ from sqlmodel import Session, select, func
 from database import get_session
 from models import (
     Category, CategoryCreate, CategoryUpdate, CategoryResponse,
-    MenuItem, MenuItemCreate, MenuItemUpdate, MenuItemResponse
+    MenuItem, MenuItemCreate, MenuItemUpdate, MenuItemResponse,
+    User
 )
+from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/menu", tags=["Cardápio"])
 
@@ -18,11 +24,20 @@ router = APIRouter(prefix="/menu", tags=["Cardápio"])
 # ============ CATEGORIAS ============
 
 @router.post("/categories", response_model=CategoryResponse)
-def create_category(data: CategoryCreate, session: Session = Depends(get_session)):
-    """Cria uma nova categoria"""
+def create_category(
+    data: CategoryCreate, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cria uma nova categoria
+    
+    🔒 Vincula ao restaurante do usuário logado
+    """
     category = Category(
         name=data.name,
-        order=data.order
+        order=data.order,
+        restaurant_id=current_user.restaurant_id  # 🔒 PROTEÇÃO
     )
     
     session.add(category)
@@ -41,10 +56,18 @@ def create_category(data: CategoryCreate, session: Session = Depends(get_session
 @router.get("/categories", response_model=List[CategoryResponse])
 def list_categories(
     include_inactive: bool = False,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    """Lista todas as categorias com contagem de itens"""
-    query = select(Category).order_by(Category.order, Category.name)
+    """
+    Lista todas as categorias com contagem de itens
+    
+    🔒 Filtra por restaurant_id
+    """
+    # 🔒 Filtra por restaurante
+    query = select(Category).where(
+        Category.restaurant_id == current_user.restaurant_id
+    ).order_by(Category.order, Category.name)
     
     if not include_inactive:
         query = query.where(Category.active == True)
@@ -53,8 +76,11 @@ def list_categories(
     
     result = []
     for cat in categories:
-        # Conta itens da categoria
-        items_query = select(func.count(MenuItem.id)).where(MenuItem.category_id == cat.id)
+        # Conta itens da categoria (do mesmo restaurante)
+        items_query = select(func.count(MenuItem.id)).where(
+            MenuItem.category_id == cat.id,
+            MenuItem.restaurant_id == current_user.restaurant_id  # 🔒
+        )
         if not include_inactive:
             items_query = items_query.where(MenuItem.active == True)
         items_count = session.exec(items_query).one()
@@ -71,10 +97,18 @@ def list_categories(
 
 
 @router.get("/categories/{category_id}", response_model=CategoryResponse)
-def get_category(category_id: str, session: Session = Depends(get_session)):
-    """Busca uma categoria pelo ID"""
+def get_category(
+    category_id: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Busca uma categoria pelo ID (apenas do próprio restaurante)"""
     category = session.get(Category, category_id)
     if not category:
+        raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if category.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     
     items_query = select(func.count(MenuItem.id)).where(MenuItem.category_id == category.id)
@@ -93,11 +127,16 @@ def get_category(category_id: str, session: Session = Depends(get_session)):
 def update_category(
     category_id: str,
     data: CategoryUpdate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    """Atualiza uma categoria"""
+    """Atualiza uma categoria (apenas do próprio restaurante)"""
     category = session.get(Category, category_id)
     if not category:
+        raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if category.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     
     if data.name is not None:
@@ -124,10 +163,18 @@ def update_category(
 
 
 @router.delete("/categories/{category_id}")
-def delete_category(category_id: str, session: Session = Depends(get_session)):
-    """Remove uma categoria (se não tiver itens)"""
+def delete_category(
+    category_id: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove uma categoria (se não tiver itens) - apenas do próprio restaurante"""
     category = session.get(Category, category_id)
     if not category:
+        raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if category.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     
     # Verifica se tem itens
@@ -149,11 +196,23 @@ def delete_category(category_id: str, session: Session = Depends(get_session)):
 # ============ ITENS ============
 
 @router.post("/items", response_model=MenuItemResponse)
-def create_item(data: MenuItemCreate, session: Session = Depends(get_session)):
-    """Cria um novo item no cardápio"""
-    # Verifica se categoria existe
+def create_item(
+    data: MenuItemCreate, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cria um novo item no cardápio
+    
+    🔒 Vincula ao restaurante do usuário logado
+    """
+    # Verifica se categoria existe E pertence ao restaurante
     category = session.get(Category, data.category_id)
     if not category:
+        raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    
+    # 🔒 Verifica se categoria pertence ao restaurante
+    if category.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     
     item = MenuItem(
@@ -161,7 +220,8 @@ def create_item(data: MenuItemCreate, session: Session = Depends(get_session)):
         description=data.description,
         price=data.price,
         image_url=data.image_url,
-        category_id=data.category_id
+        category_id=data.category_id,
+        restaurant_id=current_user.restaurant_id  # 🔒 PROTEÇÃO
     )
     
     session.add(item)
@@ -186,10 +246,18 @@ def list_items(
     category_id: str = None,
     include_inactive: bool = False,
     include_out_of_stock: bool = True,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    """Lista itens do cardápio, opcionalmente filtrados por categoria"""
-    query = select(MenuItem).order_by(MenuItem.name)
+    """
+    Lista itens do cardápio, opcionalmente filtrados por categoria
+    
+    🔒 Filtra por restaurant_id
+    """
+    # 🔒 Filtra por restaurante
+    query = select(MenuItem).where(
+        MenuItem.restaurant_id == current_user.restaurant_id
+    ).order_by(MenuItem.name)
     
     if category_id:
         query = query.where(MenuItem.category_id == category_id)
@@ -221,10 +289,18 @@ def list_items(
 
 
 @router.get("/items/{item_id}", response_model=MenuItemResponse)
-def get_item(item_id: str, session: Session = Depends(get_session)):
-    """Busca um item pelo ID"""
+def get_item(
+    item_id: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Busca um item pelo ID (apenas do próprio restaurante)"""
     item = session.get(MenuItem, item_id)
     if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if item.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Item não encontrado")
     
     category = session.get(Category, item.category_id)
@@ -246,11 +322,16 @@ def get_item(item_id: str, session: Session = Depends(get_session)):
 def update_item(
     item_id: str,
     data: MenuItemUpdate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    """Atualiza um item"""
+    """Atualiza um item (apenas do próprio restaurante)"""
     item = session.get(MenuItem, item_id)
     if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if item.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Item não encontrado")
     
     if data.name is not None:
@@ -262,9 +343,9 @@ def update_item(
     if data.image_url is not None:
         item.image_url = data.image_url
     if data.category_id is not None:
-        # Verifica se nova categoria existe
+        # Verifica se nova categoria existe E pertence ao restaurante
         category = session.get(Category, data.category_id)
-        if not category:
+        if not category or category.restaurant_id != current_user.restaurant_id:
             raise HTTPException(status_code=404, detail="Categoria não encontrada")
         item.category_id = data.category_id
     if data.active is not None:
@@ -294,10 +375,18 @@ def update_item(
 
 
 @router.delete("/items/{item_id}")
-def delete_item(item_id: str, session: Session = Depends(get_session)):
-    """Remove um item do cardápio"""
+def delete_item(
+    item_id: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove um item do cardápio (apenas do próprio restaurante)"""
     item = session.get(MenuItem, item_id)
     if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if item.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Item não encontrado")
     
     session.delete(item)
@@ -307,10 +396,18 @@ def delete_item(item_id: str, session: Session = Depends(get_session)):
 
 
 @router.post("/items/{item_id}/toggle-stock", response_model=MenuItemResponse)
-def toggle_stock(item_id: str, session: Session = Depends(get_session)):
-    """Alterna status de estoque (disponível/esgotado)"""
+def toggle_stock(
+    item_id: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Alterna status de estoque (disponível/esgotado) - apenas do próprio restaurante"""
     item = session.get(MenuItem, item_id)
     if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if item.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Item não encontrado")
     
     item.out_of_stock = not item.out_of_stock
@@ -338,20 +435,31 @@ def toggle_stock(item_id: str, session: Session = Depends(get_session)):
 # ============ CARDÁPIO COMPLETO ============
 
 @router.get("/full")
-def get_full_menu(session: Session = Depends(get_session)):
-    """Retorna cardápio completo organizado por categoria"""
+def get_full_menu(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna cardápio completo organizado por categoria
+    
+    🔒 Filtra por restaurant_id
+    """
+    # 🔒 Filtra por restaurante
     categories = session.exec(
         select(Category)
         .where(Category.active == True)
+        .where(Category.restaurant_id == current_user.restaurant_id)
         .order_by(Category.order, Category.name)
     ).all()
     
     result = []
     for cat in categories:
+        # 🔒 Filtra itens por restaurante também
         items = session.exec(
             select(MenuItem)
             .where(MenuItem.category_id == cat.id)
             .where(MenuItem.active == True)
+            .where(MenuItem.restaurant_id == current_user.restaurant_id)
             .order_by(MenuItem.name)
         ).all()
         

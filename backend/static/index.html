@@ -1614,7 +1614,7 @@
             try {
               const [ordersRes, couriersRes, batchesRes, statsRes, alertsRes, recoRes] = await Promise.all([
                 authFetch(`${API_URL}/orders?limit=50`),
-                fetch(`${API_URL}/couriers`),  // Couriers não precisa auth (motoboy acessa)
+                authFetch(`${API_URL}/couriers`),  // 🔒 Agora protegido
                 authFetch(`${API_URL}/dispatch/batches`),
                 authFetch(`${API_URL}/dispatch/stats`),
                 authFetch(`${API_URL}/dispatch/alerts`),

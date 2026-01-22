@@ -13,10 +13,10 @@ from models import (
     Courier, CourierCreate, CourierResponse, CourierStatus,
     Batch, BatchStatus, BatchResponse, Order, OrderStatus,
     Restaurant, CourierLoginRequest, CourierLoginResponse,
-    PasswordReset
+    PasswordReset, User
 )
 from services.dispatch_service import get_courier_current_batch, get_batch_orders
-from services.auth_service import hash_password, verify_password
+from services.auth_service import hash_password, verify_password, get_current_user
 
 router = APIRouter(prefix="/couriers", tags=["Motoqueiros"])
 
@@ -118,12 +118,18 @@ def create_courier(courier_data: CourierCreate, session: Session = Depends(get_s
 @router.get("", response_model=List[CourierResponse])
 def list_couriers(
     status: CourierStatus = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Lista todos os motoqueiros, opcionalmente filtrados por status
+    Lista motoqueiros do restaurante do usuário logado
+    
+    🔒 PROTEÇÃO: Filtra por restaurant_id
     """
-    query = select(Courier).order_by(Courier.name)
+    # 🔒 Filtra por restaurante do usuário logado
+    query = select(Courier).where(
+        Courier.restaurant_id == current_user.restaurant_id
+    ).order_by(Courier.name)
     
     if status:
         query = query.where(Courier.status == status)

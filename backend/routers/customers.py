@@ -1,67 +1,42 @@
 """
 Rotas de Clientes
 
-EXPLICAÇÃO SIMPLES:
-Este arquivo é como um "balcão de atendimento".
-Cada função é uma AÇÃO que alguém pode pedir:
-- "Quero cadastrar um cliente" → create_customer
-- "Quero ver todos os clientes" → list_customers
-- "Quero buscar pelo telefone" → get_customer_by_phone
+🔒 PROTEÇÃO MULTI-TENANT:
+- Todos os clientes são vinculados ao restaurant_id do usuário logado
+- Listagem filtra apenas clientes do restaurante do usuário
 """
 from datetime import datetime
 from typing import List
-import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from models import Customer, CustomerCreate, CustomerUpdate, CustomerResponse
+from models import Customer, CustomerCreate, CustomerUpdate, CustomerResponse, User
+from services.auth_service import get_current_user
 
-# Cria o "balcão" de clientes
-# prefix="/customers" = todas as rotas começam com /customers
-# tags=["Clientes"] = organiza na documentação
 router = APIRouter(prefix="/customers", tags=["Clientes"])
 
 
-# ============ FUNÇÃO AUXILIAR PARA NORMALIZAR TEXTO ============
-
-def normalize_text(text: str) -> str:
-    """
-    Remove acentos e converte para minúsculas.
-    "Ítalo" → "italo"
-    "João" → "joao"
-    """
-    if not text:
-        return ""
-    # Remove acentos usando NFD (decompõe caracteres acentuados)
-    normalized = unicodedata.normalize('NFD', text)
-    # Remove os caracteres de combinação (acentos)
-    without_accents = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
-    # Converte para minúsculas
-    return without_accents.lower()
-
-
 # ============ CRIAR CLIENTE ============
-# POST /customers
-# 
-# POST = "Quero CRIAR algo novo"
-# É como preencher uma ficha e entregar pro atendente
 
 @router.post("", response_model=CustomerResponse)
-def create_customer(data: CustomerCreate, session: Session = Depends(get_session)):
+def create_customer(
+    data: CustomerCreate, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Cadastra um novo cliente
     
-    O que acontece aqui:
-    1. Recebe os dados (telefone, nome, endereço)
-    2. Verifica se já existe cliente com esse telefone
-    3. Salva no banco de dados (sem coordenadas - economiza Geocoding!)
-    4. Coordenadas são buscadas apenas ao criar pedido
+    🔒 O cliente é vinculado automaticamente ao restaurante do usuário logado
     """
     
-    # 1. Verifica se já existe cliente com esse telefone
+    # Verifica se já existe cliente com esse telefone NO MESMO RESTAURANTE
     existing = session.exec(
-        select(Customer).where(Customer.phone == data.phone)
+        select(Customer).where(
+            Customer.phone == data.phone,
+            Customer.restaurant_id == current_user.restaurant_id  # 🔒
+        )
     ).first()
     
     if existing:
@@ -70,7 +45,7 @@ def create_customer(data: CustomerCreate, session: Session = Depends(get_session
             detail="Já existe cliente com este telefone"
         )
     
-    # 2. Cria o cliente (sem coordenadas - serão buscadas apenas ao criar pedido)
+    # Cria o cliente vinculado ao restaurante
     customer = Customer(
         phone=data.phone,
         name=data.name,
@@ -78,18 +53,14 @@ def create_customer(data: CustomerCreate, session: Session = Depends(get_session
         complement=data.complement,
         reference=data.reference,
         lat=None,
-        lng=None
+        lng=None,
+        restaurant_id=current_user.restaurant_id  # 🔒 PROTEÇÃO
     )
     
-    # 3. Salva no banco
-    # session.add() = "Coloca na gaveta"
-    # session.commit() = "Confirma que salvou"
-    # session.refresh() = "Atualiza com os dados do banco (pega o id gerado)"
     session.add(customer)
     session.commit()
     session.refresh(customer)
     
-    # 4. Devolve o cliente criado
     return CustomerResponse(
         id=customer.id,
         phone=customer.phone,
@@ -104,39 +75,32 @@ def create_customer(data: CustomerCreate, session: Session = Depends(get_session
 
 
 # ============ LISTAR CLIENTES ============
-# GET /customers
-#
-# GET = "Quero VER/BUSCAR algo"
-# É como pedir pra ver todas as fichas da gaveta
 
 @router.get("", response_model=List[CustomerResponse])
 def list_customers(
-    search: str = None,  # Parâmetro opcional pra filtrar
-    session: Session = Depends(get_session)
+    search: str = None,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Lista todos os clientes
+    Lista clientes do restaurante do usuário logado
     
-    Pode filtrar por nome ou telefone usando ?search=texto
-    Exemplo: /customers?search=joao
-    
-    A busca ignora acentos e maiúsculas/minúsculas!
-    "italo" encontra "Ítalo"
-    "joao" encontra "João"
+    🔒 Filtra automaticamente pelo restaurant_id
     """
     
-    # Busca todos os clientes ordenados por nome
-    query = select(Customer).order_by(Customer.name)
-    customers = session.exec(query).all()
+    # 🔒 Filtra por restaurante
+    query = select(Customer).where(
+        Customer.restaurant_id == current_user.restaurant_id
+    ).order_by(Customer.name)
     
-    # Se passou um filtro, aplica no Python (ignora acentos e case)
     if search:
-        search_normalized = normalize_text(search)
-        customers = [
-            c for c in customers
-            if search_normalized in normalize_text(c.name or '') or
-               search_normalized in normalize_text(c.phone or '')
-        ]
+        search_term = f"%{search}%"
+        query = query.where(
+            (Customer.name.ilike(search_term)) | 
+            (Customer.phone.ilike(search_term))
+        )
+    
+    customers = session.exec(query).all()
     
     return [
         CustomerResponse(
@@ -155,28 +119,27 @@ def list_customers(
 
 
 # ============ BUSCAR POR TELEFONE ============
-# GET /customers/phone/{phone}
-#
-# Essa é a MÁGICA pro formulário de pedido!
-# Digita o telefone → aparece os dados do cliente
 
 @router.get("/phone/{phone}", response_model=CustomerResponse)
-def get_customer_by_phone(phone: str, session: Session = Depends(get_session)):
+def get_customer_by_phone(
+    phone: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Busca cliente pelo telefone
+    Busca cliente pelo telefone (apenas do próprio restaurante)
     
-    Essa rota é usada no formulário de novo pedido:
-    - Atendente digita telefone
-    - Sistema busca se já existe
-    - Se existe, preenche nome e endereço automaticamente!
+    🔒 Filtra pelo restaurant_id
     """
     
-    # Busca no banco
+    # 🔒 Busca apenas no restaurante do usuário
     customer = session.exec(
-        select(Customer).where(Customer.phone == phone)
+        select(Customer).where(
+            Customer.phone == phone,
+            Customer.restaurant_id == current_user.restaurant_id
+        )
     ).first()
     
-    # Se não encontrou, retorna erro 404 (Não encontrado)
     if not customer:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     
@@ -194,15 +157,22 @@ def get_customer_by_phone(phone: str, session: Session = Depends(get_session)):
 
 
 # ============ BUSCAR POR ID ============
-# GET /customers/{customer_id}
 
 @router.get("/{customer_id}", response_model=CustomerResponse)
-def get_customer(customer_id: str, session: Session = Depends(get_session)):
-    """Busca cliente pelo ID"""
+def get_customer(
+    customer_id: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Busca cliente pelo ID (apenas do próprio restaurante)"""
     
     customer = session.get(Customer, customer_id)
     
     if not customer:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if customer.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     
     return CustomerResponse(
@@ -219,48 +189,43 @@ def get_customer(customer_id: str, session: Session = Depends(get_session)):
 
 
 # ============ ATUALIZAR CLIENTE ============
-# PUT /customers/{customer_id}
-#
-# PUT = "Quero ATUALIZAR algo que já existe"
-# É como pegar uma ficha e corrigir alguns campos
 
 @router.put("/{customer_id}", response_model=CustomerResponse)
 def update_customer(
     customer_id: str,
     data: CustomerUpdate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Atualiza dados do cliente
+    Atualiza dados do cliente (apenas do próprio restaurante)
     
-    Só atualiza os campos que foram enviados.
-    Se mandar só o nome, só o nome muda.
+    🔒 Verifica se o cliente pertence ao restaurante
     """
     
-    # Busca o cliente
     customer = session.get(Customer, customer_id)
     
     if not customer:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     
+    # 🔒 Verifica se pertence ao restaurante
+    if customer.restaurant_id != current_user.restaurant_id:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    
     # Atualiza só os campos que vieram preenchidos
-    # "if data.X is not None" = "se mandou esse campo"
     if data.phone is not None:
         customer.phone = data.phone
     if data.name is not None:
         customer.name = data.name
     if data.address is not None:
         customer.address = data.address
-        # Coordenadas serão atualizadas apenas ao criar novo pedido
     if data.complement is not None:
         customer.complement = data.complement
     if data.reference is not None:
         customer.reference = data.reference
     
-    # Atualiza a data de modificação
     customer.updated_at = datetime.now()
     
-    # Salva
     session.add(customer)
     session.commit()
     session.refresh(customer)
@@ -279,18 +244,22 @@ def update_customer(
 
 
 # ============ DELETAR CLIENTE ============
-# DELETE /customers/{customer_id}
-#
-# DELETE = "Quero REMOVER algo"
-# É como jogar a ficha fora
 
 @router.delete("/{customer_id}")
-def delete_customer(customer_id: str, session: Session = Depends(get_session)):
-    """Remove um cliente"""
+def delete_customer(
+    customer_id: str, 
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove um cliente (apenas do próprio restaurante)"""
     
     customer = session.get(Customer, customer_id)
     
     if not customer:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    
+    # 🔒 Verifica se pertence ao restaurante
+    if customer.restaurant_id != current_user.restaurant_id:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     
     session.delete(customer)
