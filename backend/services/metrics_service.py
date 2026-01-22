@@ -1,5 +1,8 @@
 """
 Serviço de Métricas - Calcula tempos e capacidades
+
+🔒 PROTEÇÃO MULTI-TENANT:
+- Todas as métricas filtram por restaurant_id
 """
 from datetime import datetime, timedelta
 from typing import Optional
@@ -47,7 +50,11 @@ class MetricasCompletas:
 
 # ============ FUNÇÕES DE CÁLCULO ============
 
-def calcular_tempo_preparo(session: Session, prep_type: Optional[PrepType] = None) -> tuple[Optional[float], int]:
+def calcular_tempo_preparo(
+    session: Session, 
+    prep_type: Optional[PrepType] = None,
+    restaurant_id: str = None  # 🔒 PROTEÇÃO
+) -> tuple[Optional[float], int]:
     """
     Calcula tempo médio de preparo (created_at → ready_at)
     Retorna (média em minutos, quantidade de amostras)
@@ -58,6 +65,10 @@ def calcular_tempo_preparo(session: Session, prep_type: Optional[PrepType] = Non
         Order.ready_at != None,
         Order.created_at >= cutoff
     )
+    
+    # 🔒 Filtra por restaurante
+    if restaurant_id:
+        query = query.where(Order.restaurant_id == restaurant_id)
     
     if prep_type:
         query = query.where(Order.prep_type == prep_type)
@@ -77,20 +88,27 @@ def calcular_tempo_preparo(session: Session, prep_type: Optional[PrepType] = Non
     return sum(tempos) / len(tempos), len(tempos)
 
 
-def calcular_tempo_rota(session: Session) -> tuple[Optional[float], int]:
+def calcular_tempo_rota(
+    session: Session,
+    restaurant_id: str = None  # 🔒 PROTEÇÃO
+) -> tuple[Optional[float], int]:
     """
     Calcula tempo médio de rota (ready_at → delivered_at) * 1.5 para ida+volta
     """
     cutoff = datetime.now() - timedelta(hours=24)
     
-    orders = session.exec(
-        select(Order).where(
-            Order.status == OrderStatus.DELIVERED,
-            Order.delivered_at != None,
-            Order.ready_at != None,
-            Order.ready_at >= cutoff
-        )
-    ).all()
+    query = select(Order).where(
+        Order.status == OrderStatus.DELIVERED,
+        Order.delivered_at != None,
+        Order.ready_at != None,
+        Order.ready_at >= cutoff
+    )
+    
+    # 🔒 Filtra por restaurante
+    if restaurant_id:
+        query = query.where(Order.restaurant_id == restaurant_id)
+    
+    orders = session.exec(query).all()
     
     tempos = []
     for order in orders:
@@ -105,22 +123,40 @@ def calcular_tempo_rota(session: Session) -> tuple[Optional[float], int]:
     return sum(tempos) / len(tempos), len(tempos)
 
 
-def contar_pedidos_hora(session: Session) -> int:
+def contar_pedidos_hora(
+    session: Session,
+    restaurant_id: str = None  # 🔒 PROTEÇÃO
+) -> int:
     """Conta pedidos na última hora"""
     uma_hora = datetime.now() - timedelta(hours=1)
-    orders = session.exec(select(Order).where(Order.created_at >= uma_hora)).all()
+    
+    query = select(Order).where(Order.created_at >= uma_hora)
+    
+    # 🔒 Filtra por restaurante
+    if restaurant_id:
+        query = query.where(Order.restaurant_id == restaurant_id)
+    
+    orders = session.exec(query).all()
     return len(orders)
 
 
-def contar_motoboys(session: Session) -> tuple[int, int]:
+def contar_motoboys(
+    session: Session,
+    restaurant_id: str = None  # 🔒 PROTEÇÃO
+) -> tuple[int, int]:
     """Retorna (disponíveis, ocupados)"""
-    disponiveis = len(session.exec(
-        select(Courier).where(Courier.status == CourierStatus.AVAILABLE)
-    ).all())
     
-    ocupados = len(session.exec(
-        select(Courier).where(Courier.status == CourierStatus.BUSY)
-    ).all())
+    # Query disponíveis
+    query_disp = select(Courier).where(Courier.status == CourierStatus.AVAILABLE)
+    if restaurant_id:
+        query_disp = query_disp.where(Courier.restaurant_id == restaurant_id)
+    disponiveis = len(session.exec(query_disp).all())
+    
+    # Query ocupados
+    query_ocup = select(Courier).where(Courier.status == CourierStatus.BUSY)
+    if restaurant_id:
+        query_ocup = query_ocup.where(Courier.restaurant_id == restaurant_id)
+    ocupados = len(session.exec(query_ocup).all())
     
     return disponiveis, ocupados
 
@@ -141,20 +177,23 @@ def calcular_motoboys_necessarios(pedidos_hora: float, tempo_rota_min: float) ->
     return max(1, int(pedidos_hora / capacidade + 0.9))
 
 
-def obter_metricas_completas(session: Session) -> MetricasCompletas:
+def obter_metricas_completas(
+    session: Session,
+    restaurant_id: str = None  # 🔒 PROTEÇÃO
+) -> MetricasCompletas:
     """Retorna todas as métricas consolidadas"""
     
     # Preparo
-    media_short, amostras_short = calcular_tempo_preparo(session, PrepType.SHORT)
-    media_long, amostras_long = calcular_tempo_preparo(session, PrepType.LONG)
-    media_geral, _ = calcular_tempo_preparo(session)
+    media_short, amostras_short = calcular_tempo_preparo(session, PrepType.SHORT, restaurant_id)
+    media_long, amostras_long = calcular_tempo_preparo(session, PrepType.LONG, restaurant_id)
+    media_geral, _ = calcular_tempo_preparo(session, None, restaurant_id)
     
     # Rota
-    tempo_rota, amostras_rota = calcular_tempo_rota(session)
+    tempo_rota, amostras_rota = calcular_tempo_rota(session, restaurant_id)
     
     # Capacidade
-    pedidos_hora = contar_pedidos_hora(session)
-    disponiveis, ocupados = contar_motoboys(session)
+    pedidos_hora = contar_pedidos_hora(session, restaurant_id)
+    disponiveis, ocupados = contar_motoboys(session, restaurant_id)
     total_ativos = disponiveis + ocupados
     
     # Capacidade por motoboy (entregas/hora)
@@ -167,9 +206,10 @@ def obter_metricas_completas(session: Session) -> MetricasCompletas:
     deficit = max(0, motoboys_necessarios - total_ativos)
     
     # Pedidos aguardando
-    aguardando = len(session.exec(
-        select(Order).where(Order.status == OrderStatus.READY)
-    ).all())
+    query_aguardando = select(Order).where(Order.status == OrderStatus.READY)
+    if restaurant_id:
+        query_aguardando = query_aguardando.where(Order.restaurant_id == restaurant_id)
+    aguardando = len(session.exec(query_aguardando).all())
     
     return MetricasCompletas(
         preparo=MetricasPreparo(

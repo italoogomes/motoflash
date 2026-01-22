@@ -1,5 +1,8 @@
 """
 Serviço de Alertas - Gera alertas inteligentes em tempo real
+
+🔒 PROTEÇÃO MULTI-TENANT:
+- Todos os alertas filtram por restaurant_id
 """
 from datetime import datetime
 from typing import List, Optional
@@ -56,9 +59,14 @@ FILA_CRITICO = 5      # Alerta vermelho se 5+ pedidos na fila
 OCIOSIDADE_ALERTA = 50  # % de motoboys ociosos para alertar
 
 
-def gerar_alertas(session: Session) -> ResultadoAlertas:
+def gerar_alertas(
+    session: Session,
+    restaurant_id: str = None  # 🔒 PROTEÇÃO
+) -> ResultadoAlertas:
     """
     Analisa o estado atual e gera alertas
+    
+    🔒 Filtra por restaurant_id
     
     LÓGICA PRINCIPAL:
     - Se tem pedidos prontos e motoboys disponíveis suficientes → Só executar dispatch
@@ -71,12 +79,13 @@ def gerar_alertas(session: Session) -> ResultadoAlertas:
     # ===== Coleta de dados =====
     
     # Pedidos na fila (prontos, aguardando motoboy)
-    pedidos_fila = len(session.exec(
-        select(Order).where(Order.status == OrderStatus.READY)
-    ).all())
+    query_fila = select(Order).where(Order.status == OrderStatus.READY)
+    if restaurant_id:
+        query_fila = query_fila.where(Order.restaurant_id == restaurant_id)
+    pedidos_fila = len(session.exec(query_fila).all())
     
-    # Motoboys
-    disponiveis, ocupados = contar_motoboys(session)
+    # Motoboys (já com filtro)
+    disponiveis, ocupados = contar_motoboys(session, restaurant_id)
     total_ativos = disponiveis + ocupados
     
     # ===== CENÁRIO 1: Nenhum motoboy ativo e tem pedidos =====
@@ -138,9 +147,12 @@ def gerar_alertas(session: Session) -> ResultadoAlertas:
     # ===== CENÁRIO 3: Sem pedidos prontos =====
     else:
         # Verifica se tem pedidos em rota (operação ativa)
-        pedidos_em_rota = len(session.exec(
-            select(Order).where(Order.status.in_([OrderStatus.ASSIGNED, OrderStatus.PICKED_UP]))
-        ).all())
+        query_rota = select(Order).where(
+            Order.status.in_([OrderStatus.ASSIGNED, OrderStatus.PICKED_UP])
+        )
+        if restaurant_id:
+            query_rota = query_rota.where(Order.restaurant_id == restaurant_id)
+        pedidos_em_rota = len(session.exec(query_rota).all())
         
         if pedidos_em_rota > 0:
             # Operação ativa, tudo fluindo
@@ -178,9 +190,14 @@ def gerar_alertas(session: Session) -> ResultadoAlertas:
     )
 
 
-def calcular_previsao_motoboys(session: Session) -> dict:
+def calcular_previsao_motoboys(
+    session: Session,
+    restaurant_id: str = None  # 🔒 PROTEÇÃO
+) -> dict:
     """
     Calcula recomendação de motoboys baseado na situação ATUAL
+    
+    🔒 Filtra por restaurant_id
     
     LÓGICA SIMPLES:
     - Olha quantos pedidos PRONTOS tem agora
@@ -188,22 +205,26 @@ def calcular_previsao_motoboys(session: Session) -> dict:
     - Se disponíveis >= prontos → Adequado
     - Se disponíveis < prontos → Precisa de mais
     """
-    # Dados atuais
-    tempo_preparo, amostras_preparo = calcular_tempo_preparo(session)
-    tempo_rota, amostras_rota = calcular_tempo_rota(session)
-    pedidos_hora = contar_pedidos_hora(session)
-    disponiveis, ocupados = contar_motoboys(session)
+    # Dados atuais (com filtro de restaurant_id)
+    tempo_preparo, amostras_preparo = calcular_tempo_preparo(session, None, restaurant_id)
+    tempo_rota, amostras_rota = calcular_tempo_rota(session, restaurant_id)
+    pedidos_hora = contar_pedidos_hora(session, restaurant_id)
+    disponiveis, ocupados = contar_motoboys(session, restaurant_id)
     total_ativos = disponiveis + ocupados
     
     # Pedidos na fila (READY esperando)
-    pedidos_fila = len(session.exec(
-        select(Order).where(Order.status == OrderStatus.READY)
-    ).all())
+    query_fila = select(Order).where(Order.status == OrderStatus.READY)
+    if restaurant_id:
+        query_fila = query_fila.where(Order.restaurant_id == restaurant_id)
+    pedidos_fila = len(session.exec(query_fila).all())
     
     # Pedidos em rota
-    pedidos_em_rota = len(session.exec(
-        select(Order).where(Order.status.in_([OrderStatus.ASSIGNED, OrderStatus.PICKED_UP]))
-    ).all())
+    query_rota = select(Order).where(
+        Order.status.in_([OrderStatus.ASSIGNED, OrderStatus.PICKED_UP])
+    )
+    if restaurant_id:
+        query_rota = query_rota.where(Order.restaurant_id == restaurant_id)
+    pedidos_em_rota = len(session.exec(query_rota).all())
     
     # Capacidade por motoboy (se tiver dados)
     capacidade = None

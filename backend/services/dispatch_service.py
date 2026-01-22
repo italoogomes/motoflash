@@ -547,9 +547,14 @@ def smart_cluster_orders(
     return final_groups
 
 
-def run_dispatch(session: Session) -> DispatchResult:
+def run_dispatch(session: Session, restaurant_id: str = None) -> DispatchResult:
     """
     Executa o algoritmo de dispatch INTELIGENTE
+    
+    🔒 PROTEÇÃO MULTI-TENANT:
+    - Filtra pedidos por restaurant_id
+    - Filtra motoboys por restaurant_id
+    - Busca coordenadas do restaurante correto
     
     Regras:
     1. Pedidos do MESMO endereço SEMPRE vão juntos
@@ -557,13 +562,35 @@ def run_dispatch(session: Session) -> DispatchResult:
     3. Distribui de forma justa entre motoboys
     4. NENHUM PEDIDO FICA PARADO se tem motoboy disponível!
     """
+    # 🔒 Busca coordenadas do restaurante
+    from models import Restaurant
+    
+    if restaurant_id:
+        restaurant = session.get(Restaurant, restaurant_id)
+    else:
+        # Fallback: primeiro restaurante (compatibilidade)
+        restaurant = session.exec(select(Restaurant)).first()
+    
+    if restaurant and restaurant.lat and restaurant.lng:
+        start_lat = restaurant.lat
+        start_lng = restaurant.lng
+    else:
+        # Último fallback: coordenadas hardcoded
+        print("⚠️ AVISO: Usando coordenadas hardcoded - configure o restaurante!")
+        start_lat = -21.2020
+        start_lng = -47.8130
+    
     # 1. Busca TODOS os pedidos READY que ainda não foram atribuídos
-    ready_orders = session.exec(
-        select(Order)
-        .where(Order.status == OrderStatus.READY)
-        .where(Order.batch_id == None)
-        .order_by(Order.ready_at)
-    ).all()
+    query = select(Order).where(
+        Order.status == OrderStatus.READY,
+        Order.batch_id == None
+    ).order_by(Order.ready_at)
+    
+    # 🔒 Filtra por restaurante se informado
+    if restaurant_id:
+        query = query.where(Order.restaurant_id == restaurant_id)
+    
+    ready_orders = session.exec(query).all()
     
     if not ready_orders:
         return DispatchResult(
@@ -573,11 +600,15 @@ def run_dispatch(session: Session) -> DispatchResult:
         )
     
     # 2. Busca motoqueiros disponíveis
-    available_couriers = session.exec(
-        select(Courier)
-        .where(Courier.status == CourierStatus.AVAILABLE)
-        .order_by(Courier.available_since)  # Quem está esperando há mais tempo
-    ).all()
+    courier_query = select(Courier).where(
+        Courier.status == CourierStatus.AVAILABLE
+    ).order_by(Courier.available_since)
+    
+    # 🔒 Filtra por restaurante se informado
+    if restaurant_id:
+        courier_query = courier_query.where(Courier.restaurant_id == restaurant_id)
+    
+    available_couriers = session.exec(courier_query).all()
     
     if not available_couriers:
         return DispatchResult(
@@ -606,8 +637,11 @@ def run_dispatch(session: Session) -> DispatchResult:
         
         courier = available_couriers[i]
         
-        # Cria o lote
-        batch = Batch(courier_id=courier.id)
+        # 🔒 Cria o lote vinculado ao restaurante
+        batch = Batch(
+            courier_id=courier.id,
+            restaurant_id=restaurant_id  # 🔒 PROTEÇÃO
+        )
         session.add(batch)
         session.commit()
         session.refresh(batch)
@@ -616,8 +650,6 @@ def run_dispatch(session: Session) -> DispatchResult:
         # Considera sentido das vias, mão única, etc.
         # SEMPRE usa o restaurante como ponto de partida (não a posição do motoboy)
         # O motoboy sai do restaurante com os pedidos, então a rota começa de lá
-        start_lat = -21.2020  # Restaurante: Rua Visconde de Inhaúma, 2235
-        start_lng = -47.8130
         
         # USA GOOGLE PARA OTIMIZAR! (SEM considerar volta ao restaurante)
         sorted_cluster = optimize_route_with_google(cluster, start_lat, start_lng)

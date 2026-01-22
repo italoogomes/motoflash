@@ -1,5 +1,10 @@
 """
 Rotas de Dispatch (Despacho/Distribuição)
+
+🔒 PROTEÇÃO MULTI-TENANT:
+- Dispatch roda apenas para pedidos/motoboys do restaurante logado
+- Stats, Alerts, Metrics filtram por restaurant_id
+- Batches são vinculados ao restaurant_id
 """
 from typing import List
 from fastapi import APIRouter, Depends
@@ -7,40 +12,44 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import (
-    Batch, BatchResponse, BatchStatus, Order, Courier, DispatchResult
+    Batch, BatchResponse, BatchStatus, Order, Courier, DispatchResult,
+    User, OrderStatus, CourierStatus
 )
 from services.dispatch_service import run_dispatch, get_batch_orders
-from services.metrics_service import obter_metricas_completas
-from services.alerts_service import gerar_alertas, calcular_previsao_motoboys
+from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/dispatch", tags=["Despacho"])
 
 
 @router.post("/run", response_model=DispatchResult)
-def execute_dispatch(session: Session = Depends(get_session)):
+def execute_dispatch(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Executa o algoritmo de dispatch
     
-    Este endpoint:
-    1. Pega todos os pedidos PRONTOS (QR bipado) nos últimos 7 minutos
-    2. Agrupa por proximidade geográfica
-    3. Distribui para motoqueiros disponíveis
-    
-    Chame periodicamente (ex: a cada 30 segundos) ou 
-    manualmente quando precisar forçar distribuição.
+    🔒 Roda apenas para pedidos e motoboys do restaurante logado
     """
-    result = run_dispatch(session)
+    result = run_dispatch(session, restaurant_id=current_user.restaurant_id)
     return result
 
 
 @router.get("/batches", response_model=List[BatchResponse])
-def list_active_batches(session: Session = Depends(get_session)):
+def list_active_batches(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Lista todos os lotes ativos (não concluídos)
+    Lista todos os lotes ativos do restaurante
+    
+    🔒 Filtra por restaurant_id
     """
+    # 🔒 PROTEÇÃO: filtra batches pelo restaurant_id
     batches = session.exec(
         select(Batch)
         .where(Batch.status.in_([BatchStatus.ASSIGNED, BatchStatus.IN_PROGRESS]))
+        .where(Batch.restaurant_id == current_user.restaurant_id)
         .order_by(Batch.created_at.desc())
     ).all()
     
@@ -77,33 +86,42 @@ def list_active_batches(session: Session = Depends(get_session)):
 
 
 @router.get("/stats")
-def get_dispatch_stats(session: Session = Depends(get_session)):
+def get_dispatch_stats(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Retorna estatísticas do sistema
     
-    Útil para o painel do restaurante.
+    🔒 Filtra por restaurant_id
     """
-    from models import OrderStatus, CourierStatus
+    restaurant_id = current_user.restaurant_id
     
-    # Conta pedidos por status
+    # Conta pedidos por status (do restaurante)
     orders_by_status = {}
     for status in OrderStatus:
         count = session.exec(
-            select(Order).where(Order.status == status)
+            select(Order)
+            .where(Order.status == status)
+            .where(Order.restaurant_id == restaurant_id)  # 🔒
         ).all()
         orders_by_status[status.value] = len(count)
     
-    # Conta motoqueiros por status
+    # Conta motoqueiros por status (do restaurante)
     couriers_by_status = {}
     for status in CourierStatus:
         count = session.exec(
-            select(Courier).where(Courier.status == status)
+            select(Courier)
+            .where(Courier.status == status)
+            .where(Courier.restaurant_id == restaurant_id)  # 🔒
         ).all()
         couriers_by_status[status.value] = len(count)
     
-    # Lotes ativos
+    # Lotes ativos (do restaurante)
     active_batches = session.exec(
-        select(Batch).where(Batch.status.in_([BatchStatus.ASSIGNED, BatchStatus.IN_PROGRESS]))
+        select(Batch)
+        .where(Batch.status.in_([BatchStatus.ASSIGNED, BatchStatus.IN_PROGRESS]))
+        .where(Batch.restaurant_id == restaurant_id)  # 🔒
     ).all()
     
     return {
@@ -116,23 +134,18 @@ def get_dispatch_stats(session: Session = Depends(get_session)):
 
 
 @router.get("/alerts")
-def get_alerts(session: Session = Depends(get_session)):
+def get_alerts(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     🚨 Retorna alertas em tempo real
     
-    Analisa a situação atual e retorna alertas como:
-    - Pedidos acumulando
-    - Falta de motoboys
-    - Risco de fila
-    - Motoboys ociosos
-    
-    Tipos de alerta:
-    - critico: precisa agir AGORA (vermelho)
-    - atencao: ficar de olho (amarelo)
-    - info: informativo (azul)
-    - sucesso: tudo bem (verde)
+    🔒 Filtra por restaurant_id
     """
-    resultado = gerar_alertas(session)
+    from services.alerts_service import gerar_alertas
+    
+    resultado = gerar_alertas(session, restaurant_id=current_user.restaurant_id)
     
     return {
         "status_geral": resultado.status_geral.value,
@@ -153,17 +166,18 @@ def get_alerts(session: Session = Depends(get_session)):
 
 
 @router.get("/metrics")
-def get_metrics(session: Session = Depends(get_session)):
+def get_metrics(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     📊 Retorna métricas detalhadas do sistema
     
-    Inclui:
-    - Tempos médios de preparo (SHORT e LONG)
-    - Tempo médio de rota
-    - Capacidade vs demanda
-    - Pedidos aguardando
+    🔒 Filtra por restaurant_id
     """
-    metricas = obter_metricas_completas(session)
+    from services.metrics_service import obter_metricas_completas
+    
+    metricas = obter_metricas_completas(session, restaurant_id=current_user.restaurant_id)
     
     return {
         "preparo": {
@@ -193,18 +207,18 @@ def get_metrics(session: Session = Depends(get_session)):
 
 
 @router.get("/recommendation")
-def get_motoboy_recommendation(session: Session = Depends(get_session)):
+def get_motoboy_recommendation(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     💡 Retorna recomendação de quantos motoboys são necessários
     
-    Baseado em:
-    - Taxa atual de pedidos
-    - Tempo médio de rota
-    - Histórico de preparo
-    
-    Retorna a recomendação com justificativa.
+    🔒 Filtra por restaurant_id
     """
-    return calcular_previsao_motoboys(session)
+    from services.alerts_service import calcular_previsao_motoboys
+    
+    return calcular_previsao_motoboys(session, restaurant_id=current_user.restaurant_id)
 
 
 @router.get("/test-google-optimization")
@@ -212,14 +226,12 @@ def test_google_optimization():
     """
     🧪 Testa a otimização de rota via Google Directions API
     
-    Usa 3 pontos na Rua General Osório para testar se a API
-    retorna a ordem correta considerando o sentido da via.
+    Não precisa de autenticação (é só um teste)
     """
     from services.dispatch_service import optimize_route_with_google, GOOGLE_MAPS_API_KEY
     import httpx
     
     # Coordenadas de teste - Rua General Osório em Ribeirão Preto
-    # O sentido da rua é do 300 para o 750
     test_points = [
         {"name": "General Osório 750", "lat": -21.1770, "lng": -47.8073},
         {"name": "General Osório 450", "lat": -21.1775, "lng": -47.8080},
