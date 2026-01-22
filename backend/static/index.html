@@ -1299,15 +1299,22 @@
                           </button>
                           
                           {openMenuId === courier.id && (
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                              <button
-                                onClick={() => createPasswordReset(courier)}
-                                disabled={resetLoading}
-                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                              >
-                                🔑 Recuperar Senha
-                              </button>
-                            </div>
+                            <>
+                              {/* Overlay invisível para fechar ao clicar fora */}
+                              <div 
+                                className="fixed inset-0 z-[5]" 
+                                onClick={() => setOpenMenuId(null)}
+                              />
+                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                                <button
+                                  onClick={() => createPasswordReset(courier)}
+                                  disabled={resetLoading}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  🔑 Recuperar Senha
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
                       </div>
