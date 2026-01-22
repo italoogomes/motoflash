@@ -285,6 +285,13 @@ def get_batch_route_polyline(session: Session, batch_id: str) -> Optional[dict]:
         - start: {lat, lng} do restaurante
         - orders: lista de {lat, lng, address} na ordem
     """
+    # Busca o batch para pegar o restaurant_id
+    from models import Batch, Restaurant
+    batch = session.get(Batch, batch_id)
+    
+    if not batch:
+        return None
+    
     # Busca os pedidos do batch ordenados
     orders = session.exec(
         select(Order)
@@ -295,17 +302,25 @@ def get_batch_route_polyline(session: Session, batch_id: str) -> Optional[dict]:
     if not orders:
         return None
     
-    # Busca configurações do restaurante
-    from models import Settings
-    settings = session.exec(select(Settings)).first()
+    # Busca coordenadas do restaurante vinculado ao batch
+    restaurant = session.get(Restaurant, batch.restaurant_id) if batch.restaurant_id else None
     
-    if not settings or not settings.lat or not settings.lng:
-        # Fallback para coordenadas hardcoded
-        start_lat = -21.2020
-        start_lng = -47.8130
+    if restaurant and restaurant.lat and restaurant.lng:
+        start_lat = restaurant.lat
+        start_lng = restaurant.lng
     else:
-        start_lat = settings.lat
-        start_lng = settings.lng
+        # Fallback: busca primeiro restaurante (compatibilidade)
+        restaurant = session.exec(select(Restaurant)).first()
+        if restaurant and restaurant.lat and restaurant.lng:
+            start_lat = restaurant.lat
+            start_lng = restaurant.lng
+        else:
+            # Último fallback: coordenadas hardcoded
+            print("⚠️ Usando coordenadas hardcoded - configure o restaurante!")
+            start_lat = -21.2020
+            start_lng = -47.8130
+    
+    print(f"🏪 Coordenadas do restaurante: {start_lat}, {start_lng}")
     
     # Obtém a polyline
     polyline = get_route_polyline(list(orders), start_lat, start_lng)
