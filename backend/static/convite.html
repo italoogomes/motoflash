@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f97316">
+    <title>MotoFlash - Convite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .pulse-ring::before {
+            content: '';
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            border: 3px solid #f97316;
+            animation: pulse-ring 1.5s ease-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-orange-500 to-orange-600 min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const API_URL = window.location.origin;
+        
+        // Pega o código do convite da URL
+        const getInviteCode = () => {
+            const path = window.location.pathname;
+            const match = path.match(/\/convite\/([a-zA-Z0-9]+)/);
+            return match ? match[1] : null;
+        };
+        
+        // ============ COMPONENTES ============
+        
+        const Logo = ({ size = 60 }) => (
+            <svg width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="34" fill="white"/>
+                <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="#f97316"/>
+            </svg>
+        );
+        
+        const Input = ({ label, type = 'text', value, onChange, placeholder, required, icon, autoFocus }) => (
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {label} {required && <span className="text-red-500">*</span>}
+                </label>
+                <div className="relative">
+                    {icon && (
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {icon}
+                        </span>
+                    )}
+                    <input
+                        type={type}
+                        value={value}
+                        onChange={onChange}
+                        placeholder={placeholder}
+                        required={required}
+                        autoFocus={autoFocus}
+                        className={`w-full px-4 py-3 ${icon ? 'pl-10' : ''} border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-lg`}
+                    />
+                </div>
+            </div>
+        );
+        
+        const Button = ({ children, onClick, loading, disabled, className = '' }) => (
+            <button
+                onClick={onClick}
+                disabled={disabled || loading}
+                className={`w-full py-4 px-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold text-lg transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${className}`}
+            >
+                {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Aguarde...
+                    </span>
+                ) : children}
+            </button>
+        );
+        
+        // ============ TELAS ============
+        
+        // Tela de Loading
+        const LoadingScreen = () => (
+            <div className="min-h-screen flex items-center justify-center p-6">
+                <div className="text-center text-white">
+                    <div className="mb-6 flex justify-center">
+                        <div className="relative">
+                            <Logo size={80} />
+                        </div>
+                    </div>
+                    <h1 className="text-2xl font-bold mb-2">MotoFlash</h1>
+                    <p className="text-orange-100">Verificando convite...</p>
+                </div>
+            </div>
+        );
+        
+        // Tela de Erro (convite inválido)
+        const ErrorScreen = ({ message }) => (
+            <div className="min-h-screen flex items-center justify-center p-6">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center">
+                    <div className="text-6xl mb-4">😕</div>
+                    <h2 className="text-xl font-bold text-gray-800 mb-2">Ops!</h2>
+                    <p className="text-gray-600 mb-6">{message}</p>
+                    <p className="text-sm text-gray-400">
+                        Peça um novo convite ao restaurante
+                    </p>
+                </div>
+            </div>
+        );
+        
+        // Tela de Sucesso
+        const SuccessScreen = ({ courierName, restaurantName }) => (
+            <div className="min-h-screen flex items-center justify-center p-6">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center">
+                    <div className="text-6xl mb-4 float-animation">🎉</div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                        Bem-vindo, {courierName}!
+                    </h2>
+                    <p className="text-gray-600 mb-6">
+                        Você entrou na equipe do <strong>{restaurantName}</strong>
+                    </p>
+                    
+                    <div className="bg-orange-50 rounded-xl p-4 mb-6">
+                        <p className="text-sm text-orange-800">
+                            📱 Agora é só acessar o app e fazer login com seu nome!
+                        </p>
+                    </div>
+                    
+                    <Button onClick={() => window.location.href = '/motoboy'}>
+                        🚀 Abrir App do Motoboy
+                    </Button>
+                </div>
+            </div>
+        );
+        
+        // Tela de Formulário
+        const FormScreen = ({ restaurantName, timeRemaining, onSubmit, loading }) => {
+            const [name, setName] = useState('');
+            const [phone, setPhone] = useState('');
+            
+            const formatPhone = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 2) return `(${numbers}`;
+                if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
+                return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
+            };
+            
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (name.trim()) {
+                    onSubmit({ name: name.trim(), phone: phone.replace(/\D/g, '') || null });
+                }
+            };
+            
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="w-full max-w-sm">
+                        {/* Header */}
+                        <div className="text-center mb-6">
+                            <div className="mb-4 flex justify-center">
+                                <div className="bg-white rounded-full p-4 shadow-lg">
+                                    <Logo size={50} />
+                                </div>
+                            </div>
+                            <h1 className="text-2xl font-bold text-white mb-1">
+                                Entrar na Equipe
+                            </h1>
+                            <p className="text-orange-100">
+                                {restaurantName}
+                            </p>
+                        </div>
+                        
+                        {/* Card do Formulário */}
+                        <div className="bg-white rounded-3xl shadow-2xl p-6">
+                            {/* Timer */}
+                            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-6">
+                                <span>⏱️</span>
+                                <span>Convite expira em {timeRemaining}</span>
+                            </div>
+                            
+                            <form onSubmit={handleSubmit}>
+                                <Input
+                                    label="Seu Nome"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Como você quer ser chamado?"
+                                    required
+                                    icon="👤"
+                                    autoFocus
+                                />
+                                
+                                <Input
+                                    label="WhatsApp"
+                                    type="tel"
+                                    value={phone}
+                                    onChange={(e) => setPhone(formatPhone(e.target.value))}
+                                    placeholder="(16) 99999-1234"
+                                    icon="📱"
+                                />
+                                
+                                <p className="text-xs text-gray-400 mb-6 text-center">
+                                    O WhatsApp é opcional, mas ajuda o restaurante a entrar em contato
+                                </p>
+                                
+                                <Button type="submit" loading={loading} disabled={!name.trim()}>
+                                    ✅ Entrar na Equipe
+                                </Button>
+                            </form>
+                        </div>
+                        
+                        {/* Footer */}
+                        <p className="text-center mt-6 text-orange-100 text-sm">
+                            MotoFlash - Despacho Inteligente
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ APP PRINCIPAL ============
+        
+        function ConviteApp() {
+            const [status, setStatus] = useState('loading'); // loading, invalid, valid, success
+            const [error, setError] = useState('');
+            const [inviteData, setInviteData] = useState(null);
+            const [successData, setSuccessData] = useState(null);
+            const [submitting, setSubmitting] = useState(false);
+            
+            const code = getInviteCode();
+            
+            useEffect(() => {
+                if (!code) {
+                    setStatus('invalid');
+                    setError('Código de convite não encontrado na URL');
+                    return;
+                }
+                
+                // Valida o convite
+                fetch(`${API_URL}/invites/${code}/validate`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.valid) {
+                            setInviteData(data);
+                            setStatus('valid');
+                        } else {
+                            setStatus('invalid');
+                            setError(data.message);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Erro ao validar convite:', err);
+                        setStatus('invalid');
+                        setError('Erro ao verificar convite. Tente novamente.');
+                    });
+            }, [code]);
+            
+            const handleSubmit = async (data) => {
+                setSubmitting(true);
+                
+                try {
+                    const res = await fetch(`${API_URL}/invites/${code}/use`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await res.json();
+                    
+                    if (!res.ok) {
+                        throw new Error(result.detail || 'Erro ao usar convite');
+                    }
+                    
+                    // Salva dados do motoboy no localStorage para login automático
+                    localStorage.setItem('motoboy_id', result.courier.id);
+                    localStorage.setItem('motoboy_name', result.courier.name);
+                    
+                    setSuccessData({
+                        courierName: result.courier.name,
+                        restaurantName: result.courier.restaurant_name
+                    });
+                    setStatus('success');
+                    
+                } catch (err) {
+                    setError(err.message);
+                    setStatus('invalid');
+                }
+                
+                setSubmitting(false);
+            };
+            
+            // Renderiza baseado no status
+            switch (status) {
+                case 'loading':
+                    return <LoadingScreen />;
+                    
+                case 'invalid':
+                    return <ErrorScreen message={error} />;
+                    
+                case 'success':
+                    return <SuccessScreen {...successData} />;
+                    
+                case 'valid':
+                    return (
+                        <FormScreen
+                            restaurantName={inviteData.restaurant_name}
+                            timeRemaining={inviteData.time_remaining}
+                            onSubmit={handleSubmit}
+                            loading={submitting}
+                        />
+                    );
+                    
+                default:
+                    return <LoadingScreen />;
+            }
+        }
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<ConviteApp />);
+    </script>
+</body>
+</html>

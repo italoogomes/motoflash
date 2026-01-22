@@ -284,6 +284,62 @@ class Batch(SQLModel, table=True):
     completed_at: Optional[datetime] = None
 
 
+class Invite(SQLModel, table=True):
+    """
+    Convite para motoboy entrar na equipe
+    
+    Fluxo:
+    1. Dono gera convite no dashboard
+    2. Sistema cria código único (ex: "abc123")
+    3. Dono manda link pro motoboy (WhatsApp)
+    4. Motoboy acessa /convite/abc123
+    5. Preenche nome e telefone
+    6. Sistema cria Courier vinculado ao restaurante
+    7. Motoboy vai pro app logado!
+    """
+    __tablename__ = "invites"
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    
+    # Código único do convite (usado na URL)
+    code: str = Field(index=True, unique=True)
+    
+    # Restaurante que criou o convite
+    restaurant_id: str = Field(foreign_key="restaurants.id", index=True)
+    
+    # Validade (24 horas por padrão)
+    expires_at: datetime = Field(
+        default_factory=lambda: datetime.now() + timedelta(hours=24)
+    )
+    
+    # Status de uso
+    used: bool = Field(default=False)
+    used_at: Optional[datetime] = None
+    used_by_courier_id: Optional[str] = Field(default=None, foreign_key="couriers.id")
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    
+    def is_valid(self) -> bool:
+        """Verifica se o convite ainda é válido"""
+        if self.used:
+            return False
+        if datetime.now() > self.expires_at:
+            return False
+        return True
+    
+    def time_remaining(self) -> str:
+        """Retorna tempo restante formatado"""
+        if self.used:
+            return "Já utilizado"
+        delta = self.expires_at - datetime.now()
+        if delta.total_seconds() <= 0:
+            return "Expirado"
+        hours = int(delta.total_seconds() // 3600)
+        minutes = int((delta.total_seconds() % 3600) // 60)
+        return f"{hours}h {minutes}min"
+
+
 # ============ SCHEMAS (para API) ============
 
 class OrderCreate(SQLModel):
@@ -579,3 +635,38 @@ class LoginResponse(SQLModel):
     token_type: str = "bearer"
     user: UserResponse
     restaurant: RestaurantResponse
+
+
+# ============ SCHEMAS DE CONVITE ============
+
+class InviteCreate(SQLModel):
+    """Schema para criar convite (não precisa de dados, só autenticação)"""
+    pass
+
+
+class InviteResponse(SQLModel):
+    """Schema de resposta do convite"""
+    id: str
+    code: str
+    restaurant_id: str
+    restaurant_name: Optional[str] = None
+    expires_at: datetime
+    used: bool
+    time_remaining: str
+    invite_url: str
+    created_at: datetime
+
+
+class InviteUse(SQLModel):
+    """Schema para usar o convite (motoboy preenche)"""
+    name: str
+    phone: Optional[str] = None
+
+
+class InviteValidation(SQLModel):
+    """Schema de validação do convite"""
+    valid: bool
+    restaurant_name: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    time_remaining: Optional[str] = None
+    message: str

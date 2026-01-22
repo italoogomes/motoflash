@@ -24,6 +24,7 @@ from routers.menu import router as menu_router
 from routers.customers import router as customers_router
 from routers.settings import router as settings_router
 from routers.auth import router as auth_router
+from routers.invites import router as invites_router
 from services.geocoding_service import geocode_address_detailed
 from services.dispatch_service import get_batch_route_polyline
 
@@ -103,6 +104,7 @@ app.include_router(menu_router)
 app.include_router(customers_router)
 app.include_router(settings_router)
 app.include_router(auth_router)
+app.include_router(invites_router)
 
 
 # ============ UPLOAD DE IMAGENS ============
@@ -296,3 +298,18 @@ def serve_login():
         with open(login_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque login.html na pasta static/</p>", status_code=404)
+
+
+@app.get("/convite/{code}", response_class=HTMLResponse, tags=["Convites"])
+def serve_convite(code: str):
+    """
+    Página de convite para motoboy
+    
+    O motoboy acessa esse link (recebido por WhatsApp) para entrar na equipe.
+    A página valida o código e permite o cadastro.
+    """
+    convite_path = STATIC_DIR / "convite.html"
+    if convite_path.exists():
+        with open(convite_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque convite.html na pasta static/</p>", status_code=404)
