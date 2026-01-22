@@ -833,9 +833,13 @@
                 
                 const routeCoords = [];
                 
-                if (currentPosition) {
+                // CORRIGIDO: Antes de iniciar = parte do RESTAURANTE
+                // Depois de iniciar = parte da POSIÇÃO ATUAL
+                if (routeStarted && currentPosition) {
+                    // Em rota: começa da posição atual do motoboy
                     routeCoords.push([currentPosition.lat, currentPosition.lng]);
                 } else {
+                    // Antes de iniciar: começa do restaurante
                     routeCoords.push([restaurantLocation.lat, restaurantLocation.lng]);
                 }
                 
