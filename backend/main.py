@@ -278,26 +278,24 @@ def serve_clientes():
 
 # ============ AUTENTICAÇÃO (MULTI-RESTAURANTE) ============
 
-@app.get("/cadastro", response_class=HTMLResponse, tags=["Autenticação"])
-@app.get("/cadastro.html", response_class=HTMLResponse, tags=["Autenticação"])
+@app.get("/cadastro", tags=["Autenticação"])
+@app.get("/cadastro.html", tags=["Autenticação"])
 def serve_cadastro():
-    """Cadastro de Restaurante - acesse /cadastro"""
-    cadastro_path = STATIC_DIR / "cadastro.html"
-    if cadastro_path.exists():
-        with open(cadastro_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque cadastro.html na pasta static/</p>", status_code=404)
+    """Redireciona para /login (cadastro agora é na mesma tela)"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/login")
 
 
 @app.get("/login", response_class=HTMLResponse, tags=["Autenticação"])
 @app.get("/login.html", response_class=HTMLResponse, tags=["Autenticação"])
 def serve_login():
-    """Login - acesse /login"""
-    login_path = STATIC_DIR / "login.html"
-    if login_path.exists():
-        with open(login_path, "r", encoding="utf-8") as f:
+    """Login e Cadastro - acesse /login"""
+    # Novo arquivo unificado: auth.html (login + cadastro)
+    auth_path = STATIC_DIR / "auth.html"
+    if auth_path.exists():
+        with open(auth_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque login.html na pasta static/</p>", status_code=404)
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque auth.html na pasta static/</p>", status_code=404)
 
 
 @app.get("/convite/{code}", response_class=HTMLResponse, tags=["Convites"])
