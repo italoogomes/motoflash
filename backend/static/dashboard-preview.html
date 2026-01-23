@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoFlash Dashboard - Com Sidebar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-shadow: rgba(0, 0, 0, 0.2);
+            --accent-orange: #ff6b00;
+            --accent-orange-light: #ff8c42;
+            --sidebar-width: 260px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            background: #0a0a0f;
+            overflow-x: hidden;
+        }
+
+        /* Background com imagem */
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .background img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center bottom;
+            filter: brightness(0.5) saturate(1.1);
+        }
+
+        .background::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                135deg,
+                rgba(10, 10, 15, 0.7) 0%,
+                rgba(10, 10, 15, 0.5) 50%,
+                rgba(10, 10, 15, 0.7) 100%
+            );
+        }
+
+        /* Text gradient */
+        .text-gradient-orange {
+            background: linear-gradient(135deg, #ff6b00 0%, #ff8c42 50%, #ffad42 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ============ SIDEBAR ============ */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: rgba(15, 15, 20, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.4);
+            padding: 0 12px;
+            margin-bottom: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, rgba(255, 107, 0, 0.2) 0%, rgba(255, 140, 66, 0.15) 100%);
+            color: #ff8c42;
+            border: 1px solid rgba(255, 107, 0, 0.3);
+        }
+
+        .nav-item.active .nav-icon {
+            color: #ff6b00;
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: rgba(255, 107, 0, 0.2);
+            color: #ff8c42;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff6b00, #ff8c42);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .user-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #fff;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-status {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4ade80;
+        }
+
+        /* ============ MAIN CONTENT ============ */
+        .main-wrapper {
+            position: relative;
+            z-index: 10;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .glass-header {
+            background: rgba(15, 15, 20, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+        }
+
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Glass input */
+        .glass-input {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            color: #fff;
+            padding: 12px 16px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        .glass-input:focus {
+            outline: none;
+            border-color: var(--accent-orange);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .glass-input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        /* Glass button */
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Primary button */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #ff8c42 100%);
+            border: none;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 0, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 0, 0.4);
+        }
+
+        /* Badges */
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+        .badge-warning {
+            background: rgba(251, 146, 60, 0.15);
+            color: #fb923c;
+            border: 1px solid rgba(251, 146, 60, 0.25);
+        }
+        .badge-info {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+
+        /* Alert */
+        .alert-success {
+            background: rgba(34, 197, 94, 0.08);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        /* Courier avatar */
+        .courier-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+
+        /* Particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: var(--accent-orange);
+            border-radius: 50%;
+            opacity: 0;
+            animation: floatUp 18s infinite;
+        }
+
+        .particle:nth-child(1) { left: 10%; animation-delay: 0s; }
+        .particle:nth-child(2) { left: 20%; animation-delay: 3s; }
+        .particle:nth-child(3) { left: 30%; animation-delay: 6s; }
+        .particle:nth-child(4) { left: 40%; animation-delay: 2s; }
+        .particle:nth-child(5) { left: 50%; animation-delay: 5s; }
+        .particle:nth-child(6) { left: 60%; animation-delay: 1s; }
+        .particle:nth-child(7) { left: 70%; animation-delay: 4s; }
+        .particle:nth-child(8) { left: 80%; animation-delay: 7s; }
+        .particle:nth-child(9) { left: 90%; animation-delay: 2.5s; }
+
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 0.3; }
+            90% { opacity: 0.3; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        /* Mobile sidebar toggle */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-wrapper {
+                margin-left: 0;
+            }
+            .mobile-menu-btn {
+                display: flex !important;
+            }
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="background">
+        <img src="fundo/cidade_3.jpg" alt="City Background">
+    </div>
+
+    <!-- Particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
+        <!-- Logo -->
+        <div class="sidebar-header">
+            <div class="flex items-center gap-3">
+                <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                    <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+                </svg>
+                <div>
+                    <h1 class="text-lg font-bold" style="font-family: 'Outfit', sans-serif;">
+                        <span class="text-white">Moto</span><span class="text-gradient-orange">Flash</span>
+                    </h1>
+                    <p class="text-xs" style="color: rgba(255,255,255,0.4);">Despacho Inteligente</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="sidebar-nav">
+            <!-- Principal -->
+            <div class="nav-section">
+                <div class="nav-section-title">Principal</div>
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">🏠</span>
+                    <span>Início</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📦</span>
+                    <span>Pedidos</span>
+                    <span class="nav-badge">3</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">🏍️</span>
+                    <span>Motoqueiros</span>
+                </a>
+            </div>
+
+            <!-- Gerenciar -->
+            <div class="nav-section">
+                <div class="nav-section-title">Gerenciar</div>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">🍽️</span>
+                    <span>Cardápio</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">👥</span>
+                    <span>Clientes</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    <span>Relatórios</span>
+                </a>
+            </div>
+
+            <!-- Configurações -->
+            <div class="nav-section">
+                <div class="nav-section-title">Sistema</div>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Configurações</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">❓</span>
+                    <span>Ajuda</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- User Card -->
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar">M</div>
+                <div class="user-info">
+                    <div class="user-name">MMarra</div>
+                    <div class="user-status">
+                        <span class="status-dot"></span>
+                        Conectado
+                    </div>
+                </div>
+                <button style="color: rgba(255,255,255,0.5); background: none; border: none; cursor: pointer; font-size: 18px;">
+                    🚪
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ============ MAIN CONTENT ============ -->
+    <div class="main-wrapper">
+        <!-- Header -->
+        <header class="glass-header">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <!-- Mobile menu button -->
+                    <button class="mobile-menu-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12h18M3 6h18M3 18h18"/>
+                        </svg>
+                    </button>
+
+                    <!-- Page Title -->
+                    <div>
+                        <h2 class="text-xl font-semibold text-white" style="font-family: 'Outfit', sans-serif;">Dashboard</h2>
+                        <p class="text-sm" style="color: rgba(255,255,255,0.5);">Visão geral das operações</p>
+                    </div>
+
+                    <!-- Right Actions -->
+                    <div class="flex items-center gap-4">
+                        <!-- Date Picker -->
+                        <div class="glass-card px-4 py-2 flex items-center gap-3">
+                            <span style="color: rgba(255,255,255,0.6);">📅</span>
+                            <input type="date" value="2026-01-23" class="bg-transparent border-none text-white text-sm focus:outline-none" style="color-scheme: dark;">
+                            <span class="text-xs" style="color: rgba(255,255,255,0.4);">sexta-feira</span>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="flex items-center gap-2 px-3">
+                            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                            <span class="text-sm" style="color: rgba(255,255,255,0.6);">Online</span>
+                        </div>
+
+                        <!-- Notifications -->
+                        <button class="glass-btn p-2" style="padding: 10px;">
+                            <span>🔔</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="p-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                <div class="glass-card stat-card p-5 text-center">
+                    <div class="text-3xl font-bold text-gradient-orange" style="font-family: 'Outfit', sans-serif;">0</div>
+                    <div class="text-sm mt-1" style="color: rgba(255,255,255,0.5);">Pedidos Prontos</div>
+                </div>
+                <div class="glass-card stat-card p-5 text-center">
+                    <div class="text-3xl font-bold" style="color: #60a5fa; font-family: 'Outfit', sans-serif;">3</div>
+                    <div class="text-sm mt-1" style="color: rgba(255,255,255,0.5);">Em Rota</div>
+                </div>
+                <div class="glass-card stat-card p-5 text-center">
+                    <div class="text-3xl font-bold" style="color: #4ade80; font-family: 'Outfit', sans-serif;">2</div>
+                    <div class="text-sm mt-1" style="color: rgba(255,255,255,0.5);">Motoboys Livres</div>
+                </div>
+                <div class="glass-card stat-card p-5 text-center">
+                    <div class="text-3xl font-bold" style="color: #c084fc; font-family: 'Outfit', sans-serif;">1</div>
+                    <div class="text-sm mt-1" style="color: rgba(255,255,255,0.5);">Motoboys Ocupados</div>
+                </div>
+                <div class="glass-card stat-card p-5 text-center">
+                    <div class="text-3xl font-bold" style="color: #34d399; font-family: 'Outfit', sans-serif;">2</div>
+                    <div class="text-sm mt-1" style="color: rgba(255,255,255,0.5);">Entregues Hoje</div>
+                </div>
+            </div>
+
+            <!-- Intelligence Panel -->
+            <div class="glass-card alert-success p-5 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-white flex items-center gap-2" style="font-family: 'Outfit', sans-serif;">
+                        <span style="color: #ff6b00;">🧠</span> Inteligência MotoFlash
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <span style="color: rgba(255,255,255,0.5);" class="text-sm">Motoboys recomendados:</span>
+                        <span class="badge badge-success">3</span>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.15);">
+                    <div class="flex items-start gap-3">
+                        <span class="text-xl">✅</span>
+                        <div>
+                            <div class="font-semibold text-white">Operação fluindo bem!</div>
+                            <div class="text-sm" style="color: rgba(255,255,255,0.5);">3 pedido(s) em rota, nenhum acumulado</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm" style="border-top: 1px solid rgba(255,255,255,0.08);">
+                    <div class="text-center">
+                        <div style="color: rgba(255,255,255,0.4);">Tempo preparo</div>
+                        <div class="font-semibold text-white">0.8 min</div>
+                    </div>
+                    <div class="text-center">
+                        <div style="color: rgba(255,255,255,0.4);">Tempo rota</div>
+                        <div class="font-semibold text-white">Coletando...</div>
+                    </div>
+                    <div class="text-center">
+                        <div style="color: rgba(255,255,255,0.4);">Pedidos/hora</div>
+                        <div class="font-semibold text-white">0</div>
+                    </div>
+                    <div class="text-center">
+                        <div style="color: rgba(255,255,255,0.4);">Capacidade/motoboy</div>
+                        <div class="font-semibold text-white">Coletando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Grid -->
+            <div class="grid lg:grid-cols-3 gap-6">
+                <!-- Left Column -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- New Order Form -->
+                    <div class="glass-card p-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="font-semibold text-white flex items-center gap-2" style="font-family: 'Outfit', sans-serif;">
+                                <span>📦</span> Novo Pedido
+                            </h3>
+                            <button class="text-sm" style="color: #60a5fa;">Google Maps</button>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.6);">Telefone do Cliente</label>
+                                <input type="text" placeholder="(16) 99999-1234" class="glass-input">
+                            </div>
+                            <div>
+                                <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.6);">Nome do Cliente</label>
+                                <input type="text" placeholder="Digite o nome..." class="glass-input">
+                            </div>
+                            <div>
+                                <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.6);">Item</label>
+                                <select class="glass-input">
+                                    <option>Selecione um item...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.6);">CEP</label>
+                                <input type="text" placeholder="14090-000" class="glass-input">
+                            </div>
+                            <div class="md:col-span-2 grid grid-cols-3 gap-4">
+                                <div class="col-span-2">
+                                    <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.6);">Rua</label>
+                                    <input type="text" placeholder="Rua..." class="glass-input">
+                                </div>
+                                <div>
+                                    <label class="block text-sm mb-2" style="color: rgba(255,255,255,0.6);">Número</label>
+                                    <input type="text" placeholder="123" class="glass-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-5 flex justify-end">
+                            <button class="btn-primary">Criar Pedido</button>
+                        </div>
+                    </div>
+
+                    <!-- Orders List -->
+                    <div class="glass-card p-6">
+                        <h3 class="font-semibold text-white flex items-center gap-2 mb-4" style="font-family: 'Outfit', sans-serif;">
+                            <span>📋</span> Pedidos Recentes
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="p-4 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04);">
+                                <div class="flex items-center gap-4">
+                                    <span class="badge badge-info">Em Rota</span>
+                                    <div>
+                                        <div class="text-white font-medium">João Silva</div>
+                                        <div class="text-sm" style="color: rgba(255,255,255,0.4);">Rua das Flores, 123</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs px-2 py-1 rounded font-mono" style="background: rgba(34, 197, 94, 0.15); color: #4ade80;">⏱️ 08:32</div>
+                                </div>
+                            </div>
+                            <div class="p-4 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04);">
+                                <div class="flex items-center gap-4">
+                                    <span class="badge badge-warning">Coletado</span>
+                                    <div>
+                                        <div class="text-white font-medium">Maria Santos</div>
+                                        <div class="text-sm" style="color: rgba(255,255,255,0.4);">Av. Brasil, 456</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs px-2 py-1 rounded font-mono" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24;">⏱️ 15:47</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div class="space-y-6">
+                    <!-- Couriers Panel -->
+                    <div class="glass-card p-6">
+                        <h3 class="font-semibold text-white flex items-center gap-2 mb-4" style="font-family: 'Outfit', sans-serif;">
+                            <span>🏍️</span> Motoqueiros (3)
+                        </h3>
+                        
+                        <button class="btn-primary w-full mb-4 flex items-center justify-center gap-2">
+                            <span>🔗</span> Convidar Motoboy via Link
+                        </button>
+
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" placeholder="Ou digite o nome..." class="glass-input flex-1">
+                            <button class="glass-btn" style="color: #ff8c42; border-color: rgba(255, 107, 0, 0.25);">Adicionar</button>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="p-3 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04);">
+                                <div class="flex items-center gap-3">
+                                    <div class="courier-avatar" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">B</div>
+                                    <div>
+                                        <div class="text-white font-medium">Bruno</div>
+                                        <span class="badge badge-success text-xs">Disponível</span>
+                                    </div>
+                                </div>
+                                <button class="glass-btn text-sm py-1 px-3">Pausar</button>
+                            </div>
+                            <div class="p-3 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04);">
+                                <div class="flex items-center gap-3">
+                                    <div class="courier-avatar" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">J</div>
+                                    <div>
+                                        <div class="text-white font-medium">João</div>
+                                        <span class="badge badge-success text-xs">Disponível</span>
+                                    </div>
+                                </div>
+                                <button class="glass-btn text-sm py-1 px-3">Pausar</button>
+                            </div>
+                            <div class="p-3 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04);">
+                                <div class="flex items-center gap-3">
+                                    <div class="courier-avatar" style="background: rgba(34, 197, 94, 0.15); color: #4ade80;">I</div>
+                                    <div>
+                                        <div class="text-white font-medium">Ítalo</div>
+                                        <span class="badge badge-warning text-xs">Em entrega</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="text-sm py-1 px-3 rounded-lg font-medium" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.25);">✓ Finalizar</button>
+                                    <button class="glass-btn text-sm py-1 px-3">Ativar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Batches -->
+                    <div class="glass-card p-6">
+                        <h3 class="font-semibold text-white flex items-center gap-2 mb-4" style="font-family: 'Outfit', sans-serif;">
+                            <span>🚀</span> Rotas Ativas
+                        </h3>
+                        <div class="p-4 rounded-xl" style="background: rgba(255,255,255,0.04);">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-white font-medium">Bruno</span>
+                                <span class="badge badge-info">2 entregas</span>
+                            </div>
+                            <div class="text-sm" style="color: rgba(255,255,255,0.4);">
+                                📍 Rua A → Rua B
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="text-center py-6" style="color: rgba(255,255,255,0.25);">
+            MotoFlash MVP v0.3 - Sistema de Despacho Inteligente
+        </footer>
+    </div>
+
+    <script>
+        // Mobile menu toggle
+        document.querySelector('.mobile-menu-btn')?.addEventListener('click', () => {
+            document.querySelector('.sidebar').classList.toggle('open');
+        });
+    </script>
+</body>
+</html>

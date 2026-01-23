@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoFlash - Acesso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+             --glass-bg: rgba(138, 130, 130, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-shadow: rgba(0, 0, 0, 0.3); 
+            --accent-orange: #ff6b00;
+            --accent-orange-light: #ff8c42;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --input-bg: rgba(255, 255, 255, 0.20);
+            --input-border: rgba(255, 255, 255, 0.2);
+            --input-focus: rgba(255, 107, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #0a0a0f;
+        }
+
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .background img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center bottom;
+            filter: brightness(0.75) saturate(1.1);
+        }
+
+        .background::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                180deg,
+                rgba(10, 10, 15, 0.2) 0%,
+                rgba(10, 10, 15, 0.1) 50%,
+                rgba(10, 10, 15, 0.4) 100%
+            );
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 
+                0 25px 50px -12px var(--glass-shadow),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-input {
+            width: 100%;
+            padding: 14px 14px 14px 44px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .glass-input.no-icon {
+            padding-left: 14px;
+        }
+
+        .glass-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: var(--input-focus);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.1);
+        }
+
+        .glass-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Remove fundo branco do autocomplete do navegador */
+        .glass-input:-webkit-autofill,
+        .glass-input:-webkit-autofill:hover,
+        .glass-input:-webkit-autofill:focus,
+        .glass-input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 990px rgba(255, 255, 255, 0.15) inset !important;
+            -webkit-text-fill-color: #ffffff !important;
+            background-color: transparent !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #ff8c42 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(255, 107, 0, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(255, 107, 0, 0.35);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Logo pulse animation */
+        .logo-pulse {
+            animation: logoPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { 
+                filter: drop-shadow(0 0 8px #ff6b00);
+                transform: scale(1);
+            }
+            70% { 
+                filter: drop-shadow(0 0 35px #ff6b00);
+                transform: scale(1.03);
+            }
+        }
+
+        /* Text gradient */
+        .text-gradient-orange {
+            background: linear-gradient(135deg, #ff6b00 0%, #ff8c42 50%, #ffad42 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* 3D Flip Animation */
+        .flip-container {
+            perspective: 1500px;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .flip-card {
+            position: relative;
+            width: 100%;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .flip-card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .flip-face {
+            width: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .flip-front {
+            position: relative;
+        }
+
+        .flip-back {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: rotateY(180deg);
+        }
+
+        /* Floating particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: var(--accent-orange);
+            border-radius: 50%;
+            opacity: 0;
+            animation: floatUp 14s infinite;
+        }
+
+        .particle:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .particle:nth-child(2) { left: 10%; animation-delay: 1s; }
+        .particle:nth-child(3) { left: 15%; animation-delay: 2s; }
+        .particle:nth-child(4) { left: 20%; animation-delay: 0.5s; }
+        .particle:nth-child(5) { left: 25%; animation-delay: 3s; }
+        .particle:nth-child(6) { left: 30%; animation-delay: 1.5s; }
+        .particle:nth-child(7) { left: 35%; animation-delay: 4s; }
+        .particle:nth-child(8) { left: 40%; animation-delay: 2.5s; }
+        .particle:nth-child(9) { left: 45%; animation-delay: 0.8s; }
+        .particle:nth-child(10) { left: 50%; animation-delay: 3.5s; }
+        .particle:nth-child(11) { left: 55%; animation-delay: 1.2s; }
+        .particle:nth-child(12) { left: 60%; animation-delay: 4.5s; }
+        .particle:nth-child(13) { left: 65%; animation-delay: 2.2s; }
+        .particle:nth-child(14) { left: 70%; animation-delay: 0.3s; }
+        .particle:nth-child(15) { left: 75%; animation-delay: 3.8s; }
+        .particle:nth-child(16) { left: 80%; animation-delay: 1.8s; }
+        .particle:nth-child(17) { left: 85%; animation-delay: 4.2s; }
+        .particle:nth-child(18) { left: 90%; animation-delay: 2.8s; }
+        .particle:nth-child(19) { left: 95%; animation-delay: 0.6s; }
+        .particle:nth-child(20) { left: 8%; animation-delay: 5s; }
+        .particle:nth-child(21) { left: 22%; animation-delay: 5.5s; }
+        .particle:nth-child(22) { left: 38%; animation-delay: 6s; }
+        .particle:nth-child(23) { left: 52%; animation-delay: 6.5s; }
+        .particle:nth-child(24) { left: 68%; animation-delay: 7s; }
+        .particle:nth-child(25) { left: 82%; animation-delay: 7.5s; }
+
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 0.5; }
+            90% { opacity: 0.5; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: rgba(255, 255, 255, 0.9);
+            transition: color 0.3s ease;
+        }
+
+        .input-wrapper:focus-within .input-icon {
+            color: var(--accent-orange);
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .section-icon {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* background: rgba(255, 107, 0, 0.15); */
+        }
+
+        .section-icon svg {
+            width: 15px;
+            height: 15px;
+            color: var(--accent-orange);
+        }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+            margin: 14px 0;
+        }
+
+        /* Scrollbar inside cadastro card */
+        .cadastro-scroll {
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .cadastro-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .cadastro-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+        }
+
+        .cadastro-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .cadastro-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .float-animation {
+            animation: float 2.5s ease-in-out infinite;
+        }
+
+        /* Main container - login mais pra cima */
+        .main-container {
+            position: relative;
+            z-index: 10;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 50px 20px 20px 20px;
+        }
+
+        /* Cadastro card com altura fixa */
+        .cadastro-card {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(90vh - 180px);
+        }
+
+        .cadastro-card-header {
+            flex-shrink: 0;
+            padding: 20px 20px 0 20px;
+        }
+
+        .cadastro-card-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 20px;
+            min-height: 0;
+        }
+
+        .cadastro-card-body::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .cadastro-card-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+        }
+
+        .cadastro-card-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .cadastro-card-footer {
+            flex-shrink: 0;
+            padding: 20px 20px 20px 20px;
+        }
+
+        /* Success and Expired overlays */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="background">
+        <img src="fundo/cidade_3.jpg" alt="City Background">
+    </div>
+
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const API_URL = window.location.origin;
+        
+        // Ícones SVG
+        const EmailIcon = () => (
+            <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="M22 6L12 13L2 6"/>
+            </svg>
+        );
+        
+        const LockIcon = () => (
+            <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+        );
+        
+        const StoreIcon = () => (
+            <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+        );
+        
+        const PhoneIcon = () => (
+            <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+        );
+        
+        const MapIcon = () => (
+            <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+            </svg>
+        );
+
+        // Section Icons
+        const StoreSectionIcon = () => (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+        );
+        
+        const MapSectionIcon = () => (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+            </svg>
+        );
+        
+        const LockSectionIcon = () => (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+        );
+        
+        // Logo Component
+        const Logo = ({ size = 48 }) => (
+            <div className="flex flex-col items-center">
+                <svg className="logo-pulse" width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                    <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+                </svg>
+                <h1 className="mt-3 text-2xl font-bold" style={{fontFamily: 'Outfit, sans-serif'}}>
+                    <span className="text-white">Moto</span><span className="text-gradient-orange">Flash</span>
+                </h1>
+                <p className="mt-1 text-xs" style={{color: 'rgba(255,255,255,0.9)'}}>
+                    Gestão inteligente de entregas
+                </p>
+            </div>
+        );
+        
+        // Input Component
+        const Input = ({ label, type = 'text', value, onChange, placeholder, required, error, iconType, disabled, id }) => {
+            const renderIcon = () => {
+                switch(iconType) {
+                    case 'store': return <StoreIcon />;
+                    case 'email': return <EmailIcon />;
+                    case 'phone': return <PhoneIcon />;
+                    case 'map': return <MapIcon />;
+                    case 'lock': return <LockIcon />;
+                    default: return null;
+                }
+            };
+            
+            const hasIcon = iconType && iconType !== 'none';
+            
+            return (
+                <div className="mb-3">
+                    <label className="block text-xs font-medium uppercase tracking-wider mb-1.5" style={{color: 'rgba(255,255,255,0.9)'}}>
+                        {label} {required && <span style={{color: '#f87171'}}>*</span>}
+                    </label>
+                    <div className="relative input-wrapper">
+                        {hasIcon && renderIcon()}
+                        <input
+                            id={id}
+                            type={type}
+                            value={value}
+                            onChange={onChange}
+                            placeholder={placeholder}
+                            required={required}
+                            disabled={disabled}
+                            className={`glass-input ${!hasIcon ? 'no-icon' : ''} ${error ? 'border-red-500' : ''}`}
+                        />
+                    </div>
+                    {error && <p className="text-xs mt-1" style={{color: '#f87171'}}>{error}</p>}
+                </div>
+            );
+        };
+        
+        // Button Component
+        const Button = ({ children, onClick, loading, disabled, type = 'button' }) => (
+            <button
+                type={type}
+                onClick={onClick}
+                disabled={disabled || loading}
+                className="btn-primary flex items-center justify-center gap-2"
+            >
+                {loading ? (
+                    <>
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Aguarde...
+                    </>
+                ) : children}
+            </button>
+        );
+        
+        // ============ MAIN APP ============
+        
+        function App() {
+            const [isFlipped, setIsFlipped] = useState(false);
+            const [showSuccess, setShowSuccess] = useState(false);
+            const [showExpired, setShowExpired] = useState(false);
+            
+            // Login states
+            const [loginEmail, setLoginEmail] = useState('');
+            const [loginPassword, setLoginPassword] = useState('');
+            const [loginLoading, setLoginLoading] = useState(false);
+            const [loginError, setLoginError] = useState('');
+            
+            // Cadastro states
+            const [name, setName] = useState('');
+            const [email, setEmail] = useState('');
+            const [phone, setPhone] = useState('');
+            const [password, setPassword] = useState('');
+            const [confirmPassword, setConfirmPassword] = useState('');
+            const [cep, setCep] = useState('');
+            const [street, setStreet] = useState('');
+            const [number, setNumber] = useState('');
+            const [neighborhood, setNeighborhood] = useState('');
+            const [city, setCity] = useState('');
+            const [loadingCep, setLoadingCep] = useState(false);
+            const [cadastroLoading, setCadastroLoading] = useState(false);
+            const [cadastroError, setCadastroError] = useState('');
+            const [emailAvailable, setEmailAvailable] = useState(null);
+            const [checkingEmail, setCheckingEmail] = useState(false);
+            
+            // Blocked restaurant state
+            const [blockedRestaurant, setBlockedRestaurant] = useState(null);
+            
+            // Check token on mount
+            const [checkingToken, setCheckingToken] = useState(true);
+            
+            useEffect(() => {
+                const token = localStorage.getItem('motoflash_token');
+                if (token) {
+                    verifyToken(token);
+                } else {
+                    setCheckingToken(false);
+                }
+            }, []);
+            
+            const verifyToken = async (token) => {
+                try {
+                    const res = await fetch(`${API_URL}/auth/me`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        localStorage.setItem('motoflash_token', data.access_token);
+                        localStorage.setItem('motoflash_user', JSON.stringify(data.user));
+                        localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
+                        
+                        if (data.restaurant.blocked) {
+                            setBlockedRestaurant(data.restaurant);
+                            setShowExpired(true);
+                        } else {
+                            window.location.href = '/dashboard';
+                        }
+                    } else {
+                        localStorage.removeItem('motoflash_token');
+                        localStorage.removeItem('motoflash_user');
+                        localStorage.removeItem('motoflash_restaurant');
+                    }
+                } catch (err) {
+                    console.error('Erro ao verificar token:', err);
+                }
+                setCheckingToken(false);
+            };
+            
+            // Format functions
+            const formatPhone = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 2) return `(${numbers}`;
+                if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
+                return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
+            };
+            
+            const formatCep = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 5) return numbers;
+                return `${numbers.slice(0,5)}-${numbers.slice(5,8)}`;
+            };
+            
+            // CEP lookup
+            const handleCepChange = async (e) => {
+                const formatted = formatCep(e.target.value);
+                setCep(formatted);
+                
+                const numbers = formatted.replace(/\D/g, '');
+                
+                if (numbers.length === 8) {
+                    setLoadingCep(true);
+                    try {
+                        const res = await fetch(`https://viacep.com.br/ws/${numbers}/json/`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (!data.erro) {
+                                setStreet(data.logradouro || '');
+                                setNeighborhood(data.bairro || '');
+                                setCity(data.localidade || '');
+                                setTimeout(() => document.getElementById('numberInput')?.focus(), 100);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Erro ViaCEP:', err);
+                    }
+                    setLoadingCep(false);
+                }
+            };
+            
+            // Email check
+            const checkEmailAvailability = async (emailValue) => {
+                if (!emailValue || !emailValue.includes('@')) {
+                    setEmailAvailable(null);
+                    return;
+                }
+                
+                setCheckingEmail(true);
+                try {
+                    const res = await fetch(`${API_URL}/auth/check-email?email=${encodeURIComponent(emailValue)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setEmailAvailable(data.available);
+                    }
+                } catch (err) {
+                    console.error('Erro ao verificar email:', err);
+                }
+                setCheckingEmail(false);
+            };
+            
+            useEffect(() => {
+                const timer = setTimeout(() => {
+                    if (email) checkEmailAvailability(email);
+                }, 500);
+                return () => clearTimeout(timer);
+            }, [email]);
+            
+            const getFullAddress = () => {
+                let addr = street;
+                if (number) addr += `, ${number}`;
+                if (neighborhood) addr += ` - ${neighborhood}`;
+                if (city) addr += `, ${city}`;
+                return addr;
+            };
+            
+            // Login submit
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoginError('');
+                setLoginLoading(true);
+                
+                try {
+                    const res = await fetch(`${API_URL}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (!res.ok) {
+                        throw new Error(data.detail || 'Email ou senha incorretos');
+                    }
+                    
+                    localStorage.setItem('motoflash_token', data.access_token);
+                    localStorage.setItem('motoflash_user', JSON.stringify(data.user));
+                    localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
+                    
+                    if (data.restaurant.blocked) {
+                        setBlockedRestaurant(data.restaurant);
+                        setShowExpired(true);
+                    } else {
+                        window.location.href = '/dashboard';
+                    }
+                    
+                } catch (err) {
+                    setLoginError(err.message);
+                }
+                
+                setLoginLoading(false);
+            };
+            
+            // Cadastro submit
+            const handleCadastro = async (e) => {
+                e.preventDefault();
+                setCadastroError('');
+                
+                if (!name.trim()) { setCadastroError('Digite o nome do restaurante'); return; }
+                if (!email.trim() || !email.includes('@')) { setCadastroError('Digite um email válido'); return; }
+                if (emailAvailable === false) { setCadastroError('Este email já está cadastrado'); return; }
+                if (password.length < 6) { setCadastroError('A senha deve ter pelo menos 6 caracteres'); return; }
+                if (password !== confirmPassword) { setCadastroError('As senhas não coincidem'); return; }
+                if (!street.trim() || !number.trim()) { setCadastroError('Preencha o endereço completo'); return; }
+                
+                setCadastroLoading(true);
+                
+                try {
+                    const res = await fetch(`${API_URL}/auth/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: name.trim(),
+                            email: email.trim().toLowerCase(),
+                            password,
+                            phone: phone.replace(/\D/g, ''),
+                            address: getFullAddress()
+                        })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (!res.ok) {
+                        throw new Error(data.detail || 'Erro ao cadastrar');
+                    }
+                    
+                    localStorage.setItem('motoflash_token', data.access_token);
+                    localStorage.setItem('motoflash_user', JSON.stringify(data.user));
+                    localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
+                    
+                    setShowSuccess(true);
+                    
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2500);
+                    
+                } catch (err) {
+                    setCadastroError(err.message);
+                }
+                
+                setCadastroLoading(false);
+            };
+            
+            const handleLogout = () => {
+                localStorage.removeItem('motoflash_token');
+                localStorage.removeItem('motoflash_user');
+                localStorage.removeItem('motoflash_restaurant');
+                setBlockedRestaurant(null);
+                setShowExpired(false);
+            };
+            
+            // Loading screen
+            if (checkingToken) {
+                return (
+                    <div className="main-container" style={{justifyContent: 'center'}}>
+                        <div className="text-center">
+                            <svg className="animate-spin h-10 w-10 mx-auto mb-4" style={{color: 'var(--accent-orange)'}} viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            <p style={{color: 'rgba(255,255,255,0.4)'}}>Verificando...</p>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <>
+                    <div className="main-container">
+                        {/* Logo */}
+                        <div className="mb-5">
+                            <Logo size={70} />
+                        </div>
+                        
+                        {/* Flip Card Container */}
+                        <div className="flip-container">
+                            <div className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
+                                
+                                {/* LOGIN - Front */}
+                                <div className="flip-face flip-front">
+                                    <form onSubmit={handleLogin} className="glass-card p-6">
+                                        <h2 className="text-lg font-semibold text-white mb-5 text-center" style={{fontFamily: 'Outfit, sans-serif'}}>
+                                            Login
+                                        </h2>
+                                        
+                                        <Input
+                                            label="Email"
+                                            type="email"
+                                            value={loginEmail}
+                                            onChange={(e) => setLoginEmail(e.target.value)}
+                                            placeholder="Email"
+                                            required
+                                            iconType="email"
+                                        />
+                                        
+                                        <Input
+                                            label="Senha"
+                                            type="password"
+                                            value={loginPassword}
+                                            onChange={(e) => setLoginPassword(e.target.value)}
+                                            placeholder="Senha"
+                                            required
+                                            iconType="lock"
+                                        />
+                                        
+                                        {loginError && (
+                                            <div className="mb-3 p-3 rounded-lg text-sm" style={{background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#fca5a5'}}>
+                                                {loginError}
+                                            </div>
+                                        )}
+                                        
+                                        <div style={{marginTop: '30px'}}>
+                                            <Button type="submit" loading={loginLoading}>
+                                                Entrar
+                                            </Button>
+                                        </div>
+                                    </form>
+                                    
+                                    <p className="text-center mt-5" style={{color: 'rgba(255,255,255,0.9)', fontSize: '13px'}}>
+                                        Não tem conta?{' '}
+                                        <button 
+                                            onClick={() => setIsFlipped(true)} 
+                                            className="font-semibold transition-colors hover:underline"
+                                            style={{color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer'}}
+                                        >
+                                            Cadastre-se grátis
+                                        </button>
+                                    </p>
+                                </div>
+                                
+                                {/* CADASTRO - Back */}
+                                <div className="flip-face flip-back">
+                                    <form onSubmit={handleCadastro} className="glass-card cadastro-card">
+                                        {/* Header fixo */}
+                                        <div className="cadastro-card-header">
+                                            <h2 className="text-lg font-semibold text-white mb-3 text-center" style={{fontFamily: 'Outfit, sans-serif'}}>
+                                                Cadastre seu restaurante
+                                            </h2>
+                                        </div>
+                                        
+                                        {/* Body com scroll */}
+                                        <div className="cadastro-card-body">
+                                            {/* Dados do Restaurante */}
+                                            <div className="mb-1">
+                                                <h3 className="section-title">
+                                                    <div className="section-icon"><StoreSectionIcon /></div>
+                                                    Dados do Restaurante
+                                                </h3>
+                                                
+                                                <Input label="Nome do Restaurante" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Pizzaria do Zé" required iconType="store" />
+                                                
+                                                <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contato@seurestaurante.com" required iconType="email" error={emailAvailable === false ? 'Este email já está cadastrado' : null} />
+                                                {checkingEmail && <p className="text-xs -mt-2 mb-3" style={{color: 'rgba(255,255,255,0.4)'}}>Verificando...</p>}
+                                                {emailAvailable === true && <p className="text-xs -mt-2 mb-3" style={{color: '#4ade80'}}>Email disponível</p>}
+                                                
+                                                <Input label="Telefone / WhatsApp" type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(16) 99999-1234" iconType="phone" />
+                                            </div>
+                                            
+                                            <div className="section-divider"></div>
+                                            
+                                            {/* Endereço */}
+                                            <div className="mb-1">
+                                                <h3 className="section-title">
+                                                    <div className="section-icon"><MapSectionIcon /></div>
+                                                    Endereço
+                                                </h3>
+                                                
+                                                <Input label="CEP" value={cep} onChange={handleCepChange} placeholder="14000-000" disabled={loadingCep} iconType="map" />
+                                                
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div className="col-span-2">
+                                                        <Input label="Rua" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Rua das Flores" required />
+                                                    </div>
+                                                    <div>
+                                                        <Input label="Número" id="numberInput" value={number} onChange={(e) => setNumber(e.target.value)} placeholder="123" required />
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <Input label="Bairro" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Centro" />
+                                                    <Input label="Cidade" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ribeirão Preto" />
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="section-divider"></div>
+                                            
+                                            {/* Senha */}
+                                            <div className="mb-1">
+                                                <h3 className="section-title">
+                                                    <div className="section-icon"><LockSectionIcon /></div>
+                                                    Senha de Acesso
+                                                </h3>
+                                                
+                                                <Input label="Senha" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" required iconType="lock" error={password && password.length < 6 ? 'Mínimo 6 caracteres' : null} />
+                                                
+                                                <Input label="Confirmar Senha" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repita a senha" required iconType="lock" error={confirmPassword && password !== confirmPassword ? 'As senhas não coincidem' : null} />
+                                            </div>
+                                            
+                                            {cadastroError && (
+                                                <div className="mb-3 p-3 rounded-lg text-sm" style={{background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#fca5a5'}}>
+                                                    {cadastroError}
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Footer fixo */}
+                                        <div className="cadastro-card-footer">
+                                            <Button type="submit" loading={cadastroLoading} disabled={cadastroLoading || emailAvailable === false}>
+                                                Começar Teste Grátis
+                                            </Button>
+                                            
+                                            <div className="mt-2 text-center text-xs" style={{color: 'rgba(255,255,255,0.7)'}}>
+                                                14 dias grátis · Sem cartão · Cancele quando quiser
+                                            </div>
+                                        </div>
+                                    </form>
+                                    
+                                    <p className="text-center mt-4" style={{color: 'rgba(255,255,255,0.9)', fontSize: '13px'}}>
+                                        Já tem uma conta?{' '}
+                                        <button 
+                                            onClick={() => setIsFlipped(false)} 
+                                            className="font-semibold transition-colors hover:underline"
+                                            style={{color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer'}}
+                                        >
+                                            Faça login
+                                        </button>
+                                    </p>
+                                </div>
+                                
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Success Overlay */}
+                    <div className={`overlay ${showSuccess ? 'active' : ''}`}>
+                        <div className="glass-card p-8 max-w-sm w-full text-center mx-4">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center float-animation" style={{background: 'rgba(74, 222, 128, 0.15)'}}>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                            </div>
+                            <h2 className="text-xl font-bold text-white mb-2" style={{fontFamily: 'Outfit, sans-serif'}}>
+                                Cadastro realizado!
+                            </h2>
+                            <p className="mb-4 text-sm" style={{color: 'rgba(255,255,255,0.6)'}}>
+                                Seu período de teste de <strong className="text-white">14 dias</strong> começou.
+                            </p>
+                            <p className="text-xs" style={{color: 'rgba(255,255,255,0.4)'}}>
+                                Redirecionando para o dashboard...
+                            </p>
+                            <div className="mt-5">
+                                <div className="w-full rounded-full h-1" style={{background: 'rgba(255,255,255,0.1)'}}>
+                                    <div className="h-1 rounded-full animate-pulse" style={{width: '60%', background: 'linear-gradient(135deg, var(--accent-orange), #ff8c42)'}}></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Expired Overlay */}
+                    <div className={`overlay ${showExpired ? 'active' : ''}`}>
+                        <div className="glass-card p-6 max-w-sm w-full text-center mx-4">
+                            <div className="w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center" style={{background: 'rgba(255, 107, 0, 0.15)'}}>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff6b00" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                            </div>
+                            <h2 className="text-xl font-bold text-white mb-2" style={{fontFamily: 'Outfit, sans-serif'}}>
+                                Período de teste encerrado
+                            </h2>
+                            <p className="mb-5 text-sm" style={{color: 'rgba(255,255,255,0.5)'}}>
+                                Seu teste gratuito de 14 dias do <strong className="text-white">{blockedRestaurant?.name}</strong> terminou.
+                            </p>
+                            
+                            <div className="space-y-2 mb-5">
+                                <div className="p-3 rounded-xl" style={{background: 'rgba(255, 107, 0, 0.12)', border: '2px solid var(--accent-orange)'}}>
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-left">
+                                            <h3 className="font-semibold text-white text-sm">Plano Básico</h3>
+                                            <p className="text-xs" style={{color: 'rgba(255,255,255,0.5)'}}>Até 500 entregas/mês</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-xl font-bold" style={{color: 'var(--accent-orange)'}}>R$ 79</span>
+                                            <span className="text-xs" style={{color: 'rgba(255,255,255,0.4)'}}>/mês</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-3 rounded-xl" style={{background: 'var(--input-bg)', border: '1px solid var(--input-border)'}}>
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-left">
+                                            <h3 className="font-semibold text-white text-sm">Plano Pro</h3>
+                                            <p className="text-xs" style={{color: 'rgba(255,255,255,0.5)'}}>Entregas ilimitadas</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-xl font-bold text-white">R$ 149</span>
+                                            <span className="text-xs" style={{color: 'rgba(255,255,255,0.4)'}}>/mês</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <Button onClick={() => window.open('https://wa.me/5516999999999?text=Quero assinar o MotoFlash!', '_blank')}>
+                                Assinar via WhatsApp
+                            </Button>
+                            
+                            <button 
+                                onClick={handleLogout}
+                                className="mt-4 text-xs transition-colors"
+                                style={{color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer'}}
+                            >
+                                Sair da conta
+                            </button>
+                        </div>
+                    </div>
+                </>
+            );
+        }
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
