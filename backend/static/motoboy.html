@@ -1033,6 +1033,7 @@
             const [showArrivalModal, setShowArrivalModal] = useState(false);
             const [arrivedAtOrder, setArrivedAtOrder] = useState(null);
             const [dismissedArrivals, setDismissedArrivals] = useState(new Set()); // IDs já dispensados
+            const [isProcessingDelivery, setIsProcessingDelivery] = useState(false); // Bloqueia detecção enquanto processa
             const watchIdRef = useRef(null);
             const lastBatchIdRef = useRef(null); // Guarda o ID do último lote para detectar novo
             const audioInitializedRef = useRef(false); // Se o áudio já foi inicializado
@@ -1140,7 +1141,8 @@
             
             // Verifica se chegou no próximo destino
             const checkArrival = (pos) => {
-                if (!batch?.orders || !routeStarted || showArrivalModal) return;
+                // Bloqueia se está processando entrega, modal aberto, ou não iniciou rota
+                if (!batch?.orders || !routeStarted || showArrivalModal || isProcessingDelivery) return;
                 
                 const pendingOrders = batch.orders.filter(o => o.status !== 'delivered');
                 const nextOrder = pendingOrders[0];
@@ -1201,32 +1203,46 @@
             };
             
             const markDelivered = async (orderId) => {
+                // Bloqueia detecção de chegada enquanto processa
+                setIsProcessingDelivery(true);
+                
+                // Adiciona aos dispensados ANTES de processar (previne reabrir modal)
+                setDismissedArrivals(prev => new Set(prev).add(orderId));
+                
+                // Fecha o modal imediatamente
+                setShowArrivalModal(false);
+                setArrivedAtOrder(null);
+                
                 try {
-                    const pickupRes = await fetch(`${API_URL}/orders/${orderId}/pickup`, { method: 'POST' });
+                    // USA ROTAS DO COURIER (sem JWT) - não as rotas de orders (com JWT)
+                    const pickupRes = await fetch(`${API_URL}/couriers/${courier.id}/orders/${orderId}/pickup`, { method: 'POST' });
                     if (!pickupRes.ok) {
-                        console.error('Erro no pickup:', pickupRes.status);
+                        const err = await pickupRes.json().catch(() => ({}));
+                        console.error('Erro no pickup:', pickupRes.status, err);
                     }
                     
-                    const deliverRes = await fetch(`${API_URL}/orders/${orderId}/deliver`, { method: 'POST' });
+                    const deliverRes = await fetch(`${API_URL}/couriers/${courier.id}/orders/${orderId}/deliver`, { method: 'POST' });
                     if (!deliverRes.ok) {
-                        console.error('Erro no deliver:', deliverRes.status);
+                        const err = await deliverRes.json().catch(() => ({}));
+                        console.error('Erro no deliver:', deliverRes.status, err);
                     }
                     
-                    // Remove dos dispensados já que foi entregue
+                    // Atualiza o batch
+                    await fetchBatch();
+                    
+                    // Remove dos dispensados após confirmar que atualizou
                     setDismissedArrivals(prev => {
                         const next = new Set(prev);
                         next.delete(orderId);
                         return next;
                     });
-                    
-                    await fetchBatch();
                 } catch (err) {
                     console.error('Erro ao marcar entrega:', err);
                     alert('Erro ao marcar entrega. Tente novamente.');
+                    // Mantém nos dispensados para não ficar reabrindo
                 } finally {
-                    // SEMPRE fecha o modal, mesmo com erro
-                    setShowArrivalModal(false);
-                    setArrivedAtOrder(null);
+                    // Libera detecção de chegada
+                    setIsProcessingDelivery(false);
                 }
             };
             

@@ -563,3 +563,103 @@ def use_password_reset(
         "success": True,
         "message": f"Senha atualizada com sucesso, {courier.name}!"
     }
+
+# ============ ROTAS DE ENTREGA PARA O MOTOBOY ============
+# Essas rotas NÃO exigem JWT - são usadas pelo app do motoboy
+# A validação é feita pelo courier_id + verificação do batch
+
+@router.post("/{courier_id}/orders/{order_id}/pickup")
+def courier_pickup_order(
+    courier_id: str,
+    order_id: str,
+    session: Session = Depends(get_session)
+):
+    """
+    Motoboy marca pedido como COLETADO
+    
+    Rota pública (sem JWT) - valida pelo courier_id
+    """
+    # Valida courier
+    courier = session.get(Courier, courier_id)
+    if not courier:
+        raise HTTPException(status_code=404, detail="Motoqueiro não encontrado")
+    
+    # Valida que o courier tem um batch ativo
+    batch = get_courier_current_batch(session, courier_id)
+    if not batch:
+        raise HTTPException(status_code=400, detail="Você não tem entregas ativas")
+    
+    # Valida que o pedido existe
+    order = session.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    
+    # Valida que o pedido pertence ao batch do courier
+    if order.batch_id != batch.id:
+        raise HTTPException(status_code=403, detail="Este pedido não pertence à sua rota")
+    
+    # Valida status - ASSIGNED -> PICKED_UP
+    if order.status == OrderStatus.PICKED_UP:
+        # Já está coletado, ignora silenciosamente
+        return {"success": True, "message": "Pedido já estava coletado", "order_id": order_id}
+    
+    if order.status != OrderStatus.ASSIGNED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pedido não pode ser coletado (status atual: {order.status})"
+        )
+    
+    order.status = OrderStatus.PICKED_UP
+    session.add(order)
+    session.commit()
+    
+    return {"success": True, "message": "Pedido coletado", "order_id": order_id}
+
+
+@router.post("/{courier_id}/orders/{order_id}/deliver")
+def courier_deliver_order(
+    courier_id: str,
+    order_id: str,
+    session: Session = Depends(get_session)
+):
+    """
+    Motoboy marca pedido como ENTREGUE
+    
+    Rota pública (sem JWT) - valida pelo courier_id
+    """
+    # Valida courier
+    courier = session.get(Courier, courier_id)
+    if not courier:
+        raise HTTPException(status_code=404, detail="Motoqueiro não encontrado")
+    
+    # Valida que o courier tem um batch ativo
+    batch = get_courier_current_batch(session, courier_id)
+    if not batch:
+        raise HTTPException(status_code=400, detail="Você não tem entregas ativas")
+    
+    # Valida que o pedido existe
+    order = session.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    
+    # Valida que o pedido pertence ao batch do courier
+    if order.batch_id != batch.id:
+        raise HTTPException(status_code=403, detail="Este pedido não pertence à sua rota")
+    
+    # Valida status - permite ASSIGNED ou PICKED_UP -> DELIVERED
+    if order.status == OrderStatus.DELIVERED:
+        # Já está entregue, ignora silenciosamente
+        return {"success": True, "message": "Pedido já estava entregue", "order_id": order_id}
+    
+    if order.status not in [OrderStatus.ASSIGNED, OrderStatus.PICKED_UP]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pedido não pode ser entregue (status atual: {order.status})"
+        )
+    
+    order.status = OrderStatus.DELIVERED
+    order.delivered_at = datetime.now()
+    session.add(order)
+    session.commit()
+    
+    return {"success": True, "message": "Pedido entregue!", "order_id": order_id}
