@@ -149,6 +149,56 @@ def get_courier(courier_id: str, session: Session = Depends(get_session)):
     return courier
 
 
+@router.delete("/{courier_id}")
+def delete_courier(
+    courier_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Exclui um motoqueiro
+    
+    🔒 PROTEÇÃO:
+    - Só pode excluir motoboy do próprio restaurante
+    - Não pode excluir se tiver entrega em andamento
+    """
+    courier = session.get(Courier, courier_id)
+    if not courier:
+        raise HTTPException(status_code=404, detail="Motoqueiro não encontrado")
+    
+    # 🔒 Verifica se pertence ao restaurante do usuário
+    if courier.restaurant_id != current_user.restaurant_id:
+        raise HTTPException(status_code=403, detail="Sem permissão para excluir este motoboy")
+    
+    # 🔒 Verifica se tem entrega em andamento
+    current_batch = get_courier_current_batch(session, courier_id)
+    if current_batch:
+        raise HTTPException(
+            status_code=400,
+            detail="Não é possível excluir. Motoboy tem entregas pendentes."
+        )
+    
+    # 🔒 Verifica se está ocupado
+    if courier.status == CourierStatus.BUSY:
+        raise HTTPException(
+            status_code=400,
+            detail="Não é possível excluir. Motoboy está em entrega."
+        )
+    
+    # Exclui PasswordResets associados (se houver)
+    resets = session.exec(
+        select(PasswordReset).where(PasswordReset.courier_id == courier_id)
+    ).all()
+    for reset in resets:
+        session.delete(reset)
+    
+    # Exclui o motoboy
+    session.delete(courier)
+    session.commit()
+    
+    return {"success": True, "message": f"Motoboy {courier.name} excluído com sucesso"}
+
+
 @router.post("/{courier_id}/available", response_model=CourierResponse)
 def set_courier_available(courier_id: str, session: Session = Depends(get_session)):
     """
