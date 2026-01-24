@@ -1554,6 +1554,15 @@
             // Menu de opções
             const [openMenuId, setOpenMenuId] = useState(null);
             
+            // Fechar menu ao clicar fora
+            useEffect(() => {
+                const handleClickOutside = () => {
+                    if (openMenuId) setOpenMenuId(null);
+                };
+                document.addEventListener('click', handleClickOutside);
+                return () => document.removeEventListener('click', handleClickOutside);
+            }, [openMenuId]);
+            
             // Modal de recuperação de senha
             const [showResetModal, setShowResetModal] = useState(false);
             const [resetData, setResetData] = useState(null);
@@ -1724,7 +1733,10 @@
                                         {/* Menu 3 pontinhos */}
                                         <div className="relative">
                                             <button
-                                                onClick={() => setOpenMenuId(openMenuId === courier.id ? null : courier.id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenMenuId(openMenuId === courier.id ? null : courier.id);
+                                                }}
                                                 className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
                                                 style={{ background: 'rgba(255,255,255,0.08)' }}
                                             >
@@ -1735,6 +1747,7 @@
                                                 <div 
                                                     className="absolute right-0 top-10 w-48 rounded-xl overflow-hidden z-50"
                                                     style={{ background: 'rgba(30, 30, 40, 0.98)', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 10px 40px rgba(0,0,0,0.4)' }}
+                                                    onClick={(e) => e.stopPropagation()}
                                                 >
                                                     <button
                                                         onClick={() => createPasswordReset(courier)}
@@ -1745,17 +1758,19 @@
                                                     >
                                                         🔑 Recuperar Senha
                                                     </button>
-                                                    {courier.status === 'busy' && (
-                                                        <button
-                                                            onClick={() => completeBatch(courier.id)}
-                                                            className="w-full px-4 py-3 text-left text-sm flex items-center gap-2 transition-all"
-                                                            style={{ color: '#4ade80' }}
-                                                            onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
-                                                            onMouseOut={(e) => e.target.style.background = 'transparent'}
-                                                        >
-                                                            ✓ Finalizar Entrega
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        onClick={() => courier.status === 'busy' && completeBatch(courier.id)}
+                                                        disabled={courier.status !== 'busy'}
+                                                        className="w-full px-4 py-3 text-left text-sm flex items-center gap-2 transition-all"
+                                                        style={{ 
+                                                            color: courier.status === 'busy' ? '#4ade80' : 'rgba(255,255,255,0.3)',
+                                                            cursor: courier.status === 'busy' ? 'pointer' : 'not-allowed'
+                                                        }}
+                                                        onMouseOver={(e) => courier.status === 'busy' && (e.target.style.background = 'rgba(255,255,255,0.1)')}
+                                                        onMouseOut={(e) => e.target.style.background = 'transparent'}
+                                                    >
+                                                        ✓ Finalizar Entrega
+                                                    </button>
                                                     <button
                                                         onClick={() => deleteCourier(courier.id)}
                                                         className="w-full px-4 py-3 text-left text-sm flex items-center gap-2 transition-all"
