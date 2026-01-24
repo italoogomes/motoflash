@@ -1740,17 +1740,6 @@
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2" style={{ overflow: 'visible' }}>
-                                        {/* Botão Finalizar - aparece só quando busy */}
-                                        {courier.status === 'busy' && (
-                                            <button
-                                                onClick={() => completeBatch(courier.id)}
-                                                className="text-sm py-1.5 px-3 rounded-lg font-medium transition-all"
-                                                style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}
-                                            >
-                                                ✓ Finalizar
-                                            </button>
-                                        )}
-                                        
                                         {/* Botão Ativar/Pausar - desabilitado quando busy */}
                                         <button
                                             onClick={() => toggleStatus(courier)}
@@ -1976,6 +1965,14 @@
         const DispatchControl = ({ onDispatch, stats }) => {
             const [loading, setLoading] = useState(false);
             const [lastResult, setLastResult] = useState(null);
+            
+            // Auto-dismiss do resultado após 5 segundos
+            useEffect(() => {
+                if (lastResult) {
+                    const timer = setTimeout(() => setLastResult(null), 5000);
+                    return () => clearTimeout(timer);
+                }
+            }, [lastResult]);
             
             const runDispatch = async () => {
                 setLoading(true);
