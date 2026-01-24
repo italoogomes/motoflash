@@ -3,17 +3,563 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      
-    <title>MotoFlash - Despacho Inteligente</title>
+    <title>MotoFlash - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-shadow: rgba(0, 0, 0, 0.2);
+            --accent-orange: #ff6b00;
+            --accent-orange-light: #ff8c42;
+            --sidebar-width: 260px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            background: #0a0a0f;
+            overflow-x: hidden;
+        }
+
+        /* Background com imagem */
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .background img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center bottom;
+            filter: brightness(0.5) saturate(1.1);
+        }
+
+        .background::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                135deg,
+                rgba(10, 10, 15, 0.7) 0%,
+                rgba(10, 10, 15, 0.5) 50%,
+                rgba(10, 10, 15, 0.7) 100%
+            );
+        }
+
+        /* Text gradient */
+        .text-gradient-orange {
+            background: linear-gradient(135deg, #ff6b00 0%, #ff8c42 50%, #ffad42 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ============ SIDEBAR ============ */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: rgba(15, 15, 20, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.4);
+            padding: 0 12px;
+            margin-bottom: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, rgba(255, 107, 0, 0.2) 0%, rgba(255, 140, 66, 0.15) 100%);
+            color: #ff8c42;
+            border: 1px solid rgba(255, 107, 0, 0.3);
+        }
+
+        .nav-item.active .nav-icon {
+            color: #ff6b00;
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: rgba(255, 107, 0, 0.2);
+            color: #ff8c42;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .user-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+        }
+
+        .status-dot.offline {
+            background: #ef4444;
+        }
+
+        /* ============ MAIN CONTENT ============ */
+        .main-wrapper {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        .glass-header {
+            background: rgba(15, 15, 20, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+        }
+
+        .glass-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .glass-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: rgba(255, 107, 0, 0.5);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .glass-select {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .glass-select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        .btn-primary {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #ff8c42 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 0, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 0, 0.35);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .glass-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+
+        .badge-warning {
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.25);
+        }
+
+        .badge-info {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .badge-purple {
+            background: rgba(147, 51, 234, 0.15);
+            color: #a78bfa;
+            border: 1px solid rgba(147, 51, 234, 0.25);
+        }
+
+        .badge-gray {
+            background: rgba(156, 163, 175, 0.15);
+            color: #9ca3af;
+            border: 1px solid rgba(156, 163, 175, 0.25);
+        }
+
+        /* Courier avatar */
+        .courier-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* Stats cards */
+        .stat-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+
+        /* Alerts panel */
+        .alert-item {
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid;
+        }
+
+        .alert-critico {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .alert-atencao {
+            background: rgba(251, 191, 36, 0.1);
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .alert-sucesso {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        /* Mobile */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-wrapper {
+                margin-left: 0;
+            }
+            
+            .mobile-menu-btn {
+                display: flex !important;
+            }
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Autocomplete dropdown */
+        .autocomplete-dropdown {
+            position: absolute;
+            z-index: 50;
+            width: 100%;
+            margin-top: 4px;
+            background: rgba(30, 30, 40, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .autocomplete-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            transition: background 0.2s;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover {
+            background: rgba(255, 107, 0, 0.15);
+        }
+
+        /* Customer found card */
+        .customer-found-card {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        /* Modal overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal-content {
+            background: rgba(25, 25, 35, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
+    <div class="background">
+        <img src="/static/fundo/cidade_3.jpg" alt="City Background">
+    </div>
+
     <div id="root"></div>
     
     <script type="text/babel">
@@ -24,18 +570,13 @@
         
         // ============ AUTENTICAÇÃO ============
         
-        // Pega o token do localStorage
         const getToken = () => localStorage.getItem('motoflash_token');
-        
-        // Verifica se está logado
         const isLoggedIn = () => !!getToken();
         
-        // Fetch autenticado - adiciona o token automaticamente
         const authFetch = async (url, options = {}) => {
             const token = getToken();
             
             if (!token) {
-                // Não está logado, redireciona
                 window.location.href = '/login';
                 throw new Error('Não autenticado');
             }
@@ -45,17 +586,16 @@
                 'Authorization': `Bearer ${token}`
             };
             
-            // Se for JSON, adiciona content-type
             if (options.body && typeof options.body === 'string') {
                 headers['Content-Type'] = 'application/json';
             }
             
             const response = await fetch(url, { ...options, headers });
             
-            // Se receber 401, limpa token e redireciona
             if (response.status === 401) {
                 localStorage.removeItem('motoflash_token');
                 localStorage.removeItem('motoflash_user');
+                localStorage.removeItem('motoflash_restaurant');
                 window.location.href = '/login';
                 throw new Error('Sessão expirada');
             }
@@ -68,1689 +608,1423 @@
             window.location.href = '/login';
         }
         
-        // ============ COMPONENTE DE CRONÔMETRO ============
-        
-        const Timer = ({ startTime }) => {
-          const [elapsed, setElapsed] = useState(0);
-          
-          useEffect(() => {
-            if (!startTime) return;
-            
-            // FIX: Normaliza a data para UTC se não tiver timezone
-            let dateString = startTime;
-            if (!dateString.endsWith('Z') && !dateString.includes('+')) {
-              dateString = dateString + 'Z'; // Assume UTC se não especificado
-            }
-            
-            const start = new Date(dateString).getTime();
-            
-            const updateTimer = () => {
-              const now = Date.now();
-              const diff = Math.floor((now - start) / 1000);
-              // Garante que não seja negativo
-              setElapsed(Math.max(0, diff));
-            };
-            
-            updateTimer();
-            const interval = setInterval(updateTimer, 1000);
-            
-            return () => clearInterval(interval);
-          }, [startTime]);
-          
-          const minutes = Math.floor(elapsed / 60);
-          const seconds = elapsed % 60;
-          
-          // Cores baseadas no tempo
-          let bgColor = 'bg-green-100 text-green-700';
-          if (minutes >= 15) bgColor = 'bg-yellow-100 text-yellow-700';
-          if (minutes >= 25) bgColor = 'bg-orange-100 text-orange-700';
-          if (minutes >= 35) bgColor = 'bg-red-100 text-red-700';
-          
-          return (
-            <span className={`${bgColor} text-xs px-2 py-1 rounded font-mono font-bold`}>
-              ⏱️ {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-            </span>
-          );
-        };
-        
         // ============ COMPONENTES AUXILIARES ============
         
+        // Cronômetro
+        const Timer = ({ startTime }) => {
+            const [elapsed, setElapsed] = useState(0);
+            
+            useEffect(() => {
+                if (!startTime) return;
+                
+                let dateString = startTime;
+                if (!dateString.endsWith('Z') && !dateString.includes('+')) {
+                    dateString = dateString + 'Z';
+                }
+                
+                const start = new Date(dateString).getTime();
+                
+                const updateTimer = () => {
+                    const now = Date.now();
+                    const diff = Math.floor((now - start) / 1000);
+                    setElapsed(Math.max(0, diff));
+                };
+                
+                updateTimer();
+                const interval = setInterval(updateTimer, 1000);
+                
+                return () => clearInterval(interval);
+            }, [startTime]);
+            
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            let colorClass = 'badge-success';
+            if (minutes >= 15) colorClass = 'badge-warning';
+            if (minutes >= 25) colorClass = 'badge-danger';
+            
+            return (
+                <span className={`badge ${colorClass} font-mono`}>
+                    ⏱️ {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                </span>
+            );
+        };
+        
+        // Badge de Status
         const StatusBadge = ({ status }) => {
-          const colors = {
-            created: 'bg-gray-500',
-            preparing: 'bg-yellow-500',
-            ready: 'bg-green-500',
-            assigned: 'bg-blue-500',
-            picked_up: 'bg-purple-500',
-            delivered: 'bg-emerald-600',
-            available: 'bg-green-500',
-            busy: 'bg-orange-500',
-            offline: 'bg-gray-400',
-          };
-          
-          const labels = {
-            created: 'Criado',
-            preparing: 'Preparando',
-            ready: 'Pronto',
-            assigned: 'Atribuído',
-            picked_up: 'Coletado',
-            delivered: 'Entregue',
-            available: 'Disponível',
-            busy: 'Em entrega',
-            offline: 'Offline',
-          };
-          
-          return (
-            <span className={`${colors[status] || 'bg-gray-500'} text-white text-xs px-2 py-1 rounded-full font-medium`}>
-              {labels[status] || status}
-            </span>
-          );
+            const config = {
+                created: { class: 'badge-gray', label: 'Criado' },
+                preparing: { class: 'badge-warning', label: 'Preparando' },
+                ready: { class: 'badge-success', label: 'Pronto' },
+                assigned: { class: 'badge-info', label: 'Atribuído' },
+                picked_up: { class: 'badge-purple', label: 'Coletado' },
+                delivered: { class: 'badge-success', label: 'Entregue' },
+                available: { class: 'badge-success', label: 'Disponível' },
+                busy: { class: 'badge-warning', label: 'Em entrega' },
+                offline: { class: 'badge-gray', label: 'Offline' },
+            };
+            
+            const { class: badgeClass, label } = config[status] || { class: 'badge-gray', label: status };
+            
+            return <span className={`badge ${badgeClass}`}>{label}</span>;
         };
         
-        const Card = ({ children, className = '' }) => (
-          <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
-            {children}
-          </div>
-        );
-        
-        const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '' }) => {
-          const variants = {
-            primary: 'bg-orange-500 hover:bg-orange-600 text-white',
-            secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-700',
-            success: 'bg-green-500 hover:bg-green-600 text-white',
-            danger: 'bg-red-500 hover:bg-red-600 text-white',
-          };
-          
-          return (
-            <button
-              onClick={onClick}
-              disabled={disabled}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
-            >
-              {children}
-            </button>
-          );
-        };
-        
-        // ============ PAINEL DE ESTATÍSTICAS ============
+        // ============ COMPONENTE: STATS PANEL ============
         
         const StatsPanel = ({ stats }) => {
-          if (!stats) return null;
-          
-          return (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-              <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-orange-500">{stats.orders?.ready || 0}</div>
-                <div className="text-sm text-gray-500">Pedidos Prontos</div>
-              </Card>
-              <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-blue-500">{stats.orders?.assigned || 0}</div>
-                <div className="text-sm text-gray-500">Em Rota</div>
-              </Card>
-              <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-green-500">{stats.couriers?.available || 0}</div>
-                <div className="text-sm text-gray-500">Motoboys Livres</div>
-              </Card>
-              <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-purple-500">{stats.couriers?.busy || 0}</div>
-                <div className="text-sm text-gray-500">Motoboys Ocupados</div>
-              </Card>
-              <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-emerald-600">{stats.orders?.delivered || 0}</div>
-                <div className="text-sm text-gray-500">Entregues Hoje</div>
-              </Card>
-            </div>
-          );
+            if (!stats) return null;
+            
+            const items = [
+                { value: stats.orders?.ready || 0, label: 'Prontos', color: '#ff8c42' },
+                { value: stats.orders?.assigned || 0, label: 'Em Rota', color: '#60a5fa' },
+                { value: stats.couriers?.available || 0, label: 'Motoboys Livres', color: '#4ade80' },
+                { value: stats.couriers?.busy || 0, label: 'Ocupados', color: '#a78bfa' },
+                { value: stats.orders?.delivered || 0, label: 'Entregues Hoje', color: '#34d399' },
+            ];
+            
+            return (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                    {items.map((item, idx) => (
+                        <div key={idx} className="stat-card">
+                            <div className="stat-value" style={{ color: item.color }}>{item.value}</div>
+                            <div className="stat-label">{item.label}</div>
+                        </div>
+                    ))}
+                </div>
+            );
         };
         
-        // ============ PAINEL DE ALERTAS INTELIGENTES ============
+        // ============ COMPONENTE: ALERTS PANEL ============
         
         const AlertsPanel = ({ alerts, recommendation }) => {
-          if (!alerts) return null;
-          
-          const statusColors = {
-            critico: 'bg-red-100 border-red-300',
-            atencao: 'bg-yellow-100 border-yellow-300',
-            info: 'bg-blue-100 border-blue-300',
-            sucesso: 'bg-green-100 border-green-300',
-          };
-          
-          const statusTextColors = {
-            critico: 'text-red-800',
-            atencao: 'text-yellow-800',
-            info: 'text-blue-800',
-            sucesso: 'text-green-800',
-          };
-          
-          const statusBgColors = {
-            critico: 'bg-red-500',
-            atencao: 'bg-yellow-500',
-            info: 'bg-blue-500',
-            sucesso: 'bg-green-500',
-          };
-          
-          return (
-            <Card className={`p-4 mb-6 border-2 ${statusColors[alerts.status_geral] || 'border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-                  🧠 Inteligência MotoFlash
-                </h3>
-                {recommendation && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Motoboys recomendados:</span>
-                    <span className={`px-3 py-1 rounded-full font-bold text-white ${statusBgColors[alerts.status_geral]}`}>
-                      {recommendation.motoboys_recomendados}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Alertas */}
-              <div className="space-y-2">
-                {alerts.alertas?.map((alerta, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`p-3 rounded-lg border ${statusColors[alerta.tipo]} ${statusTextColors[alerta.tipo]}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <span className="text-xl">{alerta.icone}</span>
-                      <div className="flex-1">
-                        <div className="font-semibold">{alerta.titulo}</div>
-                        <div className="text-sm opacity-90">{alerta.mensagem}</div>
-                        {alerta.acao_sugerida && (
-                          <div className="text-sm mt-1 font-medium">
-                            💡 {alerta.acao_sugerida}
-                          </div>
+            if (!alerts) return null;
+            
+            const statusBgColors = {
+                critico: '#ef4444',
+                atencao: '#fbbf24',
+                info: '#60a5fa',
+                sucesso: '#4ade80',
+            };
+            
+            return (
+                <div className="glass-card p-5 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-white flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                            🧠 Inteligência MotoFlash
+                        </h3>
+                        {recommendation && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Motoboys recomendados:</span>
+                                <span 
+                                    className="px-3 py-1 rounded-full font-bold text-white"
+                                    style={{ background: statusBgColors[alerts.status_geral] || '#60a5fa' }}
+                                >
+                                    {recommendation.motoboys_recomendados}
+                                </span>
+                            </div>
                         )}
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Métricas de contexto - sempre mostra */}
-              {recommendation && (
-                <div className="mt-4 pt-3 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                  <div className="text-center">
-                    <div className="text-gray-500">Tempo preparo</div>
-                    <div className="font-semibold text-gray-700">
-                      {recommendation.tempo_medio_preparo ? `${recommendation.tempo_medio_preparo} min` : 'Coletando...'}
+                    
+                    {/* Alertas */}
+                    <div className="space-y-2 mb-4">
+                        {alerts.alertas?.map((alerta, idx) => (
+                            <div key={idx} className={`alert-item alert-${alerta.tipo}`}>
+                                <div className="flex items-start gap-3">
+                                    <span className="text-xl">{alerta.icone}</span>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-white">{alerta.titulo}</div>
+                                        <div className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{alerta.mensagem}</div>
+                                        {alerta.acao_sugerida && (
+                                            <div className="text-sm mt-1 font-medium" style={{ color: '#fbbf24' }}>
+                                                💡 {alerta.acao_sugerida}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-gray-500">Tempo rota</div>
-                    <div className="font-semibold text-gray-700">
-                      {recommendation.tempo_medio_rota ? `${recommendation.tempo_medio_rota} min` : 'Coletando...'}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-gray-500">Pedidos/hora</div>
-                    <div className="font-semibold text-gray-700">{recommendation.pedidos_por_hora || 0}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-gray-500">Capacidade/motoboy</div>
-                    <div className="font-semibold text-gray-700">
-                      {recommendation.capacidade_por_motoboy ? `${recommendation.capacidade_por_motoboy}/h` : 'Coletando...'}
-                    </div>
-                  </div>
+                    
+                    {/* Métricas */}
+                    {recommendation && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                            <div className="text-center">
+                                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Tempo preparo</div>
+                                <div className="font-semibold text-white">
+                                    {recommendation.tempo_medio_preparo ? `${recommendation.tempo_medio_preparo} min` : 'Coletando...'}
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Tempo rota</div>
+                                <div className="font-semibold text-white">
+                                    {recommendation.tempo_medio_rota ? `${recommendation.tempo_medio_rota} min` : 'Coletando...'}
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Pedidos/hora</div>
+                                <div className="font-semibold text-white">{recommendation.pedidos_por_hora || 0}</div>
+                            </div>
+                            <div className="text-center">
+                                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Capacidade/motoboy</div>
+                                <div className="font-semibold text-white">
+                                    {recommendation.capacidade_por_motoboy ? `${recommendation.capacidade_por_motoboy}/h` : 'Coletando...'}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
-              )}
-            </Card>
-          );
+            );
         };
         
-        // ============ FORMULÁRIO DE NOVO PEDIDO (MANUAL) ============
+        // ============ COMPONENTE: FORMULÁRIO DE NOVO PEDIDO ============
         
         const NewOrderForm = ({ onOrderCreated, simulatedDate }) => {
-          const [loading, setLoading] = useState(false);
-          const [status, setStatus] = useState('');
-          const [errorMsg, setErrorMsg] = useState('');
-          
-          // Campos do formulário
-          const [phone, setPhone] = useState('');
-          const [customerName, setCustomerName] = useState('');
-          const [selectedItemId, setSelectedItemId] = useState('');
-          
-          // Campos de endereço SEPARADOS
-          const [cep, setCep] = useState('');           // CEP
-          const [street, setStreet] = useState('');       // Rua
-          const [number, setNumber] = useState('');       // Número
-          const [neighborhood, setNeighborhood] = useState(''); // Bairro
-          const [city, setCity] = useState('Ribeirão Preto');   // Cidade
-          const [complement, setComplement] = useState(''); // Complemento
-          const [loadingCep, setLoadingCep] = useState(false); // Loading do CEP
-          
-          // Cliente encontrado
-          const [foundCustomer, setFoundCustomer] = useState(null);
-          const [searchingCustomer, setSearchingCustomer] = useState(false);
-          
-          // Modo "outro endereço" - quando cliente quer entregar em lugar diferente
-          const [useOtherAddress, setUseOtherAddress] = useState(false);
-          
-          // Sugestões de clientes (autocomplete por nome)
-          const [nameSuggestions, setNameSuggestions] = useState([]);
-          const [showNameSuggestions, setShowNameSuggestions] = useState(false);
-          
-          // Autocomplete de endereço (Photon)
-          const [streetSuggestions, setStreetSuggestions] = useState([]);
-          const [showStreetSuggestions, setShowStreetSuggestions] = useState(false);
-          const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState([]);
-          const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
-          const [citySuggestions, setCitySuggestions] = useState([]);
-          const [showCitySuggestions, setShowCitySuggestions] = useState(false);
-          
-          // Cardápio
-          const [menuData, setMenuData] = useState([]);
-          const [loadingMenu, setLoadingMenu] = useState(true);
-          
-          // Formata telefone
-          const formatPhone = (value) => {
-            const numbers = value.replace(/\D/g, '');
-            if (numbers.length <= 2) return `(${numbers}`;
-            if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
-            return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
-          };
-          
-          // Formata CEP enquanto digita
-          const formatCep = (value) => {
-            const numbers = value.replace(/\D/g, '');
-            if (numbers.length <= 5) return numbers;
-            return `${numbers.slice(0,5)}-${numbers.slice(5,8)}`;
-          };
-          
-          // Busca endereço pelo CEP (ViaCEP)
-          const handleCepChange = async (e) => {
-            const formatted = formatCep(e.target.value);
-            setCep(formatted);
+            const [loading, setLoading] = useState(false);
+            const [status, setStatus] = useState('');
+            const [errorMsg, setErrorMsg] = useState('');
             
-            const numbers = formatted.replace(/\D/g, '');
+            // Campos do formulário
+            const [phone, setPhone] = useState('');
+            const [customerName, setCustomerName] = useState('');
+            const [selectedItemId, setSelectedItemId] = useState('');
             
-            // Busca quando tiver 8 dígitos
-            if (numbers.length === 8) {
-              setLoadingCep(true);
-              try {
-                const res = await fetch(`https://viacep.com.br/ws/${numbers}/json/`);
-                if (res.ok) {
-                  const data = await res.json();
-                  if (!data.erro) {
-                    setStreet(data.logradouro || '');
-                    setNeighborhood(data.bairro || '');
-                    setCity(data.localidade || '');
-                    // Foca no campo número após preencher
-                    setTimeout(() => {
-                      document.getElementById('numberInput')?.focus();
-                    }, 100);
-                  }
-                }
-              } catch (err) {
-                console.error('Erro ViaCEP:', err);
-              }
-              setLoadingCep(false);
-            }
-          };
-          
-          // Remove acentos para API Photon
-          const removeAccents = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          
-          // Busca sugestões no Photon
-          const searchPhoton = async (query, type) => {
-            if (query.trim().length < 3) return [];
+            // Campos de endereço
+            const [cep, setCep] = useState('');
+            const [street, setStreet] = useState('');
+            const [number, setNumber] = useState('');
+            const [neighborhood, setNeighborhood] = useState('');
+            const [city, setCity] = useState('Ribeirão Preto');
+            const [complement, setComplement] = useState('');
+            const [loadingCep, setLoadingCep] = useState(false);
             
-            try {
-              const cleanQuery = removeAccents(query);
-              const fullQuery = type === 'city' 
-                ? `${cleanQuery} Brasil`
-                : `${cleanQuery} ${removeAccents(city || 'Ribeirao Preto')}`;
-              
-              const res = await fetch(
-                `https://photon.komoot.io/api/?q=${encodeURIComponent(fullQuery)}&limit=5&lat=-21.17&lon=-47.80`
-              );
-              
-              if (res.ok) {
-                const data = await res.json();
-                if (data.features && data.features.length > 0) {
-                  // Extrai valores únicos baseado no tipo
-                  const values = new Set();
-                  data.features.forEach(f => {
-                    const p = f.properties;
-                    if (type === 'street') {
-                      const name = p.name || p.street;
-                      if (name) values.add(name);
-                    } else if (type === 'neighborhood') {
-                      const bairro = p.suburb || p.district || p.locality || p.neighbourhood;
-                      if (bairro && bairro !== p.city) values.add(bairro);
-                    } else if (type === 'city') {
-                      if (p.city) values.add(p.city);
-                    }
-                  });
-                  return Array.from(values);
-                }
-              }
-            } catch (err) {
-              console.error('Erro Photon:', err);
-            }
-            return [];
-          };
-          
-          // Busca cliente por telefone
-          const handlePhoneChange = async (e) => {
-            const formatted = formatPhone(e.target.value);
-            setPhone(formatted);
+            // Cliente encontrado
+            const [foundCustomer, setFoundCustomer] = useState(null);
+            const [searchingCustomer, setSearchingCustomer] = useState(false);
+            const [useOtherAddress, setUseOtherAddress] = useState(false);
             
-            const numbers = formatted.replace(/\D/g, '');
+            // Sugestões
+            const [nameSuggestions, setNameSuggestions] = useState([]);
+            const [showNameSuggestions, setShowNameSuggestions] = useState(false);
             
-            if (numbers.length >= 10) {
-              setSearchingCustomer(true);
-              try {
-                const res = await authFetch(`${API_URL}/customers/phone/${numbers}`);
-                if (res.ok) {
-                  const customer = await res.json();
-                  selectCustomer(customer);
-                  setStatus('✅ Cliente encontrado!');
-                  setTimeout(() => setStatus(''), 2000);
-                } else {
-                  setFoundCustomer(null);
-                  setUseOtherAddress(false);
-                }
-              } catch (err) {
-                setFoundCustomer(null);
-              }
-              setSearchingCustomer(false);
-            } else {
-              setFoundCustomer(null);
-              setUseOtherAddress(false);
-            }
-          };
-          
-          // Busca clientes por nome
-          const handleNameChange = async (e) => {
-            const value = e.target.value;
-            setCustomerName(value);
-            setFoundCustomer(null);
+            // Cardápio
+            const [menuData, setMenuData] = useState([]);
+            const [loadingMenu, setLoadingMenu] = useState(true);
             
-            if (value.trim().length >= 2) {
-              try {
-                const res = await authFetch(`${API_URL}/customers?search=${encodeURIComponent(value)}`);
-                if (res.ok) {
-                  const customers = await res.json();
-                  setNameSuggestions(customers.slice(0, 5));
-                  setShowNameSuggestions(customers.length > 0);
-                }
-              } catch (err) {
-                setNameSuggestions([]);
-              }
-            } else {
-              setNameSuggestions([]);
-              setShowNameSuggestions(false);
-            }
-          };
-          
-          // Seleciona cliente
-          const selectCustomer = (customer) => {
-            setFoundCustomer(customer);
-            setCustomerName(customer.name);
-            setPhone(formatPhone(customer.phone));
-            setComplement(customer.complement || '');
-            setNameSuggestions([]);
-            setShowNameSuggestions(false);
-            setUseOtherAddress(false);
-            
-            // Parseia endereço se existir
-            if (customer.address) {
-              parseAddress(customer.address);
-            }
-          };
-          
-          // Tenta parsear endereço em campos separados
-          // Formato esperado: "Rua X, 123 - Bairro, Cidade"
-          const parseAddress = (fullAddress) => {
-            // Primeiro separa por " - " para pegar o bairro
-            const dashParts = fullAddress.split(' - ');
-            
-            if (dashParts.length >= 2) {
-              // Tem " - ", então: "Rua X, 123" - "Bairro, Cidade"
-              const ruaENumero = dashParts[0]; // "Rua X, 123"
-              const bairroECidade = dashParts.slice(1).join(' - '); // "Bairro, Cidade"
-              
-              // Separa rua e número por vírgula
-              const ruaParts = ruaENumero.split(',').map(p => p.trim());
-              if (ruaParts.length >= 2) {
-                setStreet(ruaParts[0]); // "Rua X"
-                setNumber(ruaParts[1]); // "123"
-              } else {
-                setStreet(ruaParts[0]);
-              }
-              
-              // Separa bairro e cidade por vírgula
-              const bairroParts = bairroECidade.split(',').map(p => p.trim());
-              if (bairroParts.length >= 2) {
-                setNeighborhood(bairroParts[0]); // "Bairro"
-                setCity(bairroParts[1]); // "Cidade"
-              } else if (bairroParts.length === 1) {
-                setNeighborhood(bairroParts[0]);
-              }
-            } else {
-              // Não tem " - ", tenta separar só por vírgula
-              const parts = fullAddress.split(',').map(p => p.trim());
-              if (parts.length >= 1) setStreet(parts[0]);
-              if (parts.length >= 2) setNumber(parts[1]);
-              if (parts.length >= 3) setNeighborhood(parts[2]);
-              if (parts.length >= 4) setCity(parts[3]);
-            }
-          };
-          
-          // Autocomplete de Rua
-          const handleStreetChange = async (e) => {
-            const value = e.target.value;
-            setStreet(value);
-            
-            const suggestions = await searchPhoton(value, 'street');
-            setStreetSuggestions(suggestions);
-            setShowStreetSuggestions(suggestions.length > 0);
-          };
-          
-          // Autocomplete de Bairro
-          const handleNeighborhoodChange = async (e) => {
-            const value = e.target.value;
-            setNeighborhood(value);
-            
-            const suggestions = await searchPhoton(value, 'neighborhood');
-            setNeighborhoodSuggestions(suggestions);
-            setShowNeighborhoodSuggestions(suggestions.length > 0);
-          };
-          
-          // Autocomplete de Cidade
-          const handleCityChange = async (e) => {
-            const value = e.target.value;
-            setCity(value);
-            
-            const suggestions = await searchPhoton(value, 'city');
-            setCitySuggestions(suggestions);
-            setShowCitySuggestions(suggestions.length > 0);
-          };
-          
-          // Monta endereço completo
-          const getFullAddress = () => {
-            let addr = street;
-            if (number) addr += `, ${number}`;
-            if (neighborhood) addr += ` - ${neighborhood}`;
-            if (city) addr += `, ${city}`;
-            return addr;
-          };
-          
-          // Clica em "Entregar em outro endereço"
-          const handleUseOtherAddress = () => {
-            setUseOtherAddress(true);
-            setCep('');
-            setStreet('');
-            setNumber('');
-            setNeighborhood('');
-            setCity('Ribeirão Preto');
-            setComplement('');
-          };
-          
-          // Volta pro endereço do cadastro
-          const handleUseCadastroAddress = () => {
-            setUseOtherAddress(false);
-            if (foundCustomer?.address) {
-              parseAddress(foundCustomer.address);
-            }
-            setComplement(foundCustomer?.complement || '');
-          };
-          
-          // Busca cardápio
-          useEffect(() => {
-            const fetchMenu = async () => {
-              try {
-                const res = await authFetch(`${API_URL}/menu/full`);
-                if (res.ok) {
-                  const data = await res.json();
-                  setMenuData(data);
-                  setSelectedItemId('');
-                }
-              } catch (err) {
-                console.error('Erro ao buscar cardápio:', err);
-              }
-              setLoadingMenu(false);
+            // Formata telefone
+            const formatPhone = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 2) return `(${numbers}`;
+                if (numbers.length <= 7) return `(${numbers.slice(0,2)}) ${numbers.slice(2)}`;
+                return `(${numbers.slice(0,2)}) ${numbers.slice(2,7)}-${numbers.slice(7,11)}`;
             };
-            fetchMenu();
-          }, []);
-          
-          const getSelectedItem = () => {
-            for (const cat of menuData) {
-              const item = cat.items.find(i => i.id === selectedItemId);
-              if (item) return { ...item, categoryName: cat.name };
-            }
-            return null;
-          };
-          
-          // Cria pedido
-          const createOrder = async (e) => {
-            e.preventDefault();
             
-            if (!customerName.trim()) {
-              setErrorMsg('Digite o nome do cliente');
-              return;
-            }
-            if (!selectedItemId) {
-              setErrorMsg('Selecione um item do cardápio');
-              return;
-            }
-            if (!street.trim()) {
-              setErrorMsg('Digite a rua');
-              return;
-            }
-            if (!number.trim()) {
-              setErrorMsg('Digite o número');
-              return;
-            }
-            if (!city.trim()) {
-              setErrorMsg('Digite a cidade');
-              return;
-            }
+            // Formata CEP
+            const formatCep = (value) => {
+                const numbers = value.replace(/\D/g, '');
+                if (numbers.length <= 5) return numbers;
+                return `${numbers.slice(0,5)}-${numbers.slice(5,8)}`;
+            };
             
-            const fullAddress = getFullAddress();
-            const selectedItem = getSelectedItem();
-            
-            setLoading(true);
-            setErrorMsg('');
-            setStatus('🔍 Buscando coordenadas...');
-            
-            try {
-              // Se é cliente novo, salva primeiro
-              if (!foundCustomer && phone.replace(/\D/g, '').length >= 10) {
-                try {
-                  await authFetch(`${API_URL}/customers`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      phone: phone.replace(/\D/g, ''),
-                      name: customerName.trim(),
-                      address: fullAddress,
-                      complement: complement.trim() || null
-                    })
-                  });
-                } catch (err) {
-                  // Ignora se já existe
+            // Busca CEP
+            const handleCepChange = async (e) => {
+                const formatted = formatCep(e.target.value);
+                setCep(formatted);
+                
+                const numbers = formatted.replace(/\D/g, '');
+                
+                if (numbers.length === 8) {
+                    setLoadingCep(true);
+                    try {
+                        const res = await fetch(`https://viacep.com.br/ws/${numbers}/json/`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (!data.erro) {
+                                setStreet(data.logradouro || '');
+                                setNeighborhood(data.bairro || '');
+                                setCity(data.localidade || '');
+                                setTimeout(() => document.getElementById('numberInput')?.focus(), 100);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Erro ViaCEP:', err);
+                    }
+                    setLoadingCep(false);
                 }
-              }
-              
-              // Cria pedido (endereço vai no PEDIDO, não atualiza cadastro!)
-              const res = await authFetch(`${API_URL}/orders`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  customer_name: customerName.trim(),
-                  address_text: fullAddress + (complement ? ` - ${complement}` : ''),
-                  item: selectedItem ? selectedItem.name : 'Pedido',
-                  prep_type: 'short',
-                  simulated_date: simulatedDate,
-                }),
-              });
-              
-              if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.detail || 'Erro ao criar pedido');
-              }
-              
-              setStatus('✅ Pedido criado com sucesso!');
-              // Limpa formulário
-              setPhone('');
-              setCustomerName('');
-              setCep('');
-              setStreet('');
-              setNumber('');
-              setNeighborhood('');
-              setCity('Ribeirão Preto');
-              setComplement('');
-              setFoundCustomer(null);
-              setUseOtherAddress(false);
-              onOrderCreated();
-              
-              setTimeout(() => setStatus(''), 3000);
-              
-            } catch (err) {
-              console.error('Erro:', err);
-              setErrorMsg(`❌ ${err.message}`);
+            };
+            
+            // Busca cliente por telefone
+            const handlePhoneChange = async (e) => {
+                const formatted = formatPhone(e.target.value);
+                setPhone(formatted);
+                
+                const numbers = formatted.replace(/\D/g, '');
+                
+                if (numbers.length >= 10) {
+                    setSearchingCustomer(true);
+                    try {
+                        const res = await authFetch(`${API_URL}/customers/phone/${numbers}`);
+                        if (res.ok) {
+                            const customer = await res.json();
+                            selectCustomer(customer);
+                            setStatus('✅ Cliente encontrado!');
+                            setTimeout(() => setStatus(''), 2000);
+                        } else {
+                            setFoundCustomer(null);
+                            setUseOtherAddress(false);
+                        }
+                    } catch (err) {
+                        setFoundCustomer(null);
+                    }
+                    setSearchingCustomer(false);
+                } else {
+                    setFoundCustomer(null);
+                    setUseOtherAddress(false);
+                }
+            };
+            
+            // Busca clientes por nome
+            const handleNameChange = async (e) => {
+                const value = e.target.value;
+                setCustomerName(value);
+                setFoundCustomer(null);
+                
+                if (value.trim().length >= 2) {
+                    try {
+                        const res = await authFetch(`${API_URL}/customers?search=${encodeURIComponent(value)}`);
+                        if (res.ok) {
+                            const customers = await res.json();
+                            setNameSuggestions(customers.slice(0, 5));
+                            setShowNameSuggestions(customers.length > 0);
+                        }
+                    } catch (err) {
+                        setNameSuggestions([]);
+                    }
+                } else {
+                    setNameSuggestions([]);
+                    setShowNameSuggestions(false);
+                }
+            };
+            
+            // Seleciona cliente
+            const selectCustomer = (customer) => {
+                setFoundCustomer(customer);
+                setCustomerName(customer.name);
+                setPhone(formatPhone(customer.phone));
+                setComplement(customer.complement || '');
+                setNameSuggestions([]);
+                setShowNameSuggestions(false);
+                setUseOtherAddress(false);
+                
+                if (customer.address) {
+                    parseAddress(customer.address);
+                }
+            };
+            
+            // Parseia endereço
+            const parseAddress = (fullAddress) => {
+                const dashParts = fullAddress.split(' - ');
+                
+                if (dashParts.length >= 2) {
+                    const ruaENumero = dashParts[0];
+                    const bairroECidade = dashParts.slice(1).join(' - ');
+                    
+                    const ruaParts = ruaENumero.split(',').map(p => p.trim());
+                    if (ruaParts.length >= 2) {
+                        setStreet(ruaParts[0]);
+                        setNumber(ruaParts[1]);
+                    } else {
+                        setStreet(ruaParts[0]);
+                    }
+                    
+                    const bairroParts = bairroECidade.split(',').map(p => p.trim());
+                    if (bairroParts.length >= 2) {
+                        setNeighborhood(bairroParts[0]);
+                        setCity(bairroParts[1]);
+                    } else if (bairroParts.length === 1) {
+                        setNeighborhood(bairroParts[0]);
+                    }
+                } else {
+                    const parts = fullAddress.split(',').map(p => p.trim());
+                    if (parts.length >= 1) setStreet(parts[0]);
+                    if (parts.length >= 2) setNumber(parts[1]);
+                    if (parts.length >= 3) setNeighborhood(parts[2]);
+                    if (parts.length >= 4) setCity(parts[3]);
+                }
+            };
+            
+            // Monta endereço completo
+            const getFullAddress = () => {
+                let addr = street;
+                if (number) addr += `, ${number}`;
+                if (neighborhood) addr += ` - ${neighborhood}`;
+                if (city) addr += `, ${city}`;
+                return addr;
+            };
+            
+            // Outro endereço
+            const handleUseOtherAddress = () => {
+                setUseOtherAddress(true);
+                setCep('');
+                setStreet('');
+                setNumber('');
+                setNeighborhood('');
+                setCity('Ribeirão Preto');
+                setComplement('');
+            };
+            
+            const handleUseCadastroAddress = () => {
+                setUseOtherAddress(false);
+                if (foundCustomer?.address) {
+                    parseAddress(foundCustomer.address);
+                }
+                setComplement(foundCustomer?.complement || '');
+            };
+            
+            // Busca cardápio
+            useEffect(() => {
+                const fetchMenu = async () => {
+                    try {
+                        const res = await authFetch(`${API_URL}/menu/full`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            setMenuData(data);
+                            setSelectedItemId('');
+                        }
+                    } catch (err) {
+                        console.error('Erro ao buscar cardápio:', err);
+                    }
+                    setLoadingMenu(false);
+                };
+                fetchMenu();
+            }, []);
+            
+            const getSelectedItem = () => {
+                for (const cat of menuData) {
+                    const item = cat.items.find(i => i.id === selectedItemId);
+                    if (item) return { ...item, categoryName: cat.name };
+                }
+                return null;
+            };
+            
+            // Cria pedido
+            const createOrder = async (e) => {
+                e.preventDefault();
+                
+                if (!customerName.trim()) { setErrorMsg('Digite o nome do cliente'); return; }
+                if (!selectedItemId) { setErrorMsg('Selecione um item do cardápio'); return; }
+                if (!street.trim()) { setErrorMsg('Digite a rua'); return; }
+                if (!number.trim()) { setErrorMsg('Digite o número'); return; }
+                if (!city.trim()) { setErrorMsg('Digite a cidade'); return; }
+                
+                const fullAddress = getFullAddress();
+                const selectedItem = getSelectedItem();
+                
+                setLoading(true);
+                setErrorMsg('');
+                setStatus('🔍 Buscando coordenadas...');
+                
+                try {
+                    // Se é cliente novo, salva primeiro
+                    if (!foundCustomer && phone.replace(/\D/g, '').length >= 10) {
+                        try {
+                            await authFetch(`${API_URL}/customers`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    phone: phone.replace(/\D/g, ''),
+                                    name: customerName.trim(),
+                                    address: fullAddress,
+                                    complement: complement.trim() || null
+                                })
+                            });
+                        } catch (err) { }
+                    }
+                    
+                    // Cria pedido
+                    const res = await authFetch(`${API_URL}/orders`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            customer_name: customerName.trim(),
+                            address_text: fullAddress + (complement ? ` - ${complement}` : ''),
+                            item: selectedItem ? selectedItem.name : 'Pedido',
+                            prep_type: 'short',
+                            simulated_date: simulatedDate,
+                        }),
+                    });
+                    
+                    if (!res.ok) {
+                        const error = await res.json();
+                        throw new Error(error.detail || 'Erro ao criar pedido');
+                    }
+                    
+                    setStatus('✅ Pedido criado com sucesso!');
+                    // Limpa formulário
+                    setPhone('');
+                    setCustomerName('');
+                    setCep('');
+                    setStreet('');
+                    setNumber('');
+                    setNeighborhood('');
+                    setCity('Ribeirão Preto');
+                    setComplement('');
+                    setFoundCustomer(null);
+                    setUseOtherAddress(false);
+                    setSelectedItemId('');
+                    onOrderCreated();
+                    
+                    setTimeout(() => setStatus(''), 3000);
+                    
+                } catch (err) {
+                    console.error('Erro:', err);
+                    setErrorMsg(`❌ ${err.message}`);
+                }
+                
+                setLoading(false);
+            };
+            
+            const hasMenuItems = menuData.some(cat => cat.items.length > 0);
+            const showAddressFields = !foundCustomer || useOtherAddress;
+            
+            return (
+                <div className="glass-card p-5 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-white flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                            📦 Novo Pedido
+                        </h3>
+                        <span className="badge badge-success">Google Maps</span>
+                    </div>
+                    
+                    <form onSubmit={createOrder}>
+                        <div className="grid md:grid-cols-2 gap-4 mb-4">
+                            {/* Telefone */}
+                            <div>
+                                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                    Telefone do Cliente
+                                    {searchingCustomer && <span className="ml-2" style={{ color: '#ff8c42' }}>🔍 Buscando...</span>}
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={phone}
+                                    onChange={handlePhoneChange}
+                                    placeholder="(16) 99999-1234"
+                                    className="glass-input"
+                                    maxLength={15}
+                                    disabled={loading}
+                                />
+                            </div>
+                            
+                            {/* Nome */}
+                            <div className="relative">
+                                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                    Nome do Cliente
+                                </label>
+                                {foundCustomer && !useOtherAddress ? (
+                                    <div className="customer-found-card">
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ background: '#22c55e' }}>
+                                                {foundCustomer.name.charAt(0).toUpperCase()}
+                                            </span>
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-white">{foundCustomer.name}</div>
+                                                <div className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                                    📍 {foundCustomer.address}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleUseOtherAddress}
+                                            className="mt-3 w-full py-2 text-sm rounded-lg transition-colors"
+                                            style={{ background: 'rgba(255,107,0,0.2)', color: '#ff8c42' }}
+                                        >
+                                            📍 Entregar em outro endereço
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={customerName}
+                                            onChange={handleNameChange}
+                                            onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
+                                            onFocus={() => nameSuggestions.length > 0 && setShowNameSuggestions(true)}
+                                            placeholder="Digite o nome..."
+                                            className="glass-input"
+                                            disabled={loading}
+                                            autoComplete="off"
+                                        />
+                                        
+                                        {showNameSuggestions && nameSuggestions.length > 0 && (
+                                            <div className="autocomplete-dropdown">
+                                                {nameSuggestions.map(customer => (
+                                                    <div
+                                                        key={customer.id}
+                                                        onClick={() => selectCustomer(customer)}
+                                                        className="autocomplete-item flex items-center gap-3"
+                                                    >
+                                                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(255,107,0,0.2)', color: '#ff8c42' }}>
+                                                            {customer.name.charAt(0).toUpperCase()}
+                                                        </span>
+                                                        <div>
+                                                            <div className="font-medium text-white">{customer.name}</div>
+                                                            <div className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>📞 {customer.phone}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Alerta outro endereço */}
+                        {foundCustomer && useOtherAddress && (
+                            <div className="mb-4 p-3 rounded-lg" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)' }}>
+                                <div className="flex items-center justify-between">
+                                    <span style={{ color: '#fbbf24' }}>⚠️ Entrega em endereço diferente do cadastro</span>
+                                    <button
+                                        type="button"
+                                        onClick={handleUseCadastroAddress}
+                                        className="text-sm"
+                                        style={{ color: '#60a5fa' }}
+                                    >
+                                        ↩️ Usar endereço do cadastro
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div className="grid md:grid-cols-2 gap-4 mb-4">
+                            {/* Item */}
+                            <div>
+                                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Item</label>
+                                {!hasMenuItems ? (
+                                    <div className="p-3 rounded-lg" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)' }}>
+                                        <span style={{ color: '#fbbf24' }}>⚠️ Nenhum item. </span>
+                                        <a href="/cardapio" style={{ color: '#60a5fa' }}>Cadastrar cardápio</a>
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={selectedItemId}
+                                        onChange={(e) => setSelectedItemId(e.target.value)}
+                                        className="glass-select"
+                                        disabled={loading}
+                                    >
+                                        <option value="">Selecione um item...</option>
+                                        {menuData.map(cat => (
+                                            <optgroup key={cat.id} label={cat.name}>
+                                                {cat.items.map(item => (
+                                                    <option key={item.id} value={item.id}>
+                                                        {item.name}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                            
+                            {/* CEP */}
+                            {showAddressFields && (
+                                <div>
+                                    <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                        CEP {loadingCep && <span style={{ color: '#ff8c42' }}>🔍</span>}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={cep}
+                                        onChange={handleCepChange}
+                                        placeholder="14090-000"
+                                        className="glass-input"
+                                        maxLength={9}
+                                        disabled={loading}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Endereço */}
+                        {showAddressFields && (
+                            <div className="grid md:grid-cols-3 gap-4 mb-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Rua</label>
+                                    <input
+                                        type="text"
+                                        value={street}
+                                        onChange={(e) => setStreet(e.target.value)}
+                                        placeholder="Rua..."
+                                        className="glass-input"
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Número</label>
+                                    <input
+                                        id="numberInput"
+                                        type="text"
+                                        value={number}
+                                        onChange={(e) => setNumber(e.target.value)}
+                                        placeholder="123"
+                                        className="glass-input"
+                                        disabled={loading}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        
+                        {showAddressFields && (
+                            <div className="grid md:grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Bairro</label>
+                                    <input
+                                        type="text"
+                                        value={neighborhood}
+                                        onChange={(e) => setNeighborhood(e.target.value)}
+                                        placeholder="Centro"
+                                        className="glass-input"
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Cidade</label>
+                                    <input
+                                        type="text"
+                                        value={city}
+                                        onChange={(e) => setCity(e.target.value)}
+                                        placeholder="Ribeirão Preto"
+                                        className="glass-input"
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Complemento</label>
+                                    <input
+                                        type="text"
+                                        value={complement}
+                                        onChange={(e) => setComplement(e.target.value)}
+                                        placeholder="Apto, Bloco..."
+                                        className="glass-input"
+                                        disabled={loading}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Status e Erro */}
+                        {status && (
+                            <div className="mb-4 p-3 rounded-lg" style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#4ade80' }}>
+                                {status}
+                            </div>
+                        )}
+                        
+                        {errorMsg && (
+                            <div className="mb-4 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
+                                {errorMsg}
+                            </div>
+                        )}
+                        
+                        {/* Botão */}
+                        <div className="flex justify-end">
+                            <button type="submit" disabled={loading || !hasMenuItems} className="btn-primary">
+                                {loading ? '⏳ Criando...' : 'Criar Pedido'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            );
+        };
+        
+        // ============ COMPONENTE: LISTA DE PEDIDOS RECENTES ============
+        
+        const RecentOrdersList = ({ orders }) => {
+            const recentOrders = orders
+                .filter(o => ['created', 'preparing', 'ready', 'assigned', 'picked_up'].includes(o.status))
+                .slice(0, 10);
+            
+            if (recentOrders.length === 0) {
+                return (
+                    <div className="glass-card p-5">
+                        <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                            📋 Pedidos Recentes
+                        </h3>
+                        <p className="text-center py-8" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            Nenhum pedido no momento
+                        </p>
+                    </div>
+                );
             }
             
-            setLoading(false);
-          };
-          
-          const formatPrice = (price) => {
-            return new Intl.NumberFormat('pt-BR', {
-              style: 'currency',
-              currency: 'BRL'
-            }).format(price);
-          };
-          
-          const hasMenuItems = menuData.some(cat => cat.items.length > 0);
-          
-          // Mostra campos separados quando: cliente novo OU clicou em "outro endereço"
-          const showAddressFields = !foundCustomer || useOtherAddress;
-          
-          return (
-            <Card className="p-4 mb-6">
-              <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                📝 Novo Pedido
-                <span className="text-xs font-normal text-green-600 bg-green-50 px-2 py-0.5 rounded">
-                  Google Maps
-                </span>
-              </h3>
-              
-              <form onSubmit={createOrder} className="space-y-4">
-                {/* Telefone */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Telefone do Cliente
-                    {searchingCustomer && <span className="ml-2 text-orange-500">🔍 Buscando...</span>}
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={handlePhoneChange}
-                    placeholder="(16) 99999-1234"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-                    maxLength={15}
-                    disabled={loading}
-                  />
-                </div>
-                
-                {/* CARD DO CLIENTE ENCONTRADO */}
-                {foundCustomer && !useOtherAddress && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <span className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {foundCustomer.name.charAt(0).toUpperCase()}
-                      </span>
-                      <div className="flex-1">
-                        <div className="font-semibold text-gray-800">{foundCustomer.name}</div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          📍 {foundCustomer.address}
-                        </div>
-                        {foundCustomer.complement && (
-                          <div className="text-sm text-gray-500">
-                            🏠 {foundCustomer.complement}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleUseOtherAddress}
-                      className="mt-3 w-full py-2 text-sm text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
-                    >
-                      📍 Entregar em outro endereço
-                    </button>
-                  </div>
-                )}
-                
-                {/* ALERTA: Outro endereço */}
-                {foundCustomer && useOtherAddress && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-yellow-700">⚠️ Entrega em endereço diferente do cadastro</span>
-                      <button
-                        type="button"
-                        onClick={handleUseCadastroAddress}
-                        className="text-blue-600 hover:underline text-xs"
-                      >
-                        ↩️ Usar endereço do cadastro
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Nome - só mostra se não encontrou cliente */}
-                {!foundCustomer && (
-                  <div className="relative">
-                    <label className="block text-sm font-medium text-gray-600 mb-1">
-                      Nome do Cliente
-                    </label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={handleNameChange}
-                      onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
-                      onFocus={() => nameSuggestions.length > 0 && setShowNameSuggestions(true)}
-                      placeholder="Digite o nome..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                      disabled={loading}
-                      autoComplete="off"
-                    />
-                    
-                    {showNameSuggestions && nameSuggestions.length > 0 && (
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {nameSuggestions.map(customer => (
-                          <button
-                            key={customer.id}
-                            type="button"
-                            onClick={() => selectCustomer(customer)}
-                            className="w-full px-3 py-2 text-left hover:bg-orange-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
-                          >
-                            <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-sm">
-                              {customer.name.charAt(0).toUpperCase()}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-800 truncate">{customer.name}</div>
-                              <div className="text-xs text-gray-500 truncate">📞 {customer.phone}</div>
+            return (
+                <div className="glass-card p-5">
+                    <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                        📋 Pedidos Recentes ({recentOrders.length})
+                    </h3>
+                    <div className="space-y-3">
+                        {recentOrders.map(order => (
+                            <div key={order.id} className="p-4 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                <div className="flex items-center gap-4">
+                                    <StatusBadge status={order.status} />
+                                    <div>
+                                        <div className="text-white font-medium">{order.customer_name}</div>
+                                        <div className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                            {order.address_text?.split(' - ')[0]}
+                                        </div>
+                                    </div>
+                                </div>
+                                <Timer startTime={order.created_at} />
                             </div>
-                          </button>
                         ))}
-                      </div>
-                    )}
-                    
-                    {phone.replace(/\D/g, '').length >= 10 && (
-                      <p className="text-xs text-blue-600 mt-1">📝 Cliente novo - será cadastrado automaticamente</p>
-                    )}
-                  </div>
-                )}
-                
-                {/* Item do Cardápio */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Item</label>
-                  
-                  {loadingMenu ? (
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400">
-                      Carregando cardápio...
                     </div>
-                  ) : hasMenuItems ? (
-                    <select
-                      value={selectedItemId}
-                      onChange={(e) => setSelectedItemId(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none bg-white ${!selectedItemId ? 'text-gray-400' : 'text-gray-800'}`}
-                      disabled={loading}
-                    >
-                      <option value="" disabled>Selecione um item...</option>
-                      {menuData.map(category => (
-                        <optgroup key={category.id} label={category.name}>
-                          {category.items.map(item => (
-                            <option key={item.id} value={item.id} disabled={item.out_of_stock}>
-                              {item.name} - {formatPrice(item.price)} {item.out_of_stock ? '(Esgotado)' : ''}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="w-full px-3 py-2 border border-orange-300 rounded-lg bg-orange-50 text-orange-600 text-sm">
-                      ⚠️ Nenhum item. <a href="/cardapio" className="underline">Cadastrar cardápio</a>
-                    </div>
-                  )}
                 </div>
-                
-                {/* ========== CAMPOS DE ENDEREÇO SEPARADOS ========== */}
-                {showAddressFields && (
-                  <>
-                    {/* CEP */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
-                        CEP
-                        {loadingCep && <span className="ml-2 text-orange-500">🔍 Buscando...</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={cep}
-                        onChange={handleCepChange}
-                        placeholder="14090-000"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                        maxLength={9}
-                        disabled={loading}
-                      />
-                      <p className="text-xs text-gray-400 mt-1">Digite o CEP para preencher automaticamente</p>
-                    </div>
-                    
-                    {/* Rua */}
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Rua *</label>
-                      <input
-                        type="text"
-                        value={street}
-                        onChange={handleStreetChange}
-                        onBlur={() => setTimeout(() => setShowStreetSuggestions(false), 200)}
-                        onFocus={() => streetSuggestions.length > 0 && setShowStreetSuggestions(true)}
-                        placeholder="Ex: Rua Rangel Pestana"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                        disabled={loading}
-                        autoComplete="off"
-                      />
-                      {showStreetSuggestions && streetSuggestions.length > 0 && (
-                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                          {streetSuggestions.map((s, i) => (
-                            <button key={i} type="button" onClick={() => { setStreet(s); setShowStreetSuggestions(false); }}
-                              className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
-                              📍 {s}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Número + Bairro (lado a lado) */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 mb-1">Número *</label>
-                        <input
-                          id="numberInput"
-                          type="text"
-                          value={number}
-                          onChange={(e) => setNumber(e.target.value)}
-                          placeholder="834"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                          disabled={loading}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2 relative">
-                        <label className="block text-sm font-medium text-gray-600 mb-1">Bairro</label>
-                        <input
-                          type="text"
-                          value={neighborhood}
-                          onChange={handleNeighborhoodChange}
-                          onBlur={() => setTimeout(() => setShowNeighborhoodSuggestions(false), 200)}
-                          onFocus={() => neighborhoodSuggestions.length > 0 && setShowNeighborhoodSuggestions(true)}
-                          placeholder="Ex: Vila Virginia"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                          disabled={loading}
-                          autoComplete="off"
-                        />
-                        {showNeighborhoodSuggestions && neighborhoodSuggestions.length > 0 && (
-                          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                            {neighborhoodSuggestions.map((s, i) => (
-                              <button key={i} type="button" onClick={() => { setNeighborhood(s); setShowNeighborhoodSuggestions(false); }}
-                                className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
-                                📍 {s}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Cidade */}
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Cidade *</label>
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={handleCityChange}
-                        onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
-                        onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
-                        placeholder="Ex: Ribeirão Preto"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                        disabled={loading}
-                        autoComplete="off"
-                      />
-                      {showCitySuggestions && citySuggestions.length > 0 && (
-                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                          {citySuggestions.map((s, i) => (
-                            <button key={i} type="button" onClick={() => { setCity(s); setShowCitySuggestions(false); }}
-                              className="w-full px-3 py-2 text-left hover:bg-orange-50 text-sm border-b border-gray-100 last:border-0">
-                              📍 {s}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Complemento */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
-                        Complemento <span className="text-gray-400 font-normal">(opcional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={complement}
-                        onChange={(e) => setComplement(e.target.value)}
-                        placeholder="Apto 45, Bloco B, Portão azul..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                        disabled={loading}
-                      />
-                    </div>
-                  </>
-                )}
-                
-                {/* Botão */}
-                <Button type="submit" disabled={loading || (!hasMenuItems && !loadingMenu)} className="w-full">
-                  {loading ? '⏳ Criando...' : '✓ Criar Pedido'}
-                </Button>
-              </form>
-              
-              {status && <p className="text-sm text-green-600 mt-3 text-center animate-pulse">{status}</p>}
-              {errorMsg && <p className="text-sm text-red-600 mt-3 text-center">{errorMsg}</p>}
-            </Card>
-          );
+            );
         };
         
-        // ============ LISTA DE PEDIDOS ============
-        
-        const OrdersList = ({ orders, onRefresh }) => {
-          const pendingOrders = orders.filter(o => ['created', 'preparing'].includes(o.status));
-          const readyOrders = orders.filter(o => o.status === 'ready');
-          const inRouteOrders = orders.filter(o => ['assigned', 'picked_up'].includes(o.status));
-          
-          const handleScan = async (orderId) => {
-            try {
-              await authFetch(`${API_URL}/orders/${orderId}/scan`, { method: 'POST' });
-              onRefresh();
-            } catch (err) {
-              console.error('Erro ao bipar:', err);
-            }
-          };
-          
-          const OrderCard = ({ order, showScan = false }) => (
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-gray-800">{order.customer_name}</span>
-                  <StatusBadge status={order.status} />
-                  {order.prep_type === 'long' && (
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Demorado</span>
-                  )}
-                  {/* Cronômetro - mostra desde criação até ficar pronto */}
-                  {['created', 'preparing'].includes(order.status) && order.created_at && (
-                    <Timer startTime={order.created_at} />
-                  )}
-                  {/* Cronômetro - mostra tempo esperando motoboy */}
-                  {order.status === 'ready' && order.ready_at && (
-                    <Timer startTime={order.ready_at} />
-                  )}
-                </div>
-                <div className="text-sm text-gray-500 mt-1">{order.address_text}</div>
-                {order.stop_order && (
-                  <div className="text-xs text-blue-600 mt-1">Parada #{order.stop_order}</div>
-                )}
-              </div>
-              {showScan && (
-                <Button onClick={() => handleScan(order.id)} variant="success" className="ml-2">
-                  📱 Bipar
-                </Button>
-              )}
-            </div>
-          );
-          
-          return (
-            <div className="grid md:grid-cols-3 gap-4 mb-6">
-              <Card className="p-4">
-                <h3 className="font-semibold text-gray-700 mb-3">
-                  🧑‍🍳 Em Preparo ({pendingOrders.length})
-                </h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {pendingOrders.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">Nenhum pedido</p>
-                  ) : (
-                    pendingOrders.map(order => (
-                      <OrderCard key={order.id} order={order} showScan={true} />
-                    ))
-                  )}
-                </div>
-              </Card>
-              
-              <Card className="p-4 border-2 border-green-200">
-                <h3 className="font-semibold text-green-700 mb-3">
-                  ✅ Prontos ({readyOrders.length})
-                </h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {readyOrders.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">Nenhum pedido</p>
-                  ) : (
-                    readyOrders.map(order => (
-                      <OrderCard key={order.id} order={order} />
-                    ))
-                  )}
-                </div>
-              </Card>
-              
-              <Card className="p-4">
-                <h3 className="font-semibold text-blue-700 mb-3">
-                  🏍️ Em Rota ({inRouteOrders.length})
-                </h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {inRouteOrders.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">Nenhum pedido</p>
-                  ) : (
-                    inRouteOrders.map(order => (
-                      <OrderCard key={order.id} order={order} />
-                    ))
-                  )}
-                </div>
-              </Card>
-            </div>
-          );
-        };
-        
-        // ============ PAINEL DE MOTOQUEIROS ============
+        // ============ COMPONENTE: PAINEL DE MOTOBOYS ============
         
         const CouriersPanel = ({ couriers, onRefresh }) => {
-          const [newName, setNewName] = useState('');
-          const [showInviteModal, setShowInviteModal] = useState(false);
-          const [inviteData, setInviteData] = useState(null);
-          const [inviteLoading, setInviteLoading] = useState(false);
-          const [copySuccess, setCopySuccess] = useState(false);
-          
-          // Estados para recuperação de senha
-          const [showResetModal, setShowResetModal] = useState(false);
-          const [resetData, setResetData] = useState(null);
-          const [resetLoading, setResetLoading] = useState(false);
-          const [resetCopySuccess, setResetCopySuccess] = useState(false);
-          
-          // Menu de opções do motoboy
-          const [openMenuId, setOpenMenuId] = useState(null);
-          
-          const createCourier = async () => {
-            if (!newName.trim()) return;
-            try {
-              await authFetch(`${API_URL}/couriers`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName }),
-              });
-              setNewName('');
-              onRefresh();
-            } catch (err) {
-              console.error('Erro:', err);
-            }
-          };
-          
-          const toggleStatus = async (courier) => {
-            const endpoint = courier.status === 'available' 
-              ? `${API_URL}/couriers/${courier.id}/offline`
-              : `${API_URL}/couriers/${courier.id}/available`;
-            try {
-              await authFetch(endpoint, { method: 'POST' });
-              onRefresh();
-            } catch (err) {
-              console.error('Erro:', err);
-            }
-          };
-          
-          const completeBatch = async (courierId) => {
-            try {
-              await authFetch(`${API_URL}/couriers/${courierId}/complete-batch`, { method: 'POST' });
-              onRefresh();
-            } catch (err) {
-              console.error('Erro:', err);
-            }
-          };
-          
-          // Criar convite
-          const createInvite = async () => {
-            setInviteLoading(true);
-            try {
-              const token = localStorage.getItem('motoflash_token');
-              const res = await fetch(`${API_URL}/invites`, {
-                method: 'POST',
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+            const [newName, setNewName] = useState('');
+            const [showInviteModal, setShowInviteModal] = useState(false);
+            const [inviteData, setInviteData] = useState(null);
+            const [inviteLoading, setInviteLoading] = useState(false);
+            const [copySuccess, setCopySuccess] = useState(false);
+            
+            const createCourier = async () => {
+                if (!newName.trim()) return;
+                try {
+                    await authFetch(`${API_URL}/couriers`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName }),
+                    });
+                    setNewName('');
+                    onRefresh();
+                } catch (err) {
+                    console.error('Erro:', err);
                 }
-              });
-              
-              if (res.ok) {
-                const data = await res.json();
-                setInviteData(data);
-                setShowInviteModal(true);
-              } else {
-                alert('Erro ao criar convite. Faça login novamente.');
-              }
-            } catch (err) {
-              console.error('Erro ao criar convite:', err);
-              alert('Erro ao criar convite');
-            }
-            setInviteLoading(false);
-          };
-          
-          // Gerar link de recuperação de senha
-          const createPasswordReset = async (courier) => {
-            setResetLoading(true);
-            setOpenMenuId(null);
-            try {
-              const token = localStorage.getItem('motoflash_token');
-              const res = await fetch(`${API_URL}/couriers/${courier.id}/password-reset`, {
-                method: 'POST',
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+            };
+            
+            const toggleStatus = async (courier) => {
+                const endpoint = courier.status === 'available' 
+                    ? `${API_URL}/couriers/${courier.id}/offline`
+                    : `${API_URL}/couriers/${courier.id}/available`;
+                try {
+                    await authFetch(endpoint, { method: 'POST' });
+                    onRefresh();
+                } catch (err) {
+                    console.error('Erro:', err);
                 }
-              });
-              
-              if (res.ok) {
-                const data = await res.json();
-                setResetData(data);
-                setShowResetModal(true);
-              } else {
-                alert('Erro ao gerar link de recuperação.');
-              }
-            } catch (err) {
-              console.error('Erro ao gerar link:', err);
-              alert('Erro ao gerar link de recuperação');
-            }
-            setResetLoading(false);
-          };
-          
-          // Copiar link de convite
-          const copyLink = () => {
-            if (inviteData?.invite_url) {
-              navigator.clipboard.writeText(inviteData.invite_url);
-              setCopySuccess(true);
-              setTimeout(() => setCopySuccess(false), 2000);
-            }
-          };
-          
-          // Copiar link de recuperação
-          const copyResetLink = () => {
-            if (resetData?.reset_url) {
-              navigator.clipboard.writeText(resetData.reset_url);
-              setResetCopySuccess(true);
-              setTimeout(() => setResetCopySuccess(false), 2000);
-            }
-          };
-          
-          // Compartilhar convite no WhatsApp
-          const shareWhatsApp = () => {
-            if (inviteData?.invite_url) {
-              const text = `🏍️ Você foi convidado para fazer entregas!\n\nClique no link para entrar na equipe:\n${inviteData.invite_url}`;
-              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-            }
-          };
-          
-          // Compartilhar recuperação no WhatsApp
-          const shareResetWhatsApp = () => {
-            if (resetData?.reset_url) {
-              const text = `🔑 Link para redefinir sua senha no MotoFlash:\n\n${resetData.reset_url}\n\n⏱️ Válido por ${resetData.expires_in}`;
-              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-            }
-          };
-          
-          return (
-            <Card className="p-4 mb-6">
-              <h3 className="font-semibold text-gray-700 mb-3">
-                🏍️ Motoqueiros ({couriers.length})
-              </h3>
-              
-              {/* Botão de Convite - Principal */}
-              <button
-                onClick={createInvite}
-                disabled={inviteLoading}
-                className="w-full mb-3 py-2.5 px-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-              >
-                {inviteLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Gerando...
-                  </>
-                ) : (
-                  <>📲 Convidar Motoboy via Link</>
-                )}
-              </button>
-              
-              {/* Input manual (alternativa) */}
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ou digite o nome..."
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                  onKeyPress={(e) => e.key === 'Enter' && createCourier()}
-                />
-                <Button onClick={createCourier} disabled={!newName.trim()} className="text-sm">
-                  Adicionar
-                </Button>
-              </div>
-              
-              {/* Lista de Motoboys */}
-              <div className="space-y-2">
-                {couriers.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">
-                    Nenhum motoboy. Convide pelo botão acima!
-                  </p>
-                ) : (
-                  couriers.map(courier => (
-                    <div key={courier.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold">
-                          {courier.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-800">{courier.name}</div>
-                          <StatusBadge status={courier.status} />
-                        </div>
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        {courier.status === 'busy' && (
-                          <Button onClick={() => completeBatch(courier.id)} variant="success" className="text-sm">
-                            ✓ Finalizar
-                          </Button>
+            };
+            
+            const completeBatch = async (courierId) => {
+                try {
+                    await authFetch(`${API_URL}/couriers/${courierId}/complete-batch`, { method: 'POST' });
+                    onRefresh();
+                } catch (err) {
+                    console.error('Erro:', err);
+                }
+            };
+            
+            const createInvite = async () => {
+                setInviteLoading(true);
+                try {
+                    const res = await authFetch(`${API_URL}/invites`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        setInviteData(data);
+                        setShowInviteModal(true);
+                    }
+                } catch (err) {
+                    console.error('Erro ao criar convite:', err);
+                }
+                setInviteLoading(false);
+            };
+            
+            const copyLink = () => {
+                if (inviteData?.invite_url) {
+                    navigator.clipboard.writeText(inviteData.invite_url);
+                    setCopySuccess(true);
+                    setTimeout(() => setCopySuccess(false), 2000);
+                }
+            };
+            
+            const shareWhatsApp = () => {
+                if (inviteData?.invite_url) {
+                    const text = `🏍️ Você foi convidado para fazer entregas!\n\nClique no link para entrar na equipe:\n${inviteData.invite_url}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                }
+            };
+            
+            const getAvatarColor = (name) => {
+                const colors = [
+                    'rgba(239, 68, 68, 0.15)',
+                    'rgba(59, 130, 246, 0.15)',
+                    'rgba(34, 197, 94, 0.15)',
+                    'rgba(168, 85, 247, 0.15)',
+                    'rgba(251, 191, 36, 0.15)',
+                ];
+                const textColors = ['#f87171', '#60a5fa', '#4ade80', '#a78bfa', '#fbbf24'];
+                const index = name.charCodeAt(0) % colors.length;
+                return { bg: colors[index], text: textColors[index] };
+            };
+            
+            return (
+                <div className="glass-card p-5 mb-6">
+                    <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                        🏍️ Motoqueiros ({couriers.length})
+                    </h3>
+                    
+                    {/* Botão Convite */}
+                    <button
+                        onClick={createInvite}
+                        disabled={inviteLoading}
+                        className="w-full mb-4 py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
+                        style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff' }}
+                    >
+                        {inviteLoading ? '⏳ Gerando...' : '🔗 Convidar Motoboy via Link'}
+                    </button>
+                    
+                    {/* Input manual */}
+                    <div className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            placeholder="Ou digite o nome..."
+                            className="glass-input flex-1"
+                            onKeyPress={(e) => e.key === 'Enter' && createCourier()}
+                        />
+                        <button onClick={createCourier} disabled={!newName.trim()} className="glass-btn" style={{ color: '#ff8c42' }}>
+                            Adicionar
+                        </button>
+                    </div>
+                    
+                    {/* Lista de motoboys */}
+                    <div className="space-y-3">
+                        {couriers.map(courier => {
+                            const colors = getAvatarColor(courier.name);
+                            return (
+                                <div key={courier.id} className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="courier-avatar" style={{ background: colors.bg, color: colors.text }}>
+                                            {courier.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div className="text-white font-medium">{courier.name}</div>
+                                            <StatusBadge status={courier.status} />
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {courier.status === 'busy' && (
+                                            <button
+                                                onClick={() => completeBatch(courier.id)}
+                                                className="text-sm py-1 px-3 rounded-lg font-medium"
+                                                style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.25)' }}
+                                            >
+                                                ✓ Finalizar
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => toggleStatus(courier)}
+                                            className="glass-btn text-sm py-1 px-3"
+                                        >
+                                            {courier.status === 'available' ? 'Pausar' : 'Ativar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        
+                        {couriers.length === 0 && (
+                            <p className="text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                Nenhum motoboy cadastrado
+                            </p>
                         )}
-                        <Button 
-                          onClick={() => toggleStatus(courier)} 
-                          variant="secondary"
-                          className="text-sm"
-                          disabled={courier.status === 'busy'}
-                        >
-                          {courier.status === 'available' ? 'Pausar' : 'Ativar'}
-                        </Button>
-                        
-                        {/* Menu de Opções */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setOpenMenuId(openMenuId === courier.id ? null : courier.id)}
-                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-all"
-                          >
-                            ⋮
-                          </button>
-                          
-                          {openMenuId === courier.id && (
-                            <>
-                              {/* Overlay invisível para fechar ao clicar fora */}
-                              <div 
-                                className="fixed inset-0 z-[5]" 
-                                onClick={() => setOpenMenuId(null)}
-                              />
-                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                                <button
-                                  onClick={() => createPasswordReset(courier)}
-                                  disabled={resetLoading}
-                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                >
-                                  🔑 Recuperar Senha
-                                </button>
-                              </div>
-                            </>
-                          )}
+                    </div>
+                    
+                    {/* Modal de Convite */}
+                    {showInviteModal && inviteData && (
+                        <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                                <div className="text-center mb-4">
+                                    <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ background: 'rgba(34, 197, 94, 0.15)' }}>
+                                        <span className="text-3xl">🔗</span>
+                                    </div>
+                                    <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                                        Convite Criado!
+                                    </h2>
+                                    <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                        Válido por {inviteData.expires_in}
+                                    </p>
+                                </div>
+                                
+                                <div className="p-3 rounded-lg mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                    <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Link:</p>
+                                    <p className="text-sm font-mono break-all text-white">{inviteData.invite_url}</p>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={shareWhatsApp}
+                                        className="w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2"
+                                        style={{ background: '#22c55e', color: '#fff' }}
+                                    >
+                                        📱 Enviar por WhatsApp
+                                    </button>
+                                    
+                                    <button
+                                        onClick={copyLink}
+                                        className="w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
+                                        style={{ background: copySuccess ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.1)', color: copySuccess ? '#4ade80' : '#fff' }}
+                                    >
+                                        {copySuccess ? '✓ Link Copiado!' : '📋 Copiar Link'}
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setShowInviteModal(false)}
+                                        className="w-full py-2 text-sm"
+                                        style={{ color: 'rgba(255,255,255,0.5)' }}
+                                    >
+                                        Fechar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              
-              {/* Modal de Convite */}
-              {showInviteModal && inviteData && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
-                    {/* Botão Fechar */}
-                    <button 
-                      onClick={() => setShowInviteModal(false)}
-                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
-                    >
-                      ✕
-                    </button>
-                    
-                    {/* Conteúdo */}
-                    <div className="text-center">
-                      <div className="text-4xl mb-3">📲</div>
-                      <h3 className="text-lg font-bold text-gray-800 mb-1">
-                        Convite Criado!
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-4">
-                        ⏱️ Válido por {inviteData.time_remaining}
-                      </p>
-                      
-                      {/* Link */}
-                      <div className="bg-gray-100 rounded-lg p-3 mb-4">
-                        <p className="text-xs text-gray-500 mb-1">Link do convite:</p>
-                        <p className="text-sm font-mono text-gray-700 break-all">
-                          {inviteData.invite_url}
-                        </p>
-                      </div>
-                      
-                      {/* Botões de Ação */}
-                      <div className="space-y-2">
-                        <button
-                          onClick={shareWhatsApp}
-                          className="w-full py-3 px-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                          </svg>
-                          Enviar por WhatsApp
-                        </button>
-                        
-                        <button
-                          onClick={copyLink}
-                          className={`w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                            copySuccess 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                          }`}
-                        >
-                          {copySuccess ? '✓ Link Copiado!' : '📋 Copiar Link'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                    )}
                 </div>
-              )}
-              
-              {/* Modal de Recuperação de Senha */}
-              {showResetModal && resetData && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
-                    <button 
-                      onClick={() => setShowResetModal(false)}
-                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
-                    >
-                      ✕
-                    </button>
-                    
-                    <div className="text-center">
-                      <div className="text-4xl mb-3">🔑</div>
-                      <h3 className="text-lg font-bold text-gray-800 mb-1">
-                        Link de Recuperação
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Para: <strong>{resetData.courier_name}</strong><br/>
-                        ⏱️ Válido por {resetData.expires_in}
-                      </p>
-                      
-                      <div className="bg-gray-100 rounded-lg p-3 mb-4">
-                        <p className="text-xs text-gray-500 mb-1">Link:</p>
-                        <p className="text-sm font-mono text-gray-700 break-all">
-                          {resetData.reset_url}
-                        </p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <button
-                          onClick={shareResetWhatsApp}
-                          className="w-full py-3 px-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                          </svg>
-                          Enviar por WhatsApp
-                        </button>
-                        
-                        <button
-                          onClick={copyResetLink}
-                          className={`w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                            resetCopySuccess 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                          }`}
-                        >
-                          {resetCopySuccess ? '✓ Link Copiado!' : '📋 Copiar Link'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-          );
+            );
         };
         
-        // ============ CONTROLE DE DISPATCH ============
-        
-        const DispatchControl = ({ onDispatch, stats }) => {
-          const [loading, setLoading] = useState(false);
-          const [lastResult, setLastResult] = useState(null);
-          
-          const runDispatch = async () => {
-            setLoading(true);
-            try {
-              const res = await authFetch(`${API_URL}/dispatch/run`, { method: 'POST' });
-              const result = await res.json();
-              setLastResult(result);
-              onDispatch();
-            } catch (err) {
-              setLastResult({ message: 'Erro ao executar dispatch' });
-            }
-            setLoading(false);
-          };
-          
-          const canDispatch = stats && stats.orders?.ready > 0 && stats.couriers?.available > 0;
-          
-          return (
-            <Card className="p-4 mb-6 border-2 border-orange-200 bg-orange-50">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <h3 className="font-semibold text-orange-700">
-                    🚀 Dispatch - Distribuir Pedidos
-                  </h3>
-                  <p className="text-sm text-orange-600 mt-1">
-                    {stats?.orders?.ready || 0} pronto(s) · {stats?.couriers?.available || 0} motoboy(s)
-                  </p>
-                </div>
-                <Button 
-                  onClick={runDispatch} 
-                  disabled={loading || !canDispatch}
-                  className="text-lg px-6 py-3"
-                >
-                  {loading ? '⏳...' : '🚀 Executar'}
-                </Button>
-              </div>
-              
-              {lastResult && (
-                <div className={`mt-3 p-3 rounded-lg ${lastResult.batches_created > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                  {lastResult.message}
-                </div>
-              )}
-            </Card>
-          );
-        };
-        
-        // ============ LOTES ATIVOS ============
+        // ============ COMPONENTE: ROTAS ATIVAS ============
         
         const ActiveBatches = ({ batches }) => {
-          if (!batches || batches.length === 0) return null;
-          
-          return (
-            <Card className="p-4 mb-6">
-              <h3 className="font-semibold text-gray-700 mb-3">
-                📦 Lotes Ativos ({batches.length})
-              </h3>
-              <div className="space-y-3">
-                {batches.map(batch => (
-                  <div key={batch.id} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-blue-800">
-                        🏍️ {batch.courier_name}
-                      </span>
-                      <StatusBadge status={batch.status} />
+            if (!batches || batches.length === 0) {
+                return (
+                    <div className="glass-card p-5">
+                        <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                            🚀 Rotas Ativas
+                        </h3>
+                        <p className="text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            Nenhuma rota ativa
+                        </p>
                     </div>
-                    <div className="space-y-1">
-                      {batch.orders.map((order, idx) => (
-                        <div key={order.id} className="text-sm text-gray-600 flex items-center gap-2">
-                          <span className="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold text-blue-700">
-                            {idx + 1}
-                          </span>
-                          {order.customer_name} - {order.address_text.split(' - ')[0]}
-                        </div>
-                      ))}
+                );
+            }
+            
+            return (
+                <div className="glass-card p-5">
+                    <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                        🚀 Rotas Ativas ({batches.length})
+                    </h3>
+                    <div className="space-y-3">
+                        {batches.map(batch => (
+                            <div key={batch.id} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-white font-medium">{batch.courier_name}</span>
+                                    <span className="badge badge-info">{batch.orders?.length || 0} entregas</span>
+                                </div>
+                                <div className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                    📍 {batch.orders?.map(o => o.address_text?.split(',')[0]).join(' → ')}
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          );
+                </div>
+            );
         };
+        
+        // ============ COMPONENTE: DISPATCH CONTROL ============
+        
+        const DispatchControl = ({ onDispatch, stats }) => {
+            const [loading, setLoading] = useState(false);
+            const [lastResult, setLastResult] = useState(null);
+            
+            const runDispatch = async () => {
+                setLoading(true);
+                try {
+                    const res = await authFetch(`${API_URL}/dispatch/run`, { method: 'POST' });
+                    const result = await res.json();
+                    setLastResult(result);
+                    onDispatch();
+                } catch (err) {
+                    setLastResult({ message: 'Erro ao executar dispatch' });
+                }
+                setLoading(false);
+            };
+            
+            const canDispatch = stats && stats.orders?.ready > 0 && stats.couriers?.available > 0;
+            
+            return (
+                <div className="glass-card p-5 mb-6" style={{ borderColor: 'rgba(255,107,0,0.3)', borderWidth: '2px' }}>
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div>
+                            <h3 className="font-semibold flex items-center gap-2" style={{ color: '#ff8c42', fontFamily: 'Outfit, sans-serif' }}>
+                                🚀 Dispatch - Distribuir Pedidos
+                            </h3>
+                            <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                {stats?.orders?.ready || 0} pronto(s) · {stats?.couriers?.available || 0} motoboy(s)
+                            </p>
+                        </div>
+                        <button 
+                            onClick={runDispatch} 
+                            disabled={loading || !canDispatch}
+                            className="btn-primary text-lg px-6 py-3"
+                        >
+                            {loading ? '⏳...' : '🚀 Executar'}
+                        </button>
+                    </div>
+                    
+                    {lastResult && (
+                        <div 
+                            className="mt-3 p-3 rounded-lg"
+                            style={{ 
+                                background: lastResult.batches_created > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.08)',
+                                color: lastResult.batches_created > 0 ? '#4ade80' : 'rgba(255,255,255,0.6)'
+                            }}
+                        >
+                            {lastResult.message}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // ============ SIDEBAR ============
+        
+        const Sidebar = ({ currentPage, setCurrentPage, restaurantName, onLogout, stats, sidebarOpen, setSidebarOpen }) => {
+            const navItems = [
+                { id: 'inicio', icon: '🏠', label: 'Início' },
+                { id: 'pedidos', icon: '📦', label: 'Pedidos', badge: stats?.orders?.ready },
+                { id: 'motoboys', icon: '🏍️', label: 'Motoqueiros' },
+            ];
+            
+            const manageItems = [
+                { id: 'cardapio', icon: '🍽️', label: 'Cardápio' },
+                { id: 'clientes', icon: '👥', label: 'Clientes' },
+                { id: 'relatorios', icon: '📊', label: 'Relatórios' },
+            ];
+            
+            const systemItems = [
+                { id: 'configuracoes', icon: '⚙️', label: 'Configurações' },
+                { id: 'ajuda', icon: '❓', label: 'Ajuda' },
+            ];
+            
+            const NavItem = ({ item }) => (
+                <div
+                    onClick={() => {
+                        setCurrentPage(item.id);
+                        setSidebarOpen(false);
+                    }}
+                    className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
+                >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span>{item.label}</span>
+                    {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+                </div>
+            );
+            
+            return (
+                <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+                    {/* Logo */}
+                    <div className="sidebar-header">
+                        <div className="flex items-center gap-3">
+                            <svg width="40" height="40" viewBox="0 0 80 80" fill="none">
+                                <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
+                                <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
+                            </svg>
+                            <div>
+                                <h1 className="text-lg font-bold" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                                    <span className="text-white">Moto</span>
+                                    <span className="text-gradient-orange">Flash</span>
+                                </h1>
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Despacho Inteligente</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Navigation */}
+                    <nav className="sidebar-nav">
+                        <div className="nav-section">
+                            <div className="nav-section-title">Principal</div>
+                            {navItems.map(item => <NavItem key={item.id} item={item} />)}
+                        </div>
+                        
+                        <div className="nav-section">
+                            <div className="nav-section-title">Gerenciar</div>
+                            {manageItems.map(item => <NavItem key={item.id} item={item} />)}
+                        </div>
+                        
+                        <div className="nav-section">
+                            <div className="nav-section-title">Sistema</div>
+                            {systemItems.map(item => <NavItem key={item.id} item={item} />)}
+                        </div>
+                    </nav>
+                    
+                    {/* User Card */}
+                    <div className="sidebar-footer">
+                        <div className="user-card">
+                            <div className="user-avatar">
+                                {restaurantName.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="user-info">
+                                <div className="user-name">{restaurantName}</div>
+                                <div className="user-status">
+                                    <span className="status-dot"></span>
+                                    Conectado
+                                </div>
+                            </div>
+                            <button 
+                                onClick={onLogout}
+                                style={{ color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}
+                                title="Sair"
+                            >
+                                🚪
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+            );
+        };
+        
+        // ============ PÁGINA: INÍCIO (DASHBOARD) ============
+        
+        const DashboardPage = ({ stats, alerts, recommendation, orders, couriers, batches, fetchAll, simulatedDate }) => {
+            return (
+                <>
+                    <StatsPanel stats={stats} />
+                    <AlertsPanel alerts={alerts} recommendation={recommendation} />
+                    
+                    <div className="grid lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2">
+                            <NewOrderForm onOrderCreated={fetchAll} simulatedDate={simulatedDate} />
+                            <DispatchControl onDispatch={fetchAll} stats={stats} />
+                            <RecentOrdersList orders={orders} />
+                        </div>
+                        
+                        <div>
+                            <CouriersPanel couriers={couriers} onRefresh={fetchAll} />
+                            <ActiveBatches batches={batches} />
+                        </div>
+                    </div>
+                </>
+            );
+        };
+        
+        // ============ PÁGINAS PLACEHOLDER ============
+        
+        const PlaceholderPage = ({ title, icon }) => (
+            <div className="glass-card p-8 text-center">
+                <div className="text-6xl mb-4">{icon}</div>
+                <h2 className="text-2xl font-bold text-white mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>{title}</h2>
+                <p style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Esta funcionalidade será implementada em breve!
+                </p>
+            </div>
+        );
         
         // ============ APP PRINCIPAL ============
         
         function MotoFlashApp() {
-          const [orders, setOrders] = useState([]);
-          const [couriers, setCouriers] = useState([]);
-          const [batches, setBatches] = useState([]);
-          const [stats, setStats] = useState(null);
-          const [alerts, setAlerts] = useState(null);
-          const [recommendation, setRecommendation] = useState(null);
-          const [connected, setConnected] = useState(false);
-          const [error, setError] = useState(null);
-          
-          // Dados do usuário logado
-          const [restaurantName, setRestaurantName] = useState(() => {
-            const restaurantData = localStorage.getItem('motoflash_restaurant');
-            if (restaurantData) {
-              try {
-                const restaurant = JSON.parse(restaurantData);
-                return restaurant.name || 'Restaurante';
-              } catch {
+            const [currentPage, setCurrentPage] = useState('inicio');
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+            
+            // Dados
+            const [orders, setOrders] = useState([]);
+            const [couriers, setCouriers] = useState([]);
+            const [batches, setBatches] = useState([]);
+            const [stats, setStats] = useState(null);
+            const [alerts, setAlerts] = useState(null);
+            const [recommendation, setRecommendation] = useState(null);
+            const [connected, setConnected] = useState(false);
+            
+            // Restaurante
+            const [restaurantName, setRestaurantName] = useState(() => {
+                const data = localStorage.getItem('motoflash_restaurant');
+                if (data) {
+                    try {
+                        return JSON.parse(data).name || 'Restaurante';
+                    } catch { return 'Restaurante'; }
+                }
                 return 'Restaurante';
-              }
-            }
-            return 'Restaurante';
-          });
-          
-          // Função de logout
-          const handleLogout = () => {
-            localStorage.removeItem('motoflash_token');
-            localStorage.removeItem('motoflash_user');
-            window.location.href = '/login';
-          };
-          
-          // Data simulada para testes
-          const [simulatedDate, setSimulatedDate] = useState(() => {
-            const today = new Date();
-            return today.toISOString().split('T')[0]; // formato YYYY-MM-DD
-          });
-          
-          const fetchAll = useCallback(async () => {
-            try {
-              const [ordersRes, couriersRes, batchesRes, statsRes, alertsRes, recoRes] = await Promise.all([
-                authFetch(`${API_URL}/orders?limit=50`),
-                authFetch(`${API_URL}/couriers`),  // 🔒 Agora protegido
-                authFetch(`${API_URL}/dispatch/batches`),
-                authFetch(`${API_URL}/dispatch/stats`),
-                authFetch(`${API_URL}/dispatch/alerts`),
-                authFetch(`${API_URL}/dispatch/recommendation`),
-              ]);
-              
-              if (ordersRes.ok) setOrders(await ordersRes.json());
-              if (couriersRes.ok) setCouriers(await couriersRes.json());
-              if (batchesRes.ok) setBatches(await batchesRes.json());
-              if (statsRes.ok) setStats(await statsRes.json());
-              if (alertsRes.ok) setAlerts(await alertsRes.json());
-              if (recoRes.ok) setRecommendation(await recoRes.json());
-              
-              setConnected(true);
-              setError(null);
-            } catch (err) {
-              if (err.message === 'Não autenticado' || err.message === 'Sessão expirada') {
-                return; // Já redirecionou
-              }
-              setConnected(false);
-              setError('Não foi possível conectar ao servidor.');
-            }
-          }, []);
-          
-          useEffect(() => {
-            fetchAll();
-            const interval = setInterval(fetchAll, 5000);
-            return () => clearInterval(interval);
-          }, [fetchAll]);
-          
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-              {/* Header */}
-              <header className="bg-white shadow-sm border-b border-orange-100">
-                <div className="max-w-7xl mx-auto px-4 py-4">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-3">
-                      {/* LOGO MOTOFLASH */}
-                      <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="40" cy="40" r="34" fill="#FF6B00"/>
-                        <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="white"/>
-                      </svg>
-                      <div>
-                        <h1 className="text-xl font-bold text-gray-800">MotoFlash</h1>
-                        <p className="text-xs text-gray-500">Despacho Inteligente v0.3</p>
-                      </div>
-                    </div>
+            });
+            
+            // Data simulada
+            const [simulatedDate, setSimulatedDate] = useState(() => {
+                return new Date().toISOString().split('T')[0];
+            });
+            
+            const handleLogout = () => {
+                localStorage.removeItem('motoflash_token');
+                localStorage.removeItem('motoflash_user');
+                localStorage.removeItem('motoflash_restaurant');
+                window.location.href = '/login';
+            };
+            
+            const fetchAll = useCallback(async () => {
+                try {
+                    const [ordersRes, couriersRes, batchesRes, statsRes, alertsRes, recoRes] = await Promise.all([
+                        authFetch(`${API_URL}/orders?limit=50`),
+                        authFetch(`${API_URL}/couriers`),
+                        authFetch(`${API_URL}/dispatch/batches`),
+                        authFetch(`${API_URL}/dispatch/stats`),
+                        authFetch(`${API_URL}/dispatch/alerts`),
+                        authFetch(`${API_URL}/dispatch/recommendation`),
+                    ]);
                     
-                    {/* Seletor de Data para Simulação */}
-                    <div className="flex items-center gap-3 bg-purple-50 px-4 py-2 rounded-lg border border-purple-200">
-                      <span className="text-purple-700 text-sm font-medium">📅 Simular data:</span>
-                      <input
-                        type="date"
-                        value={simulatedDate}
-                        onChange={(e) => setSimulatedDate(e.target.value)}
-                        className="px-3 py-1 border border-purple-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      />
-                      <span className="text-xs text-purple-500">
-                        {new Date(simulatedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long' })}
-                      </span>
-                    </div>
+                    if (ordersRes.ok) setOrders(await ordersRes.json());
+                    if (couriersRes.ok) setCouriers(await couriersRes.json());
+                    if (batchesRes.ok) setBatches(await batchesRes.json());
+                    if (statsRes.ok) setStats(await statsRes.json());
+                    if (alertsRes.ok) setAlerts(await alertsRes.json());
+                    if (recoRes.ok) setRecommendation(await recoRes.json());
                     
-                    <div className="flex items-center gap-4">
-                      {/* Nome do Restaurante */}
-                      <div className="hidden sm:flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
-                        <span className="text-lg">🏪</span>
-                        <span className="font-medium text-gray-700">{restaurantName}</span>
-                      </div>
-                      
-                      <a 
-                        href="/cardapio" 
-                        className="flex items-center gap-2 bg-orange-100 hover:bg-orange-200 text-orange-700 px-4 py-2 rounded-lg font-medium transition-all"
-                      >
-                        🍽️ Cardápio
-                      </a>
-                      <a 
-                        href="/clientes" 
-                        className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-medium transition-all"
-                      >
-                        👥 Clientes
-                      </a>
-                      
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className="text-sm text-gray-500">
-                          {connected ? 'Conectado' : 'Desconectado'}
-                        </span>
-                      </div>
-                      
-                      {/* Botão Sair */}
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-all"
-                      >
-                        🚪 Sair
-                      </button>
+                    setConnected(true);
+                } catch (err) {
+                    if (err.message !== 'Não autenticado' && err.message !== 'Sessão expirada') {
+                        setConnected(false);
+                    }
+                }
+            }, []);
+            
+            useEffect(() => {
+                fetchAll();
+                const interval = setInterval(fetchAll, 5000);
+                return () => clearInterval(interval);
+            }, [fetchAll]);
+            
+            const getPageTitle = () => {
+                const titles = {
+                    inicio: 'Dashboard',
+                    pedidos: 'Pedidos',
+                    motoboys: 'Motoqueiros',
+                    cardapio: 'Cardápio',
+                    clientes: 'Clientes',
+                    relatorios: 'Relatórios',
+                    configuracoes: 'Configurações',
+                    ajuda: 'Ajuda',
+                };
+                return titles[currentPage] || 'Dashboard';
+            };
+            
+            const renderPage = () => {
+                switch (currentPage) {
+                    case 'inicio':
+                        return (
+                            <DashboardPage 
+                                stats={stats}
+                                alerts={alerts}
+                                recommendation={recommendation}
+                                orders={orders}
+                                couriers={couriers}
+                                batches={batches}
+                                fetchAll={fetchAll}
+                                simulatedDate={simulatedDate}
+                            />
+                        );
+                    case 'pedidos':
+                        return <PlaceholderPage title="Pedidos" icon="📦" />;
+                    case 'motoboys':
+                        return <PlaceholderPage title="Motoqueiros" icon="🏍️" />;
+                    case 'cardapio':
+                        return <PlaceholderPage title="Cardápio" icon="🍽️" />;
+                    case 'clientes':
+                        return <PlaceholderPage title="Clientes" icon="👥" />;
+                    case 'relatorios':
+                        return <PlaceholderPage title="Relatórios" icon="📊" />;
+                    case 'configuracoes':
+                        return <PlaceholderPage title="Configurações" icon="⚙️" />;
+                    case 'ajuda':
+                        return <PlaceholderPage title="Ajuda" icon="❓" />;
+                    default:
+                        return <DashboardPage {...{ stats, alerts, recommendation, orders, couriers, batches, fetchAll, simulatedDate }} />;
+                }
+            };
+            
+            return (
+                <>
+                    <Sidebar 
+                        currentPage={currentPage}
+                        setCurrentPage={setCurrentPage}
+                        restaurantName={restaurantName}
+                        onLogout={handleLogout}
+                        stats={stats}
+                        sidebarOpen={sidebarOpen}
+                        setSidebarOpen={setSidebarOpen}
+                    />
+                    
+                    <div className="main-wrapper">
+                        {/* Header */}
+                        <header className="glass-header">
+                            <div className="px-6 py-4">
+                                <div className="flex items-center justify-between">
+                                    {/* Mobile menu */}
+                                    <button 
+                                        className="mobile-menu-btn"
+                                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                                    >
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M3 12h18M3 6h18M3 18h18"/>
+                                        </svg>
+                                    </button>
+                                    
+                                    {/* Title */}
+                                    <div>
+                                        <h1 className="text-xl font-bold text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                                            {getPageTitle()}
+                                        </h1>
+                                        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                            Visão geral das operações
+                                        </p>
+                                    </div>
+                                    
+                                    {/* Right side */}
+                                    <div className="flex items-center gap-4">
+                                        {/* Data simulada */}
+                                        <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(147,51,234,0.15)', border: '1px solid rgba(147,51,234,0.3)' }}>
+                                            <span style={{ color: '#a78bfa' }}>📅</span>
+                                            <input
+                                                type="date"
+                                                value={simulatedDate}
+                                                onChange={(e) => setSimulatedDate(e.target.value)}
+                                                className="bg-transparent border-none text-white text-sm focus:outline-none"
+                                                style={{ colorScheme: 'dark' }}
+                                            />
+                                        </div>
+                                        
+                                        {/* Status */}
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                                            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                                {connected ? 'Online' : 'Offline'}
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Notificações */}
+                                        <button className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                            🔔
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </header>
+                        
+                        {/* Main Content */}
+                        <main className="p-6">
+                            {renderPage()}
+                        </main>
+                        
+                        {/* Footer */}
+                        <footer className="text-center py-6" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                            MotoFlash MVP v0.4 - Sistema de Despacho Inteligente
+                        </footer>
                     </div>
-                  </div>
-                </div>
-              </header>
-              
-              {/* Main */}
-              <main className="max-w-7xl mx-auto px-4 py-6">
-                {error && (
-                  <div className="mb-6 p-4 bg-red-100 border border-red-200 rounded-lg text-red-700">
-                    <p className="font-medium">⚠️ Erro de conexão</p>
-                    <p className="text-sm mt-1">{error}</p>
-                    <p className="text-sm mt-2">
-                      Execute: <code className="bg-red-200 px-2 py-0.5 rounded">cd backend && uvicorn main:app --reload</code>
-                    </p>
-                  </div>
-                )}
-                
-                <StatsPanel stats={stats} />
-                
-                <AlertsPanel alerts={alerts} recommendation={recommendation} />
-                
-                <div className="grid lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <NewOrderForm onOrderCreated={fetchAll} simulatedDate={simulatedDate} />
-                    <DispatchControl onDispatch={fetchAll} stats={stats} />
-                    <OrdersList orders={orders} onRefresh={fetchAll} />
-                  </div>
-                  
-                  <div>
-                    <CouriersPanel couriers={couriers} onRefresh={fetchAll} />
-                    <ActiveBatches batches={batches} />
-                  </div>
-                </div>
-              </main>
-              
-              <footer className="text-center py-4 text-sm text-gray-400">
-                MotoFlash MVP v0.3 - Sistema de Despacho Inteligente com Geocoding Automático
-              </footer>
-            </div>
-          );
+                </>
+            );
         }
         
         ReactDOM.createRoot(document.getElementById('root')).render(<MotoFlashApp />);
