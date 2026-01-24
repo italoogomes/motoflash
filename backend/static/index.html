@@ -1253,6 +1253,13 @@
                                                 ))}
                                             </div>
                                         )}
+                                        
+                                        {/* Mensagem cliente novo */}
+                                        {!foundCustomer && phone.replace(/\D/g, '').length >= 10 && (
+                                            <p className="text-xs mt-2" style={{ color: '#60a5fa' }}>
+                                                📝 Cliente novo - será cadastrado automaticamente
+                                            </p>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -1733,13 +1740,27 @@
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2" style={{ overflow: 'visible' }}>
-                                        {/* Botão Ativar/Pausar com cores */}
+                                        {/* Botão Finalizar - aparece só quando busy */}
+                                        {courier.status === 'busy' && (
+                                            <button
+                                                onClick={() => completeBatch(courier.id)}
+                                                className="text-sm py-1.5 px-3 rounded-lg font-medium transition-all"
+                                                style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}
+                                            >
+                                                ✓ Finalizar
+                                            </button>
+                                        )}
+                                        
+                                        {/* Botão Ativar/Pausar - desabilitado quando busy */}
                                         <button
                                             onClick={() => toggleStatus(courier)}
+                                            disabled={courier.status === 'busy'}
                                             className="text-sm py-1.5 px-4 rounded-lg font-medium transition-all"
-                                            style={courier.status === 'available' 
-                                                ? { background: 'rgba(255, 107, 0, 0.15)', color: '#ff8c42', border: '1px solid rgba(255, 107, 0, 0.3)' }
-                                                : { background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }
+                                            style={courier.status === 'busy'
+                                                ? { background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'not-allowed' }
+                                                : courier.status === 'available' 
+                                                    ? { background: 'rgba(255, 107, 0, 0.15)', color: '#ff8c42', border: '1px solid rgba(255, 107, 0, 0.3)' }
+                                                    : { background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }
                                             }
                                         >
                                             {courier.status === 'available' ? 'Pausar' : 'Ativar'}
