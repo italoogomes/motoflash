@@ -751,23 +751,23 @@
                             <div className="text-center">
                                 <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Tempo preparo</div>
                                 <div className="font-semibold text-white">
-                                    {recommendation.tempo_medio_preparo ? `${recommendation.tempo_medio_preparo} min` : 'Coletando...'}
+                                    {recommendation.tempo_medio_preparo ? `${recommendation.tempo_medio_preparo} min` : '-'}
                                 </div>
                             </div>
                             <div className="text-center">
                                 <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Tempo rota</div>
                                 <div className="font-semibold text-white">
-                                    {recommendation.tempo_medio_rota ? `${recommendation.tempo_medio_rota} min` : 'Coletando...'}
+                                    {recommendation.tempo_medio_rota ? `${recommendation.tempo_medio_rota} min` : '-'}
                                 </div>
                             </div>
                             <div className="text-center">
                                 <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Pedidos/hora</div>
-                                <div className="font-semibold text-white">{recommendation.pedidos_por_hora || 0}</div>
+                                <div className="font-semibold text-white">{recommendation.pedidos_por_hora || '-'}</div>
                             </div>
                             <div className="text-center">
                                 <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>Capacidade/motoboy</div>
                                 <div className="font-semibold text-white">
-                                    {recommendation.capacidade_por_motoboy ? `${recommendation.capacidade_por_motoboy}/h` : 'Coletando...'}
+                                    {recommendation.capacidade_por_motoboy ? `${recommendation.capacidade_por_motoboy}/h` : '-'}
                                 </div>
                             </div>
                         </div>
@@ -805,6 +805,12 @@
             // Sugestões
             const [nameSuggestions, setNameSuggestions] = useState([]);
             const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+            
+            // Autocomplete de endereço (Photon)
+            const [streetSuggestions, setStreetSuggestions] = useState([]);
+            const [showStreetSuggestions, setShowStreetSuggestions] = useState(false);
+            const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState([]);
+            const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
             
             // Cardápio
             const [menuData, setMenuData] = useState([]);
@@ -850,6 +856,64 @@
                     }
                     setLoadingCep(false);
                 }
+            };
+            
+            // Remove acentos para API Photon
+            const removeAccents = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            
+            // Busca sugestões no Photon
+            const searchPhoton = async (query, type) => {
+                if (query.trim().length < 3) return [];
+                
+                try {
+                    const cleanQuery = removeAccents(query);
+                    const fullQuery = `${cleanQuery} ${removeAccents(city || 'Ribeirao Preto')}`;
+                    
+                    const res = await fetch(
+                        `https://photon.komoot.io/api/?q=${encodeURIComponent(fullQuery)}&limit=5&lat=-21.17&lon=-47.80`
+                    );
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.features && data.features.length > 0) {
+                            const values = new Set();
+                            data.features.forEach(f => {
+                                const p = f.properties;
+                                if (type === 'street') {
+                                    const name = p.name || p.street;
+                                    if (name) values.add(name);
+                                } else if (type === 'neighborhood') {
+                                    const bairro = p.suburb || p.district || p.locality || p.neighbourhood;
+                                    if (bairro && bairro !== p.city) values.add(bairro);
+                                }
+                            });
+                            return Array.from(values);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Erro Photon:', err);
+                }
+                return [];
+            };
+            
+            // Autocomplete de Rua
+            const handleStreetChange = async (e) => {
+                const value = e.target.value;
+                setStreet(value);
+                
+                const suggestions = await searchPhoton(value, 'street');
+                setStreetSuggestions(suggestions);
+                setShowStreetSuggestions(suggestions.length > 0);
+            };
+            
+            // Autocomplete de Bairro
+            const handleNeighborhoodChange = async (e) => {
+                const value = e.target.value;
+                setNeighborhood(value);
+                
+                const suggestions = await searchPhoton(value, 'neighborhood');
+                setNeighborhoodSuggestions(suggestions);
+                setShowNeighborhoodSuggestions(suggestions.length > 0);
             };
             
             // Busca cliente por telefone
@@ -1248,16 +1312,35 @@
                         {/* Endereço */}
                         {showAddressFields && (
                             <div className="grid md:grid-cols-3 gap-4 mb-4">
-                                <div className="md:col-span-2">
+                                <div className="md:col-span-2 relative">
                                     <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Rua</label>
                                     <input
                                         type="text"
                                         value={street}
-                                        onChange={(e) => setStreet(e.target.value)}
+                                        onChange={handleStreetChange}
+                                        onBlur={() => setTimeout(() => setShowStreetSuggestions(false), 200)}
+                                        onFocus={() => streetSuggestions.length > 0 && setShowStreetSuggestions(true)}
                                         placeholder="Rua..."
                                         className="glass-input"
                                         disabled={loading}
+                                        autoComplete="off"
                                     />
+                                    {showStreetSuggestions && streetSuggestions.length > 0 && (
+                                        <div className="autocomplete-dropdown">
+                                            {streetSuggestions.map((suggestion, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setStreet(suggestion);
+                                                        setShowStreetSuggestions(false);
+                                                    }}
+                                                    className="autocomplete-item text-white"
+                                                >
+                                                    📍 {suggestion}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Número</label>
@@ -1276,16 +1359,35 @@
                         
                         {showAddressFields && (
                             <div className="grid md:grid-cols-3 gap-4 mb-4">
-                                <div>
+                                <div className="relative">
                                     <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Bairro</label>
                                     <input
                                         type="text"
                                         value={neighborhood}
-                                        onChange={(e) => setNeighborhood(e.target.value)}
+                                        onChange={handleNeighborhoodChange}
+                                        onBlur={() => setTimeout(() => setShowNeighborhoodSuggestions(false), 200)}
+                                        onFocus={() => neighborhoodSuggestions.length > 0 && setShowNeighborhoodSuggestions(true)}
                                         placeholder="Centro"
                                         className="glass-input"
                                         disabled={loading}
+                                        autoComplete="off"
                                     />
+                                    {showNeighborhoodSuggestions && neighborhoodSuggestions.length > 0 && (
+                                        <div className="autocomplete-dropdown">
+                                            {neighborhoodSuggestions.map((suggestion, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setNeighborhood(suggestion);
+                                                        setShowNeighborhoodSuggestions(false);
+                                                    }}
+                                                    className="autocomplete-item text-white"
+                                                >
+                                                    🏘️ {suggestion}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Cidade</label>
@@ -1336,46 +1438,106 @@
             );
         };
         
-        // ============ COMPONENTE: LISTA DE PEDIDOS RECENTES ============
+        // ============ COMPONENTE: LISTA DE PEDIDOS (3 COLUNAS) ============
         
-        const RecentOrdersList = ({ orders }) => {
-            const recentOrders = orders
-                .filter(o => ['created', 'preparing', 'ready', 'assigned', 'picked_up'].includes(o.status))
-                .slice(0, 10);
+        const OrdersList = ({ orders, onRefresh }) => {
+            const pendingOrders = orders.filter(o => ['created', 'preparing'].includes(o.status));
+            const readyOrders = orders.filter(o => o.status === 'ready');
+            const inRouteOrders = orders.filter(o => ['assigned', 'picked_up'].includes(o.status));
             
-            if (recentOrders.length === 0) {
-                return (
-                    <div className="glass-card p-5">
-                        <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                            📋 Pedidos Recentes
-                        </h3>
-                        <p className="text-center py-8" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                            Nenhum pedido no momento
-                        </p>
+            const handleScan = async (orderId) => {
+                try {
+                    await authFetch(`${API_URL}/orders/${orderId}/scan`, { method: 'POST' });
+                    onRefresh();
+                } catch (err) {
+                    console.error('Erro ao bipar:', err);
+                }
+            };
+            
+            const OrderCard = ({ order, showScan = false }) => (
+                <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-white">{order.customer_name}</span>
+                            {order.prep_type === 'long' && (
+                                <span className="badge badge-warning text-xs">Demorado</span>
+                            )}
+                            {/* Cronômetro - mostra desde criação até ficar pronto */}
+                            {['created', 'preparing'].includes(order.status) && order.created_at && (
+                                <Timer startTime={order.created_at} />
+                            )}
+                            {/* Cronômetro - mostra tempo esperando motoboy */}
+                            {order.status === 'ready' && order.ready_at && (
+                                <Timer startTime={order.ready_at} />
+                            )}
+                        </div>
+                        <div className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                            {order.address_text?.split(' - ')[0]}
+                        </div>
+                        {order.stop_order && (
+                            <div className="text-xs mt-1" style={{ color: '#60a5fa' }}>Parada #{order.stop_order}</div>
+                        )}
                     </div>
-                );
-            }
+                    {showScan && (
+                        <button 
+                            onClick={() => handleScan(order.id)} 
+                            className="ml-2 py-2 px-3 rounded-lg text-sm font-medium"
+                            style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}
+                        >
+                            📱 Bipar
+                        </button>
+                    )}
+                </div>
+            );
             
             return (
-                <div className="glass-card p-5">
-                    <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                        📋 Pedidos Recentes ({recentOrders.length})
-                    </h3>
-                    <div className="space-y-3">
-                        {recentOrders.map(order => (
-                            <div key={order.id} className="p-4 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                                <div className="flex items-center gap-4">
-                                    <StatusBadge status={order.status} />
-                                    <div>
-                                        <div className="text-white font-medium">{order.customer_name}</div>
-                                        <div className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                            {order.address_text?.split(' - ')[0]}
-                                        </div>
-                                    </div>
-                                </div>
-                                <Timer startTime={order.created_at} />
-                            </div>
-                        ))}
+                <div className="grid md:grid-cols-3 gap-4 mb-6">
+                    {/* Em Preparo */}
+                    <div className="glass-card p-4">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: '#fbbf24', fontFamily: 'Outfit, sans-serif' }}>
+                            🧑‍🍳 Em Preparo ({pendingOrders.length})
+                        </h3>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {pendingOrders.length === 0 ? (
+                                <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Nenhum pedido</p>
+                            ) : (
+                                pendingOrders.map(order => (
+                                    <OrderCard key={order.id} order={order} showScan={true} />
+                                ))
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Prontos */}
+                    <div className="glass-card p-4" style={{ borderColor: 'rgba(34, 197, 94, 0.3)', borderWidth: '2px' }}>
+                        <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: '#4ade80', fontFamily: 'Outfit, sans-serif' }}>
+                            ✅ Prontos ({readyOrders.length})
+                        </h3>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {readyOrders.length === 0 ? (
+                                <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Nenhum pedido</p>
+                            ) : (
+                                readyOrders.map(order => (
+                                    <OrderCard key={order.id} order={order} />
+                                ))
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Em Rota */}
+                    <div className="glass-card p-4">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: '#60a5fa', fontFamily: 'Outfit, sans-serif' }}>
+                            🏍️ Em Rota ({inRouteOrders.length})
+                        </h3>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {inRouteOrders.length === 0 ? (
+                                <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Nenhum pedido</p>
+                            ) : (
+                                inRouteOrders.map(order => (
+                                    <OrderCard key={order.id} order={order} />
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             );
@@ -1384,26 +1546,19 @@
         // ============ COMPONENTE: PAINEL DE MOTOBOYS ============
         
         const CouriersPanel = ({ couriers, onRefresh }) => {
-            const [newName, setNewName] = useState('');
             const [showInviteModal, setShowInviteModal] = useState(false);
             const [inviteData, setInviteData] = useState(null);
             const [inviteLoading, setInviteLoading] = useState(false);
             const [copySuccess, setCopySuccess] = useState(false);
             
-            const createCourier = async () => {
-                if (!newName.trim()) return;
-                try {
-                    await authFetch(`${API_URL}/couriers`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: newName }),
-                    });
-                    setNewName('');
-                    onRefresh();
-                } catch (err) {
-                    console.error('Erro:', err);
-                }
-            };
+            // Menu de opções
+            const [openMenuId, setOpenMenuId] = useState(null);
+            
+            // Modal de recuperação de senha
+            const [showResetModal, setShowResetModal] = useState(false);
+            const [resetData, setResetData] = useState(null);
+            const [resetLoading, setResetLoading] = useState(false);
+            const [resetCopySuccess, setResetCopySuccess] = useState(false);
             
             const toggleStatus = async (courier) => {
                 const endpoint = courier.status === 'available' 
@@ -1421,8 +1576,57 @@
                 try {
                     await authFetch(`${API_URL}/couriers/${courierId}/complete-batch`, { method: 'POST' });
                     onRefresh();
+                    setOpenMenuId(null);
                 } catch (err) {
                     console.error('Erro:', err);
+                }
+            };
+            
+            const deleteCourier = async (courierId) => {
+                if (!confirm('Tem certeza que deseja excluir este motoboy?')) return;
+                try {
+                    await authFetch(`${API_URL}/couriers/${courierId}`, { method: 'DELETE' });
+                    onRefresh();
+                    setOpenMenuId(null);
+                } catch (err) {
+                    console.error('Erro:', err);
+                    alert('Erro ao excluir motoboy');
+                }
+            };
+            
+            const createPasswordReset = async (courier) => {
+                setResetLoading(true);
+                setOpenMenuId(null);
+                try {
+                    const res = await authFetch(`${API_URL}/couriers/${courier.id}/password-reset`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        setResetData(data);
+                        setShowResetModal(true);
+                    }
+                } catch (err) {
+                    console.error('Erro ao gerar link:', err);
+                    alert('Erro ao gerar link de recuperação');
+                }
+                setResetLoading(false);
+            };
+            
+            const copyResetLink = () => {
+                if (resetData?.reset_url) {
+                    navigator.clipboard.writeText(resetData.reset_url);
+                    setResetCopySuccess(true);
+                    setTimeout(() => setResetCopySuccess(false), 2000);
+                }
+            };
+            
+            const shareResetWhatsApp = () => {
+                if (resetData?.reset_url) {
+                    const text = `🔑 Link para redefinir sua senha no MotoFlash:\n\n${resetData.reset_url}\n\n⏱️ Válido por ${resetData.expires_in}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                 }
             };
             
@@ -1489,21 +1693,6 @@
                         {inviteLoading ? '⏳ Gerando...' : '🔗 Convidar Motoboy via Link'}
                     </button>
                     
-                    {/* Input manual */}
-                    <div className="flex gap-2 mb-4">
-                        <input
-                            type="text"
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            placeholder="Ou digite o nome..."
-                            className="glass-input flex-1"
-                            onKeyPress={(e) => e.key === 'Enter' && createCourier()}
-                        />
-                        <button onClick={createCourier} disabled={!newName.trim()} className="glass-btn" style={{ color: '#ff8c42' }}>
-                            Adicionar
-                        </button>
-                    </div>
-                    
                     {/* Lista de motoboys */}
                     <div className="space-y-3">
                         {couriers.map(courier => {
@@ -1519,22 +1708,66 @@
                                             <StatusBadge status={courier.status} />
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        {courier.status === 'busy' && (
-                                            <button
-                                                onClick={() => completeBatch(courier.id)}
-                                                className="text-sm py-1 px-3 rounded-lg font-medium"
-                                                style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.25)' }}
-                                            >
-                                                ✓ Finalizar
-                                            </button>
-                                        )}
+                                    <div className="flex items-center gap-2">
+                                        {/* Botão Ativar/Pausar com cores */}
                                         <button
                                             onClick={() => toggleStatus(courier)}
-                                            className="glass-btn text-sm py-1 px-3"
+                                            className="text-sm py-1.5 px-4 rounded-lg font-medium transition-all"
+                                            style={courier.status === 'available' 
+                                                ? { background: 'rgba(255, 107, 0, 0.15)', color: '#ff8c42', border: '1px solid rgba(255, 107, 0, 0.3)' }
+                                                : { background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }
+                                            }
                                         >
                                             {courier.status === 'available' ? 'Pausar' : 'Ativar'}
                                         </button>
+                                        
+                                        {/* Menu 3 pontinhos */}
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setOpenMenuId(openMenuId === courier.id ? null : courier.id)}
+                                                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                                                style={{ background: 'rgba(255,255,255,0.08)' }}
+                                            >
+                                                <span style={{ color: 'rgba(255,255,255,0.6)' }}>⋮</span>
+                                            </button>
+                                            
+                                            {openMenuId === courier.id && (
+                                                <div 
+                                                    className="absolute right-0 top-10 w-48 rounded-xl overflow-hidden z-50"
+                                                    style={{ background: 'rgba(30, 30, 40, 0.98)', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 10px 40px rgba(0,0,0,0.4)' }}
+                                                >
+                                                    <button
+                                                        onClick={() => createPasswordReset(courier)}
+                                                        className="w-full px-4 py-3 text-left text-sm flex items-center gap-2 transition-all"
+                                                        style={{ color: 'rgba(255,255,255,0.8)' }}
+                                                        onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                                                        onMouseOut={(e) => e.target.style.background = 'transparent'}
+                                                    >
+                                                        🔑 Recuperar Senha
+                                                    </button>
+                                                    {courier.status === 'busy' && (
+                                                        <button
+                                                            onClick={() => completeBatch(courier.id)}
+                                                            className="w-full px-4 py-3 text-left text-sm flex items-center gap-2 transition-all"
+                                                            style={{ color: '#4ade80' }}
+                                                            onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                                                            onMouseOut={(e) => e.target.style.background = 'transparent'}
+                                                        >
+                                                            ✓ Finalizar Entrega
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => deleteCourier(courier.id)}
+                                                        className="w-full px-4 py-3 text-left text-sm flex items-center gap-2 transition-all"
+                                                        style={{ color: '#f87171' }}
+                                                        onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                                                        onMouseOut={(e) => e.target.style.background = 'transparent'}
+                                                    >
+                                                        🗑️ Excluir
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -1546,6 +1779,56 @@
                             </p>
                         )}
                     </div>
+                    
+                    {/* Modal de Recuperação de Senha */}
+                    {showResetModal && resetData && (
+                        <div className="modal-overlay" onClick={() => setShowResetModal(false)}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                                <div className="text-center mb-4">
+                                    <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ background: 'rgba(59, 130, 246, 0.15)' }}>
+                                        <span className="text-3xl">🔑</span>
+                                    </div>
+                                    <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                                        Link de Recuperação
+                                    </h2>
+                                    <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                        Válido por {resetData.expires_in}
+                                    </p>
+                                </div>
+                                
+                                <div className="p-3 rounded-lg mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                    <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Link:</p>
+                                    <p className="text-sm font-mono break-all text-white">{resetData.reset_url}</p>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={shareResetWhatsApp}
+                                        className="w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2"
+                                        style={{ background: '#22c55e', color: '#fff' }}
+                                    >
+                                        📱 Enviar por WhatsApp
+                                    </button>
+                                    
+                                    <button
+                                        onClick={copyResetLink}
+                                        className="w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
+                                        style={{ background: resetCopySuccess ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.1)', color: resetCopySuccess ? '#4ade80' : '#fff' }}
+                                    >
+                                        {resetCopySuccess ? '✓ Link Copiado!' : '📋 Copiar Link'}
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setShowResetModal(false)}
+                                        className="w-full py-2 text-sm"
+                                        style={{ color: 'rgba(255,255,255,0.5)' }}
+                                    >
+                                        Fechar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     
                     {/* Modal de Convite */}
                     {showInviteModal && inviteData && (
@@ -1780,10 +2063,10 @@
                             </div>
                             <button 
                                 onClick={onLogout}
-                                style={{ color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}
+                                style={{ color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
                                 title="Sair"
                             >
-                                🚪
+                                Sair
                             </button>
                         </div>
                     </div>
@@ -1799,11 +2082,10 @@
                     <StatsPanel stats={stats} />
                     <AlertsPanel alerts={alerts} recommendation={recommendation} />
                     
-                    <div className="grid lg:grid-cols-3 gap-6">
+                    <div className="grid lg:grid-cols-3 gap-6 mb-6">
                         <div className="lg:col-span-2">
                             <NewOrderForm onOrderCreated={fetchAll} simulatedDate={simulatedDate} />
                             <DispatchControl onDispatch={fetchAll} stats={stats} />
-                            <RecentOrdersList orders={orders} />
                         </div>
                         
                         <div>
@@ -1811,6 +2093,9 @@
                             <ActiveBatches batches={batches} />
                         </div>
                     </div>
+                    
+                    {/* Lista de Pedidos em 3 colunas - ocupa toda a largura */}
+                    <OrdersList orders={orders} onRefresh={fetchAll} />
                 </>
             );
         };
@@ -1985,8 +2270,8 @@
                                     {/* Right side */}
                                     <div className="flex items-center gap-4">
                                         {/* Data simulada */}
-                                        <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(147,51,234,0.15)', border: '1px solid rgba(147,51,234,0.3)' }}>
-                                            <span style={{ color: '#a78bfa' }}>📅</span>
+                                        <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,107,0,0.15)', border: '1px solid rgba(255,107,0,0.3)' }}>
+                                            <span style={{ color: '#ff8c42' }}>📅</span>
                                             <input
                                                 type="date"
                                                 value={simulatedDate}
