@@ -1938,7 +1938,14 @@
         // ============ COMPONENTE: ROTAS ATIVAS ============
         
         const ActiveBatches = ({ batches }) => {
-            if (!batches || batches.length === 0) {
+            // Filtra batches que ainda têm pedidos pendentes (oculta quando está retornando)
+            const activeBatches = (batches || []).filter(batch => {
+                if (!batch.orders || batch.orders.length === 0) return false;
+                // Mostra só se tiver pelo menos 1 pedido não entregue
+                return batch.orders.some(o => o.status !== 'delivered');
+            });
+            
+            if (activeBatches.length === 0) {
                 return (
                     <div className="glass-card p-5">
                         <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
@@ -1954,20 +1961,23 @@
             return (
                 <div className="glass-card p-5">
                     <h3 className="font-semibold text-white flex items-center gap-2 mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                        🚀 Rotas Ativas ({batches.length})
+                        🚀 Rotas Ativas ({activeBatches.length})
                     </h3>
                     <div className="space-y-3">
-                        {batches.map(batch => (
-                            <div key={batch.id} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-white font-medium">{batch.courier_name}</span>
-                                    <span className="badge badge-info">{batch.orders?.length || 0} entregas</span>
+                        {activeBatches.map(batch => {
+                            const pendingOrders = batch.orders?.filter(o => o.status !== 'delivered') || [];
+                            return (
+                                <div key={batch.id} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-white font-medium">{batch.courier_name}</span>
+                                        <span className="badge badge-info">{pendingOrders.length} entregas</span>
+                                    </div>
+                                    <div className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                        📍 {pendingOrders.map(o => o.address_text?.split(',')[0]).join(' → ')}
+                                    </div>
                                 </div>
-                                <div className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                    📍 {batch.orders?.map(o => o.address_text?.split(',')[0]).join(' → ')}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             );
