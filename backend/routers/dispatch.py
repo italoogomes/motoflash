@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models import (
     Batch, BatchResponse, BatchStatus, Order, Courier, DispatchResult,
-    User, OrderStatus, CourierStatus
+    User, OrderStatus, CourierStatus, get_courier_full_name
 )
 from services.dispatch_service import run_dispatch, get_batch_orders
 from services.auth_service import get_current_user
@@ -61,7 +61,7 @@ def list_active_batches(
         result.append(BatchResponse(
             id=batch.id,
             courier_id=batch.courier_id,
-            courier_name=courier.full_name if courier else None,
+            courier_name=get_courier_full_name(courier) if courier else None,
             status=batch.status,
             created_at=batch.created_at,
             orders=[

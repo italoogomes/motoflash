@@ -17,10 +17,10 @@ from sqlmodel import Session, select
 from database import get_session
 from models import (
     Invite, Restaurant, Courier, CourierStatus,
-    InviteResponse, InviteUse, InviteValidation
+    InviteResponse, InviteUse, InviteValidation,
+    User, get_courier_full_name
 )
 from services.auth_service import get_current_user, get_current_restaurant, hash_password
-from models import User
 
 
 router = APIRouter(prefix="/invites", tags=["Convites"])
@@ -286,12 +286,12 @@ def use_invite(
     
     return {
         "success": True,
-        "message": f"Bem-vindo à equipe, {courier.full_name}!",
+        "message": f"Bem-vindo à equipe, {get_courier_full_name(courier)}!",
         "courier": {
             "id": courier.id,
             "name": courier.name,
             "last_name": courier.last_name,
-            "full_name": courier.full_name,
+            "full_name": get_courier_full_name(courier),
             "phone": courier.phone,
             "restaurant_id": courier.restaurant_id,
             "restaurant_name": restaurant.name if restaurant else "Restaurante"

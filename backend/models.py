@@ -275,13 +275,13 @@ class Courier(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
     available_since: Optional[datetime] = None  # Quando ficou disponível
     last_login: Optional[datetime] = None  # Último login
-    
-    @property
-    def full_name(self) -> str:
-        """Retorna nome completo (Nome + Sobrenome)"""
-        if self.last_name:
-            return f"{self.name} {self.last_name}"
-        return self.name
+
+
+def get_courier_full_name(courier: Courier) -> str:
+    """Retorna nome completo do motoqueiro (Nome + Sobrenome)"""
+    if courier.last_name:
+        return f"{courier.name} {courier.last_name}"
+    return courier.name
 
 
 class Batch(SQLModel, table=True):

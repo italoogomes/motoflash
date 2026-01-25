@@ -13,7 +13,7 @@ from models import (
     Courier, CourierCreate, CourierResponse, CourierStatus,
     Batch, BatchStatus, BatchResponse, Order, OrderStatus,
     Restaurant, CourierLoginRequest, CourierLoginResponse,
-    PasswordReset, User
+    PasswordReset, User, get_courier_full_name
 )
 from services.dispatch_service import get_courier_current_batch, get_batch_orders
 from services.auth_service import hash_password, verify_password, get_current_user
@@ -79,7 +79,7 @@ def courier_login(
     
     return CourierLoginResponse(
         success=True,
-        message=f"Bem-vindo, {courier.full_name}!",
+        message=f"Bem-vindo, {get_courier_full_name(courier)}!",
         courier=CourierResponse(
             id=courier.id,
             name=courier.name,
@@ -198,7 +198,7 @@ def delete_courier(
     session.delete(courier)
     session.commit()
     
-    return {"success": True, "message": f"Motoboy {courier.full_name} excluído com sucesso"}
+    return {"success": True, "message": f"Motoboy {get_courier_full_name(courier)} excluído com sucesso"}
 
 
 @router.post("/{courier_id}/available", response_model=CourierResponse)
@@ -273,7 +273,7 @@ def get_current_batch(courier_id: str, session: Session = Depends(get_session)):
     return BatchResponse(
         id=batch.id,
         courier_id=batch.courier_id,
-        courier_name=courier.full_name,
+        courier_name=get_courier_full_name(courier),
         status=batch.status,
         created_at=batch.created_at,
         orders=[
@@ -485,7 +485,7 @@ def create_password_reset(
     
     return {
         "success": True,
-        "courier_name": courier.full_name,
+        "courier_name": get_courier_full_name(courier),
         "reset_url": reset_url,
         "expires_in": "1 hora"
     }
@@ -514,7 +514,7 @@ def validate_password_reset(code: str, session: Session = Depends(get_session)):
     
     return {
         "valid": True,
-        "courier_name": courier.full_name if courier else "Motoboy",
+        "courier_name": get_courier_full_name(courier) if courier else "Motoboy",
         "message": "Link válido"
     }
 
@@ -563,7 +563,7 @@ def use_password_reset(
     
     return {
         "success": True,
-        "message": f"Senha atualizada com sucesso, {courier.full_name}!"
+        "message": f"Senha atualizada com sucesso, {get_courier_full_name(courier)}!"
     }
 
 # ============ ROTAS DE ENTREGA PARA O MOTOBOY ============
