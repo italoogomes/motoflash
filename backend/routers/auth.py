@@ -8,8 +8,10 @@ Endpoints para:
 - Dados do usuário logado
 """
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import Session, select
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from database import get_session
 from models import (
@@ -26,11 +28,16 @@ from services.geocoding_service import geocode_address_detailed
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
+# Rate Limiter
+limiter = Limiter(key_func=get_remote_address)
+
 
 # ============ CADASTRO ============
 
 @router.post("/register", response_model=LoginResponse)
+@limiter.limit("5/minute")  # Máximo 5 cadastros por minuto
 def register_restaurant(
+    request: Request,
     data: RestaurantCreate,
     session: Session = Depends(get_session)
 ):
@@ -154,7 +161,9 @@ def register_restaurant(
 # ============ LOGIN ============
 
 @router.post("/login", response_model=LoginResponse)
+@limiter.limit("10/minute")  # Máximo 10 tentativas de login por minuto
 def login(
+    request: Request,
     data: LoginRequest,
     session: Session = Depends(get_session)
 ):

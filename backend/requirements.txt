@@ -22,3 +22,6 @@ python-jose[cryptography]>=3.3.0
 
 # Multipart (upload de arquivos)
 python-multipart>=0.0.6
+
+# Rate Limiting (proteção contra abuso)
+slowapi>=0.1.9

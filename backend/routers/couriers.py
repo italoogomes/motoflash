@@ -17,14 +17,21 @@ from models import (
 )
 from services.dispatch_service import get_courier_current_batch, get_batch_orders
 from services.auth_service import hash_password, verify_password, get_current_user
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/couriers", tags=["Motoqueiros"])
+
+# Rate Limiter
+limiter = Limiter(key_func=get_remote_address)
 
 
 # ============ AUTENTICAÇÃO DO MOTOBOY ============
 
 @router.post("/login", response_model=CourierLoginResponse)
+@limiter.limit("10/minute")  # Máximo 10 tentativas de login por minuto
 def courier_login(
+    request: Request,
     data: CourierLoginRequest,
     session: Session = Depends(get_session)
 ):

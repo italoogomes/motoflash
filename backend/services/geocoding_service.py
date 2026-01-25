@@ -2,12 +2,20 @@
 Serviço de Geocoding usando Google Maps API
 Converte endereços em coordenadas com alta precisão
 """
+import os
 import urllib.parse
 from typing import Optional, Tuple
 import httpx
 
-# API Key do Google Maps
-GOOGLE_API_KEY = "AIzaSyDAMV5FvQAEPacHSSBLScr5LIALFQ6qpmU"
+# API Key do Google Maps (carregada de variável de ambiente)
+GOOGLE_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+
+if not GOOGLE_API_KEY:
+    raise ValueError(
+        "⚠️ GOOGLE_MAPS_API_KEY não configurada!\n"
+        "Configure a variável de ambiente GOOGLE_MAPS_API_KEY com sua chave do Google Maps.\n"
+        "Obtenha em: https://console.cloud.google.com/apis/credentials"
+    )
 
 # Cache local para economizar requests
 _geocode_cache = {}

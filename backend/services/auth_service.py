@@ -25,8 +25,25 @@ from models import User, Restaurant
 
 # ============ CONFIGURAÇÕES ============
 
-# Chave secreta para assinar os tokens (MUDAR EM PRODUÇÃO!)
-SECRET_KEY = os.environ.get("SECRET_KEY", "motoflash-super-secret-key-change-in-production")
+# Chave secreta para assinar os tokens JWT
+SECRET_KEY = os.environ.get("SECRET_KEY")
+
+# ⚠️ APENAS PARA DESENVOLVIMENTO LOCAL - NUNCA USE EM PRODUÇÃO!
+if not SECRET_KEY:
+    import sys
+    print("\n" + "="*70, file=sys.stderr)
+    print("⚠️  AVISO DE SEGURANÇA CRÍTICO!", file=sys.stderr)
+    print("="*70, file=sys.stderr)
+    print("SECRET_KEY não configurada! Usando chave temporária de desenvolvimento.", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Para PRODUÇÃO, configure a variável de ambiente SECRET_KEY:", file=sys.stderr)
+    print("  1. Gere uma chave forte:", file=sys.stderr)
+    print("     python -c \"import secrets; print(secrets.token_urlsafe(32))\"", file=sys.stderr)
+    print("  2. Configure no Railway/ambiente de produção", file=sys.stderr)
+    print("="*70 + "\n", file=sys.stderr)
+
+    SECRET_KEY = "DEV-ONLY-motoflash-insecure-key-DO-NOT-USE-IN-PRODUCTION"
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24  # Token válido por 24 horas
 

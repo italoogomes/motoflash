@@ -28,8 +28,15 @@ from services.push_service import notify_new_batch
 
 # ============ CONFIGURAÇÕES DO DISPATCH V0.9 ============
 
-# API Key do Google Maps (mesma usada no frontend)
-GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "AIzaSyDAMV5FvQAEPacHSSBLScr5LIALFQ6qpmU")
+# API Key do Google Maps (carregada de variável de ambiente)
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+
+if not GOOGLE_MAPS_API_KEY:
+    raise ValueError(
+        "⚠️ GOOGLE_MAPS_API_KEY não configurada!\n"
+        "Configure a variável de ambiente GOOGLE_MAPS_API_KEY com sua chave do Google Maps.\n"
+        "Obtenha em: https://console.cloud.google.com/apis/credentials"
+    )
 
 # Distância para considerar MESMO endereço (em km)
 # 0.05 km = 50 metros - praticamente o mesmo lugar

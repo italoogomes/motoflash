@@ -7,10 +7,13 @@ Execute com: uvicorn main:app --reload
 Docs: http://localhost:8000/docs
 """
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, Response
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import uuid
 import shutil
@@ -49,20 +52,23 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Rate Limiter - Proteção contra abuso de API
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="MotoFlash",
     description="""
     Sistema de despacho inteligente para restaurantes com entregadores próprios.
-    
+
     ## Funcionalidades
-    
+
     - 📦 **Pedidos**: Criar, listar e gerenciar pedidos com QR Code
     - 🏍️ **Motoqueiros**: Gerenciar frota de entregadores
     - 🚀 **Dispatch**: Algoritmo inteligente de distribuição
     - 🗺️ **Geocoding**: Conversão automática de endereços em coordenadas
-    
+
     ## Fluxo
-    
+
     1. Pedido é criado → QR Code gerado
     2. Cozinha bipa QR → Pedido fica PRONTO
     3. Dispatch agrupa pedidos por proximidade
@@ -73,10 +79,31 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS - permite que o React acesse a API
+# Registra o rate limiter no app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS - Configuração de segurança para origens permitidas
+# Em produção, configure ALLOWED_ORIGINS com seus domínios
+# Exemplo: ALLOWED_ORIGINS=https://motoflash.com,https://app.motoflash.com
+allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
+
+if allowed_origins_env:
+    # Produção: usa origens específicas da variável de ambiente
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+    print(f"🔒 CORS configurado para: {allowed_origins}")
+else:
+    # Desenvolvimento: permite localhost
+    allowed_origins = [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",  # React dev server (se usar)
+    ]
+    print("⚠️ CORS em modo desenvolvimento (apenas localhost)")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especifique os domínios
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
