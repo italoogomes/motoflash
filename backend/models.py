@@ -256,7 +256,8 @@ class Courier(SQLModel, table=True):
     # NOVO: Vínculo com restaurante
     restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
     
-    name: str
+    name: str  # Nome
+    last_name: Optional[str] = None  # Sobrenome (para diferenciar homônimos)
     phone: str = Field(index=True)  # Obrigatório - usado como login
     password_hash: Optional[str] = None  # Senha hasheada com bcrypt
     
@@ -274,6 +275,13 @@ class Courier(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
     available_since: Optional[datetime] = None  # Quando ficou disponível
     last_login: Optional[datetime] = None  # Último login
+    
+    @property
+    def full_name(self) -> str:
+        """Retorna nome completo (Nome + Sobrenome)"""
+        if self.last_name:
+            return f"{self.name} {self.last_name}"
+        return self.name
 
 
 class Batch(SQLModel, table=True):
@@ -421,6 +429,7 @@ class OrderResponse(SQLModel):
 class CourierCreate(SQLModel):
     """Schema para criar motoqueiro (cadastro manual pelo dono)"""
     name: str
+    last_name: Optional[str] = None  # Sobrenome
     phone: str
     password: Optional[str] = None  # Opcional no cadastro manual
 
@@ -429,6 +438,7 @@ class CourierResponse(SQLModel):
     """Schema de resposta do motoqueiro"""
     id: str
     name: str
+    last_name: Optional[str] = None  # Sobrenome
     phone: Optional[str]
     status: CourierStatus
     available_since: Optional[datetime]
@@ -726,7 +736,8 @@ class InviteResponse(SQLModel):
 
 class InviteUse(SQLModel):
     """Schema para usar o convite (motoboy preenche)"""
-    name: str
+    name: str  # Nome
+    last_name: Optional[str] = None  # Sobrenome
     phone: str  # Obrigatório - usado como login
     password: str  # Obrigatório - senha de acesso
 

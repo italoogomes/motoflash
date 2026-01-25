@@ -170,6 +170,7 @@
         // Tela de Formulário
         const FormScreen = ({ restaurantName, timeRemaining, onSubmit, loading }) => {
             const [name, setName] = useState('');
+            const [lastName, setLastName] = useState('');
             const [phone, setPhone] = useState('');
             const [password, setPassword] = useState('');
             const [confirmPassword, setConfirmPassword] = useState('');
@@ -183,13 +184,14 @@
             };
             
             const passwordsMatch = password === confirmPassword;
-            const isValid = name.trim() && phone.replace(/\D/g, '').length >= 10 && password.length >= 4 && passwordsMatch;
+            const isValid = name.trim() && lastName.trim() && phone.replace(/\D/g, '').length >= 10 && password.length >= 4 && passwordsMatch;
             
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if (isValid) {
                     onSubmit({ 
-                        name: name.trim(), 
+                        name: name.trim(),
+                        last_name: lastName.trim(),
                         phone: phone.replace(/\D/g, ''),
                         password: password
                     });
@@ -224,13 +226,22 @@
                             
                             <form onSubmit={handleSubmit}>
                                 <Input
-                                    label="Seu Nome"
+                                    label="Nome"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    placeholder="Como você quer ser chamado?"
+                                    placeholder="Seu primeiro nome"
                                     required
                                     icon="👤"
                                     autoFocus
+                                />
+                                
+                                <Input
+                                    label="Sobrenome"
+                                    value={lastName}
+                                    onChange={(e) => setLastName(e.target.value)}
+                                    placeholder="Seu sobrenome"
+                                    required
+                                    icon="👤"
                                 />
                                 
                                 <Input
@@ -369,10 +380,10 @@
                     
                     // Salva dados do motoboy no localStorage para login automático
                     localStorage.setItem('motoboy_id', result.courier.id);
-                    localStorage.setItem('motoboy_name', result.courier.name);
+                    localStorage.setItem('motoboy_name', result.courier.full_name || result.courier.name);
                     
                     setSuccessData({
-                        courierName: result.courier.name,
+                        courierName: result.courier.full_name || result.courier.name,
                         restaurantName: result.courier.restaurant_name
                     });
                     setStatus('success');

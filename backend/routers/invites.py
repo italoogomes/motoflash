@@ -262,6 +262,7 @@ def use_invite(
     # 4. Cria o motoboy com senha hasheada
     courier = Courier(
         name=data.name.strip(),
+        last_name=data.last_name.strip() if data.last_name else None,
         phone=phone_clean,
         password_hash=hash_password(data.password),
         restaurant_id=invite.restaurant_id,
@@ -285,10 +286,12 @@ def use_invite(
     
     return {
         "success": True,
-        "message": f"Bem-vindo à equipe, {courier.name}!",
+        "message": f"Bem-vindo à equipe, {courier.full_name}!",
         "courier": {
             "id": courier.id,
             "name": courier.name,
+            "last_name": courier.last_name,
+            "full_name": courier.full_name,
             "phone": courier.phone,
             "restaurant_id": courier.restaurant_id,
             "restaurant_name": restaurant.name if restaurant else "Restaurante"

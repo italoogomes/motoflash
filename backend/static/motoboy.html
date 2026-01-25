@@ -593,7 +593,7 @@
                     if (data.success && data.courier) {
                         // Salva no localStorage
                         localStorage.setItem('motoboy_id', data.courier.id);
-                        localStorage.setItem('motoboy_name', data.courier.name);
+                        localStorage.setItem('motoboy_name', data.courier.last_name ? `${data.courier.name} ${data.courier.last_name}` : data.courier.name);
                         localStorage.setItem('motoboy_phone', data.courier.phone);
                         
                         onLogin(data.courier);

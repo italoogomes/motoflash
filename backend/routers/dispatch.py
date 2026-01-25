@@ -61,7 +61,7 @@ def list_active_batches(
         result.append(BatchResponse(
             id=batch.id,
             courier_id=batch.courier_id,
-            courier_name=courier.name if courier else None,
+            courier_name=courier.full_name if courier else None,
             status=batch.status,
             created_at=batch.created_at,
             orders=[
