@@ -2404,14 +2404,8 @@
                 
                 // Upload de imagem
                 const handleImageUpload = async (e) => {
-                    const file = e.target.files?.[0];
+                    const file = e.target.files[0];
                     if (!file) return;
-                    
-                    // Verifica tipo
-                    if (!file.type.match(/^image\/(jpeg|png|webp|gif)$/)) {
-                        alert('Formato inválido! Use JPG, PNG, WebP ou GIF');
-                        return;
-                    }
                     
                     // Verifica tamanho (5MB)
                     if (file.size > 5 * 1024 * 1024) {
@@ -2422,21 +2416,23 @@
                     setUploading(true);
                     
                     try {
+                        // FormData é como um "envelope" pra enviar arquivos
                         const formData = new FormData();
                         formData.append('file', file);
                         
+                        // Para upload com FormData, só adiciona o Authorization
                         const token = getToken();
                         const res = await fetch(`${API_URL}/upload`, {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${token}`
                             },
-                            body: formData
+                            body: formData  // Não precisa de Content-Type, o browser configura
                         });
                         
                         if (res.ok) {
                             const data = await res.json();
-                            setImageUrl(data.url);
+                            setImageUrl(data.url);  // Salva a URL retornada
                         } else {
                             const err = await res.json();
                             alert(err.detail || 'Erro ao enviar imagem');
