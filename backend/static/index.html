@@ -2170,6 +2170,606 @@
             );
         };
         
+        // ============ PÁGINA: CARDÁPIO ============
+        
+        const CardapioPage = () => {
+            const [categories, setCategories] = useState([]);
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+            
+            // Modais
+            const [showCategoryModal, setShowCategoryModal] = useState(false);
+            const [showItemModal, setShowItemModal] = useState(false);
+            const [editingCategory, setEditingCategory] = useState(null);
+            const [editingItem, setEditingItem] = useState(null);
+            
+            // Mensagem de feedback
+            const [message, setMessage] = useState(null);
+            
+            // Busca dados
+            const fetchData = async () => {
+                try {
+                    const [catRes, itemsRes] = await Promise.all([
+                        authFetch(`${API_URL}/menu/categories`),
+                        authFetch(`${API_URL}/menu/items`)
+                    ]);
+                    
+                    if (catRes.ok) setCategories(await catRes.json());
+                    if (itemsRes.ok) setItems(await itemsRes.json());
+                } catch (err) {
+                    console.error('Erro ao carregar cardápio:', err);
+                }
+                setLoading(false);
+            };
+            
+            useEffect(() => {
+                fetchData();
+            }, []);
+            
+            // Auto-dismiss mensagem
+            useEffect(() => {
+                if (message) {
+                    const timer = setTimeout(() => setMessage(null), 3000);
+                    return () => clearTimeout(timer);
+                }
+            }, [message]);
+            
+            // Filtra itens por categoria
+            const filteredItems = selectedCategoryId 
+                ? items.filter(i => i.category_id === selectedCategoryId)
+                : items;
+            
+            // === CRUD CATEGORIA ===
+            const handleSaveCategory = async (data) => {
+                try {
+                    const url = editingCategory 
+                        ? `${API_URL}/menu/categories/${editingCategory.id}`
+                        : `${API_URL}/menu/categories`;
+                    
+                    const res = await authFetch(url, {
+                        method: editingCategory ? 'PUT' : 'POST',
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (res.ok) {
+                        setMessage({ type: 'success', text: editingCategory ? 'Categoria atualizada!' : 'Categoria criada!' });
+                        setShowCategoryModal(false);
+                        setEditingCategory(null);
+                        fetchData();
+                    } else {
+                        const err = await res.json();
+                        setMessage({ type: 'error', text: err.detail || 'Erro ao salvar' });
+                    }
+                } catch (err) {
+                    setMessage({ type: 'error', text: 'Erro de conexão' });
+                }
+            };
+            
+            const handleDeleteCategory = async (category) => {
+                if (!confirm(`Excluir categoria "${category.name}"?`)) return;
+                
+                try {
+                    const res = await authFetch(`${API_URL}/menu/categories/${category.id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (res.ok) {
+                        setMessage({ type: 'success', text: 'Categoria excluída!' });
+                        if (selectedCategoryId === category.id) setSelectedCategoryId(null);
+                        fetchData();
+                    } else {
+                        const err = await res.json();
+                        setMessage({ type: 'error', text: err.detail || 'Erro ao excluir' });
+                    }
+                } catch (err) {
+                    setMessage({ type: 'error', text: 'Erro de conexão' });
+                }
+            };
+            
+            // === CRUD ITEM ===
+            const handleSaveItem = async (data) => {
+                try {
+                    const url = editingItem 
+                        ? `${API_URL}/menu/items/${editingItem.id}`
+                        : `${API_URL}/menu/items`;
+                    
+                    const res = await authFetch(url, {
+                        method: editingItem ? 'PUT' : 'POST',
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (res.ok) {
+                        setMessage({ type: 'success', text: editingItem ? 'Item atualizado!' : 'Item criado!' });
+                        setShowItemModal(false);
+                        setEditingItem(null);
+                        fetchData();
+                    } else {
+                        const err = await res.json();
+                        setMessage({ type: 'error', text: err.detail || 'Erro ao salvar' });
+                    }
+                } catch (err) {
+                    setMessage({ type: 'error', text: 'Erro de conexão' });
+                }
+            };
+            
+            const handleDeleteItem = async (item) => {
+                if (!confirm(`Excluir item "${item.name}"?`)) return;
+                
+                try {
+                    const res = await authFetch(`${API_URL}/menu/items/${item.id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (res.ok) {
+                        setMessage({ type: 'success', text: 'Item excluído!' });
+                        fetchData();
+                    } else {
+                        const err = await res.json();
+                        setMessage({ type: 'error', text: err.detail || 'Erro ao excluir' });
+                    }
+                } catch (err) {
+                    setMessage({ type: 'error', text: 'Erro de conexão' });
+                }
+            };
+            
+            const handleToggleStock = async (item) => {
+                try {
+                    const res = await authFetch(`${API_URL}/menu/items/${item.id}/toggle-stock`, {
+                        method: 'POST'
+                    });
+                    
+                    if (res.ok) {
+                        setMessage({ type: 'success', text: item.out_of_stock ? 'Item disponível!' : 'Item esgotado!' });
+                        fetchData();
+                    }
+                } catch (err) {
+                    setMessage({ type: 'error', text: 'Erro de conexão' });
+                }
+            };
+            
+            // === FORMULÁRIO CATEGORIA ===
+            const CategoryForm = ({ category, onSave, onCancel }) => {
+                const [name, setName] = useState(category?.name || '');
+                const [order, setOrder] = useState(category?.order || 0);
+                const [saving, setSaving] = useState(false);
+                
+                const handleSubmit = async (e) => {
+                    e.preventDefault();
+                    if (!name.trim()) return;
+                    setSaving(true);
+                    await onSave({ name: name.trim(), order: parseInt(order) });
+                    setSaving(false);
+                };
+                
+                return (
+                    <form onSubmit={handleSubmit}>
+                        <div className="mb-4">
+                            <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                Nome da Categoria
+                            </label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Ex: Hambúrgueres, Bebidas..."
+                                className="glass-input w-full"
+                                required
+                                autoFocus
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                Ordem de exibição
+                            </label>
+                            <input
+                                type="number"
+                                value={order}
+                                onChange={(e) => setOrder(e.target.value)}
+                                className="glass-input w-full"
+                                min="0"
+                            />
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                className="flex-1 px-4 py-3 rounded-xl font-medium transition-all"
+                                style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={saving || !name.trim()}
+                                className="flex-1 px-4 py-3 rounded-xl font-medium transition-all text-white disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%)' }}
+                            >
+                                {saving ? 'Salvando...' : (category ? 'Atualizar' : 'Criar')}
+                            </button>
+                        </div>
+                    </form>
+                );
+            };
+            
+            // === FORMULÁRIO ITEM ===
+            const ItemForm = ({ item, onSave, onCancel }) => {
+                const [name, setName] = useState(item?.name || '');
+                const [description, setDescription] = useState(item?.description || '');
+                const [price, setPrice] = useState(item?.price || '');
+                const [categoryId, setCategoryId] = useState(item?.category_id || categories[0]?.id || '');
+                const [saving, setSaving] = useState(false);
+                
+                const handleSubmit = async (e) => {
+                    e.preventDefault();
+                    if (!name.trim() || !categoryId) return;
+                    setSaving(true);
+                    await onSave({ 
+                        name: name.trim(), 
+                        description: description.trim(),
+                        price: parseFloat(price) || 0,
+                        category_id: categoryId
+                    });
+                    setSaving(false);
+                };
+                
+                return (
+                    <form onSubmit={handleSubmit}>
+                        <div className="mb-4">
+                            <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                Nome do Item *
+                            </label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Ex: X-Bacon, Coca-Cola..."
+                                className="glass-input w-full"
+                                required
+                                autoFocus
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                Descrição
+                            </label>
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Ingredientes, detalhes..."
+                                className="glass-input w-full"
+                                rows={2}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                    Preço (R$)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={price}
+                                    onChange={(e) => setPrice(e.target.value)}
+                                    placeholder="0,00"
+                                    className="glass-input w-full"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                    Categoria *
+                                </label>
+                                <select
+                                    value={categoryId}
+                                    onChange={(e) => setCategoryId(e.target.value)}
+                                    className="glass-input w-full"
+                                    required
+                                >
+                                    {categories.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                className="flex-1 px-4 py-3 rounded-xl font-medium transition-all"
+                                style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={saving || !name.trim() || !categoryId}
+                                className="flex-1 px-4 py-3 rounded-xl font-medium transition-all text-white disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%)' }}
+                            >
+                                {saving ? 'Salvando...' : (item ? 'Atualizar' : 'Criar')}
+                            </button>
+                        </div>
+                    </form>
+                );
+            };
+            
+            // Loading state
+            if (loading) {
+                return (
+                    <div className="glass-card p-8 text-center">
+                        <div className="text-5xl mb-4">🍽️</div>
+                        <div style={{ color: 'rgba(255,255,255,0.5)' }}>Carregando cardápio...</div>
+                    </div>
+                );
+            }
+            
+            const totalItems = items.length;
+            const outOfStock = items.filter(i => i.out_of_stock).length;
+            
+            return (
+                <>
+                    {/* Mensagem de feedback */}
+                    {message && (
+                        <div 
+                            className="mb-4 p-4 rounded-xl flex items-center gap-3"
+                            style={{ 
+                                background: message.type === 'success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                border: `1px solid ${message.type === 'success' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                            }}
+                        >
+                            <span>{message.type === 'success' ? '✅' : '❌'}</span>
+                            <span className="text-white">{message.text}</span>
+                        </div>
+                    )}
+                    
+                    {/* Header com stats */}
+                    <div className="glass-card p-4 mb-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <span className="text-3xl">🍽️</span>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-white">Cardápio</h2>
+                                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+                                        {categories.length} categoria(s) • {totalItems} item(ns)
+                                        {outOfStock > 0 && <span style={{ color: '#ef4444' }}> • {outOfStock} esgotado(s)</span>}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Grid principal */}
+                    <div className="grid lg:grid-cols-3 gap-6">
+                        {/* Coluna Categorias */}
+                        <div className="lg:col-span-1">
+                            <div className="glass-card p-4">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="font-semibold text-white">📂 Categorias</h3>
+                                    <button
+                                        onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }}
+                                        className="px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-all"
+                                        style={{ background: 'linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%)' }}
+                                    >
+                                        + Nova
+                                    </button>
+                                </div>
+                                
+                                {/* Botão "Todos" */}
+                                <button
+                                    onClick={() => setSelectedCategoryId(null)}
+                                    className="w-full text-left p-3 rounded-xl mb-2 transition-all"
+                                    style={{ 
+                                        background: selectedCategoryId === null ? 'rgba(255, 107, 0, 0.2)' : 'rgba(255,255,255,0.05)',
+                                        border: selectedCategoryId === null ? '1px solid rgba(255, 107, 0, 0.4)' : '1px solid transparent'
+                                    }}
+                                >
+                                    <span className="font-medium text-white">📋 Todos os itens</span>
+                                    <span className="text-xs ml-2" style={{ color: 'rgba(255,255,255,0.5)' }}>({totalItems})</span>
+                                </button>
+                                
+                                {/* Lista de categorias */}
+                                <div className="space-y-2">
+                                    {categories.map(cat => (
+                                        <div
+                                            key={cat.id}
+                                            className="group p-3 rounded-xl transition-all cursor-pointer"
+                                            style={{ 
+                                                background: selectedCategoryId === cat.id ? 'rgba(255, 107, 0, 0.2)' : 'rgba(255,255,255,0.05)',
+                                                border: selectedCategoryId === cat.id ? '1px solid rgba(255, 107, 0, 0.4)' : '1px solid transparent'
+                                            }}
+                                            onClick={() => setSelectedCategoryId(cat.id)}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <span className="font-medium text-white">{cat.name}</span>
+                                                    <span className="text-xs ml-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                                        ({cat.items_count || 0})
+                                                    </span>
+                                                </div>
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setEditingCategory(cat); setShowCategoryModal(true); }}
+                                                        className="p-1.5 rounded-lg hover:bg-white/10"
+                                                        title="Editar"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat); }}
+                                                        className="p-1.5 rounded-lg hover:bg-red-500/20"
+                                                        title="Excluir"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {categories.length === 0 && (
+                                    <div className="text-center py-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                        <div className="text-3xl mb-2">📂</div>
+                                        <p className="text-sm">Nenhuma categoria</p>
+                                        <p className="text-xs">Crie sua primeira categoria</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Coluna Itens */}
+                        <div className="lg:col-span-2">
+                            <div className="glass-card p-4">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="font-semibold text-white">
+                                        🍔 Itens
+                                        {selectedCategoryId && (
+                                            <span className="ml-2" style={{ color: '#ff8c42' }}>
+                                                - {categories.find(c => c.id === selectedCategoryId)?.name}
+                                            </span>
+                                        )}
+                                    </h3>
+                                    <button
+                                        onClick={() => { setEditingItem(null); setShowItemModal(true); }}
+                                        disabled={categories.length === 0}
+                                        className="px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50"
+                                        style={{ background: 'linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%)' }}
+                                        title={categories.length === 0 ? 'Crie uma categoria primeiro' : ''}
+                                    >
+                                        + Novo Item
+                                    </button>
+                                </div>
+                                
+                                {/* Lista de itens */}
+                                <div className="space-y-2">
+                                    {filteredItems.map(item => (
+                                        <div
+                                            key={item.id}
+                                            className="group p-4 rounded-xl transition-all"
+                                            style={{ 
+                                                background: 'rgba(255,255,255,0.05)',
+                                                opacity: item.out_of_stock ? 0.6 : 1
+                                            }}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-white">{item.name}</span>
+                                                        {item.out_of_stock && (
+                                                            <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                                                                Esgotado
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {item.description && (
+                                                        <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                                            {item.description}
+                                                        </p>
+                                                    )}
+                                                    <div className="flex items-center gap-3 mt-2">
+                                                        <span className="font-semibold" style={{ color: '#4ade80' }}>
+                                                            R$ {(item.price || 0).toFixed(2)}
+                                                        </span>
+                                                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                                                            {item.category_name}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => handleToggleStock(item)}
+                                                        className="p-2 rounded-lg hover:bg-white/10"
+                                                        title={item.out_of_stock ? 'Marcar como disponível' : 'Marcar como esgotado'}
+                                                    >
+                                                        {item.out_of_stock ? '✅' : '⛔'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setEditingItem(item); setShowItemModal(true); }}
+                                                        className="p-2 rounded-lg hover:bg-white/10"
+                                                        title="Editar"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteItem(item)}
+                                                        className="p-2 rounded-lg hover:bg-red-500/20"
+                                                        title="Excluir"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {filteredItems.length === 0 && (
+                                    <div className="text-center py-8" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                        <div className="text-4xl mb-2">🍔</div>
+                                        <p>Nenhum item {selectedCategoryId ? 'nesta categoria' : 'cadastrado'}</p>
+                                        {categories.length === 0 && (
+                                            <p className="text-sm mt-1">Crie uma categoria primeiro</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Modal Categoria */}
+                    {showCategoryModal && (
+                        <div className="modal-overlay" onClick={() => { setShowCategoryModal(false); setEditingCategory(null); }}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-lg font-semibold text-white">
+                                        {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+                                    </h3>
+                                    <button 
+                                        onClick={() => { setShowCategoryModal(false); setEditingCategory(null); }}
+                                        className="text-2xl"
+                                        style={{ color: 'rgba(255,255,255,0.5)' }}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                                <CategoryForm 
+                                    category={editingCategory}
+                                    onSave={handleSaveCategory}
+                                    onCancel={() => { setShowCategoryModal(false); setEditingCategory(null); }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Modal Item */}
+                    {showItemModal && (
+                        <div className="modal-overlay" onClick={() => { setShowItemModal(false); setEditingItem(null); }}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-lg font-semibold text-white">
+                                        {editingItem ? 'Editar Item' : 'Novo Item'}
+                                    </h3>
+                                    <button 
+                                        onClick={() => { setShowItemModal(false); setEditingItem(null); }}
+                                        className="text-2xl"
+                                        style={{ color: 'rgba(255,255,255,0.5)' }}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                                <ItemForm 
+                                    item={editingItem}
+                                    onSave={handleSaveItem}
+                                    onCancel={() => { setShowItemModal(false); setEditingItem(null); }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </>
+            );
+        };
+        
         // ============ PÁGINAS PLACEHOLDER ============
         
         const PlaceholderPage = ({ title, icon }) => (
@@ -2286,7 +2886,7 @@
                     case 'motoboys':
                         return <PlaceholderPage title="Motoqueiros" icon="🏍️" />;
                     case 'cardapio':
-                        return <PlaceholderPage title="Cardápio" icon="🍽️" />;
+                        return <CardapioPage />;
                     case 'clientes':
                         return <PlaceholderPage title="Clientes" icon="👥" />;
                     case 'relatorios':
