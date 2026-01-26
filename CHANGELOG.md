@@ -4,6 +4,51 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.0.2] - 2026-01-26
+
+### 🧪 Testes de Pedidos
+
+#### ✨ Adicionado
+- **Testes de Pedidos** (16 testes)
+  - `tests/test_orders.py` - Testes completos de pedidos
+  - Fixture `test_order` em conftest.py
+  - Cobertura: criação, listagem, busca, QR Code, transições de status
+  - Validação de isolamento multi-tenant
+
+#### 🎯 Cobertura Expandida
+- ✅ Criação de pedidos (com/sem coordenadas)
+- ✅ Listagem e filtros
+- ✅ Isolamento entre restaurantes
+- ✅ Geração de QR Code
+- ✅ Transições de status (CREATED → PREPARING → READY)
+- ✅ Validação de transições inválidas
+
+---
+
+## [1.0.1] - 2026-01-26
+
+### 🧪 Testes Automatizados
+
+#### ✨ Adicionado
+- **Framework pytest** configurado
+  - `tests/conftest.py` - Fixtures compartilhadas
+  - `tests/test_auth.py` - 8 testes de autenticação
+  - `pytest>=7.4.0` + `pytest-asyncio>=0.21.0`
+
+- **Documentação de Testes**
+  - `docs/TESTES.md` - Guia completo de testes
+  - Como executar testes
+  - Como escrever novos testes
+  - Boas práticas
+
+#### 🎯 Cobertura
+- ✅ Autenticação (login, registro, /me)
+- ✅ Pedidos (16 testes)
+- 🔄 Dispatch (planejado)
+- 🔄 Motoboys (planejado)
+
+---
+
 ## [1.0.0] - 2026-01-26
 
 ### 🎉 Arquitetura Modular Frontend

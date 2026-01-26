@@ -360,12 +360,29 @@ Quando necessário:
 
 ## 🧪 Testes
 
-**Status:** Não implementado (v0.9)
+**Status:** ✅ Implementado (v1.0.2)
 
-**Planejado:**
-- Unit tests (pytest)
-- Integration tests (TestClient FastAPI)
-- E2E tests (Playwright/Selenium)
+### Framework
+- **pytest** (7.4+)
+- **pytest-asyncio** (0.21+)
+- **FastAPI TestClient** (testes de API)
+- **SQLite em memória** (banco isolado)
+
+### Cobertura Atual (24 testes)
+- ✅ **Autenticação**: 8 testes (login, registro, /me)
+- ✅ **Pedidos**: 16 testes (criar, listar, QR Code, status)
+- 🔄 **Dispatch**: Planejado
+- 🔄 **Motoboys**: Planejado
+
+### Executar Testes
+```bash
+cd backend
+pytest              # Todos os testes
+pytest -v           # Modo verbose
+pytest tests/test_orders.py  # Apenas testes de pedidos
+```
+
+Ver: [TESTES.md](./TESTES.md) para documentação completa
 
 ---
 
@@ -385,6 +402,8 @@ Ver: [RAILWAY_SETUP.md](../RAILWAY_SETUP.md)
 
 | Versão | Data | Mudanças |
 |--------|------|----------|
+| 1.0.2 | 2026-01-26 | **Testes de Pedidos** (16 testes + 24 total) |
+| 1.0.1 | 2026-01-26 | **Testes Automatizados** (pytest + 8 testes de autenticação) |
 | 1.0.0 | 2026-01-26 | **Arquitetura Modular Frontend** (index.html: 3732→36 linhas) |
 | 0.9.0 | 2026-01 | Polyline de rotas + Segurança |
 | 0.8.0 | 2025-12 | Algoritmo dispatch otimizado |

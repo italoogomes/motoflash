@@ -1,9 +1,19 @@
 # 🏍️ MotoFlash - Sistema de Entregas Inteligente
 
-**Versão:** 1.0.0 (Arquitetura Modular)
+**Versão:** 1.0.2 (Arquitetura Modular + Testes)
 **Deploy:** Railway
 
 Sistema de despacho inteligente para restaurantes com entregadores próprios.
+
+## ⭐ Novidades v1.0.2
+
+- **Testes de Pedidos:** 16 testes cobrindo criação, listagem, QR Code e transições de status
+- **Cobertura Expandida:** 24 testes no total (autenticação + pedidos)
+
+## ⭐ Novidades v1.0.1
+
+- **Testes Automatizados:** Pytest configurado com 8 testes de autenticação
+- **Documentação de Testes:** Guia completo em `docs/TESTES.md`
 
 ## ⭐ Novidades v1.0.0
 
@@ -121,6 +131,17 @@ uvicorn main:app --reload
 ```
 
 Acesse: http://localhost:8000
+
+## 🧪 Testes Automatizados
+
+```bash
+cd backend
+pytest                    # Rodar todos os testes
+pytest -v                 # Modo verbose
+pytest tests/test_auth.py # Testar apenas autenticação
+```
+
+Ver documentação completa: [`docs/TESTES.md`](docs/TESTES.md)
 
 ## 📞 Suporte
 
