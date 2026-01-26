@@ -4,7 +4,10 @@
       "Bash(dir:*)",
       "Bash(find:*)",
       "Bash(ls:*)",
-      "Read(//c/Users/italo.gomes/OneDrive - MMarra Distribuidora Automotiva/Documentos/motoflash/**)"
+      "Read(//c/Users/italo.gomes/OneDrive - MMarra Distribuidora Automotiva/Documentos/motoflash/**)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
