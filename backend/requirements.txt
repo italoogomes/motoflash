@@ -25,3 +25,6 @@ python-multipart>=0.0.6
 
 # Rate Limiting (proteção contra abuso)
 slowapi>=0.1.9
+
+# Firebase Admin SDK (Push Notifications)
+firebase-admin>=6.0.0

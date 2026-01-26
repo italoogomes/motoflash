@@ -6,7 +6,7 @@ import string
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import Session, select
+from sqlmodel import Session, select, SQLModel
 
 from database import get_session
 from models import (
@@ -371,35 +371,45 @@ def update_location(
     return {"message": "Localização atualizada"}
 
 
+class PushTokenRequest(SQLModel):
+    """Schema para atualizar push token"""
+    token: str
+
+
 @router.put("/{courier_id}/push-token")
 def update_push_token(
     courier_id: str,
-    token: str,
+    data: PushTokenRequest,
     session: Session = Depends(get_session)
 ):
     """
-    Salva o token de Push Notification do motoboy
-    
+    Salva o token de Push Notification (FCM) do motoboy
+
     O app do motoboy chama isso quando:
-    1. Usuário dá permissão para notificações
-    2. Firebase gera o token único do dispositivo
-    3. App envia o token pra cá → salva no banco
-    
-    Depois, o backend usa esse token para enviar notificações!
+    1. Usuario da permissao para notificacoes
+    2. Firebase gera o token unico do dispositivo
+    3. App envia o token pra ca -> salva no banco
+
+    Depois, o backend usa esse token para enviar notificacoes!
+
+    Body JSON:
+    {
+        "token": "FCM_TOKEN_AQUI"
+    }
     """
     courier = session.get(Courier, courier_id)
     if not courier:
-        raise HTTPException(status_code=404, detail="Motoqueiro não encontrado")
-    
-    courier.push_token = token
+        raise HTTPException(status_code=404, detail="Motoqueiro nao encontrado")
+
+    courier.push_token = data.token
     courier.updated_at = datetime.now()
-    
+
     session.add(courier)
     session.commit()
-    
-    print(f"✅ Push token salvo para {courier.name}")
-    
-    return {"message": "Token salvo com sucesso"}
+
+    print(f"Push: Token salvo para {courier.name}")
+
+    return {"success": True, "message": "Token salvo com sucesso"}
 
 
 @router.get("/{courier_id}/restaurant")

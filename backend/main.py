@@ -259,6 +259,17 @@ def serve_service_worker():
             return Response(content=f.read(), media_type="application/javascript")
     return Response(content="// Service Worker not found", media_type="application/javascript", status_code=404)
 
+
+# Firebase - Service Worker para Push Notifications
+@app.get("/firebase-messaging-sw.js", tags=["PWA"])
+def serve_firebase_sw():
+    """Service Worker do Firebase Cloud Messaging"""
+    sw_path = STATIC_DIR / "firebase-messaging-sw.js"
+    if sw_path.exists():
+        with open(sw_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="application/javascript")
+    return Response(content="// Firebase SW not found", media_type="application/javascript", status_code=404)
+
 @app.get("/motoboy", response_class=HTMLResponse, tags=["Frontend"])
 @app.get("/motoboy.html", response_class=HTMLResponse, tags=["Frontend"])
 def serve_motoboy():
