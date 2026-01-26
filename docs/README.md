@@ -23,6 +23,21 @@ Bem-vindo à documentação completa do MotoFlash! Esta pasta contém toda a doc
 
 ---
 
+### 1.1 [ARQUITETURA_MODULAR.md](./ARQUITETURA_MODULAR.md) ⭐ NOVO
+**O que é:** Arquitetura modular do frontend (Dashboard)
+
+**Você vai encontrar:**
+- Nova estrutura modular (index.html com 36 linhas!)
+- Separação de responsabilidades (CSS, JS, componentes)
+- Como trabalhar com módulos
+- Guia de desenvolvimento
+- Vantagens da arquitetura modular
+- Troubleshooting
+
+**Leia quando:** Precisar modificar o dashboard ou entender a nova estrutura do frontend.
+
+---
+
 ### 2. [API_ENDPOINTS.md](./API_ENDPOINTS.md)
 **O que é:** Referência completa de todos os endpoints da API
 

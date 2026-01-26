@@ -1,6 +1,10 @@
 # 🚂 Configuração no Railway - MotoFlash
 
+**Versão:** 1.0.0 (Arquitetura Modular)
+
 Este guia explica como configurar as variáveis de ambiente necessárias para rodar o MotoFlash no Railway.
+
+> **📝 Nota da v1.0.0:** O frontend foi refatorado para arquitetura modular (CSS e JS separados), mas o deploy continua exatamente igual. Nenhuma mudança adicional é necessária!
 
 ---
 

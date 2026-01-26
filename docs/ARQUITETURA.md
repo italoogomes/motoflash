@@ -78,16 +78,25 @@ motoflash/
 │   │   ├── push_service.py    # Push notifications (stub)
 │   │   └── qrcode_service.py  # Geração de QR Codes
 │   │
-│   ├── static/               # Frontend HTML/CSS/JS
-│   │   ├── index.html        # Dashboard principal (React)
+│   ├── static/               # Frontend (Arquitetura Modular)
+│   │   ├── index.html        # Dashboard principal (36 linhas!)
 │   │   ├── motoboy.html      # App PWA dos motoboys
 │   │   ├── auth.html         # Login/Cadastro
-│   │   ├── cardapio.html     # Gestão de cardápio
-│   │   ├── clientes.html     # Gestão de clientes
 │   │   ├── convite.html      # Página de aceite de convite
 │   │   ├── recuperar-senha.html # Reset de senha
+│   │   │
+│   │   ├── css/              # Estilos separados
+│   │   │   └── dashboard.css # Todos os estilos do dashboard
+│   │   │
+│   │   ├── js/               # JavaScript modular
+│   │   │   ├── utils/
+│   │   │   │   └── helpers.js # Auth, config, API utils
+│   │   │   ├── components.js  # Todos componentes React
+│   │   │   └── app.js         # Componente App principal
+│   │   │
 │   │   ├── manifest.json     # PWA manifest
 │   │   ├── sw.js            # Service Worker (offline)
+│   │   ├── firebase-messaging-sw.js # Firebase Cloud Messaging
 │   │   └── icons/           # Ícones PWA
 │   │
 │   └── uploads/              # Imagens (não versionado)
@@ -169,15 +178,34 @@ orders = session.exec(
 
 ## 🧩 Componentes Principais
 
-### 1. Dashboard (index.html)
+### 1. Dashboard (index.html) - **ARQUITETURA MODULAR**
 **URL:** `/` ou `/dashboard`
-**Tecnologia:** React 18 (inline, via CDN)
+**Tecnologia:** React 18 (modular, via CDN)
+**Estrutura:**
+```
+index.html (36 linhas)
+├── css/dashboard.css (556 linhas)
+└── js/
+    ├── utils/helpers.js (43 linhas - auth, API)
+    ├── components.js (2907 linhas - componentes React)
+    └── app.js (192 linhas - App principal)
+```
+
 **Responsabilidade:**
+- SPA (Single Page Application) com navegação interna
 - Visualizar pedidos em tempo real
 - Criar novos pedidos
 - Executar dispatch (agrupar pedidos)
 - Visualizar lotes em andamento
+- Gestão de cardápio (página integrada)
+- Gestão de clientes (página integrada)
 - Mapas com rotas (Leaflet.js)
+
+**Vantagens da arquitetura modular:**
+- ✅ Código organizado e fácil de manter
+- ✅ Navegação suave sem recarregar página (SPA)
+- ✅ Browser faz cache dos arquivos JS/CSS
+- ✅ Fácil localizar e editar componentes
 
 ### 2. App Motoboy (motoboy.html)
 **URL:** `/motoboy`
@@ -188,25 +216,9 @@ orders = session.exec(
 - Visualizar rota no mapa
 - Marcar pedidos como entregues
 - GPS em tempo real
+- Push notifications (Firebase)
 
-### 3. Gestão de Cardápio (cardapio.html)
-**URL:** `/cardapio`
-**Tecnologia:** React 18
-**Responsabilidade:**
-- Criar/editar categorias
-- Criar/editar itens do menu
-- Upload de imagens
-- Controle de estoque (disponível/indisponível)
-
-### 4. Gestão de Clientes (clientes.html)
-**URL:** `/clientes`
-**Tecnologia:** React 18
-**Responsabilidade:**
-- Listar clientes
-- Adicionar novos clientes
-- Cache de endereços com coordenadas
-
-### 5. API REST (FastAPI)
+### 3. API REST (FastAPI)
 **URL Base:** `/` (mesma origem)
 **Documentação:** `/docs` (Swagger UI)
 **Responsabilidade:**
@@ -373,6 +385,7 @@ Ver: [RAILWAY_SETUP.md](../RAILWAY_SETUP.md)
 
 | Versão | Data | Mudanças |
 |--------|------|----------|
+| 1.0.0 | 2026-01-26 | **Arquitetura Modular Frontend** (index.html: 3732→36 linhas) |
 | 0.9.0 | 2026-01 | Polyline de rotas + Segurança |
 | 0.8.0 | 2025-12 | Algoritmo dispatch otimizado |
 | 0.7.0 | 2025-11 | Multi-tenant + Trial system |

@@ -292,28 +292,6 @@ def serve_dashboard():
     return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque index.html na pasta static/</p>", status_code=404)
 
 
-@app.get("/cardapio", response_class=HTMLResponse, tags=["Frontend"])
-@app.get("/cardapio.html", response_class=HTMLResponse, tags=["Frontend"])
-def serve_cardapio():
-    """Gerenciamento de Cardápio - acesse /cardapio"""
-    cardapio_path = STATIC_DIR / "cardapio.html"
-    if cardapio_path.exists():
-        with open(cardapio_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque cardapio.html na pasta static/</p>", status_code=404)
-
-
-@app.get("/clientes", response_class=HTMLResponse, tags=["Frontend"])
-@app.get("/clientes.html", response_class=HTMLResponse, tags=["Frontend"])
-def serve_clientes():
-    """Cadastro de Clientes - acesse /clientes"""
-    clientes_path = STATIC_DIR / "clientes.html"
-    if clientes_path.exists():
-        with open(clientes_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque clientes.html na pasta static/</p>", status_code=404)
-
-
 # ============ AUTENTICAÇÃO (MULTI-RESTAURANTE) ============
 
 @app.get("/cadastro", tags=["Autenticação"])

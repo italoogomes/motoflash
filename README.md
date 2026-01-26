@@ -1,6 +1,16 @@
-# 🏍️ MotoFlash - Deploy no Render
+# 🏍️ MotoFlash - Sistema de Entregas Inteligente
+
+**Versão:** 1.0.0 (Arquitetura Modular)
+**Deploy:** Railway
 
 Sistema de despacho inteligente para restaurantes com entregadores próprios.
+
+## ⭐ Novidades v1.0.0
+
+- **Arquitetura Modular:** Dashboard refatorado de 3732 → 36 linhas
+- **Performance:** Cache de CSS e JS separados
+- **Manutenção:** Código organizado por responsabilidade
+- **SPA Mantida:** Navegação suave sem recarregar página
 
 ## 📁 Estrutura do Projeto
 
@@ -13,13 +23,24 @@ motoflash/
 │   ├── requirements.txt  # Dependências Python
 │   ├── routers/          # Rotas da API
 │   ├── services/         # Lógica de negócio
-│   └── uploads/          # Imagens (não commitado)
-├── frontend/
-│   ├── index.html        # Dashboard
-│   ├── motoboy.html      # App do Motoboy (PWA)
-│   └── icons/            # Ícones do PWA
-├── render.yaml           # Configuração do Render
-└── .gitignore
+│   ├── static/           # Frontend (Arquitetura Modular)
+│   │   ├── index.html    # Dashboard (36 linhas)
+│   │   ├── motoboy.html  # App PWA
+│   │   ├── css/
+│   │   │   └── dashboard.css
+│   │   └── js/
+│   │       ├── utils/helpers.js
+│   │       ├── components.js
+│   │       └── app.js
+│   └── uploads/          # Imagens
+├── docs/                 # Documentação completa
+│   ├── ARQUITETURA.md
+│   ├── ARQUITETURA_MODULAR.md ⭐ NOVO
+│   ├── API_ENDPOINTS.md
+│   ├── FLUXOS.md
+│   ├── FRONTEND_BACKEND.md
+│   └── FIREBASE.md
+└── RAILWAY_SETUP.md
 ```
 
 ## 🚀 Deploy no Render (Passo a Passo)

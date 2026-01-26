@@ -10,13 +10,13 @@ Este documento detalha **exatamente** como cada página do frontend se comunica 
 ## 📋 Índice
 
 1. [Estrutura Geral](#estrutura-geral)
-2. [Dashboard (index.html)](#dashboard-indexhtml)
+2. [Dashboard (index.html)](#dashboard-indexhtml) - **Arquitetura Modular** ⭐
 3. [App Motoboy (motoboy.html)](#app-motoboy-motoboyhtml)
 4. [Autenticação (auth.html)](#autenticação-authhtml)
-5. [Cardápio (cardapio.html)](#cardápio-cardapiohtml)
-6. [Clientes (clientes.html)](#clientes-clienteshtml)
-7. [Convites (convite.html)](#convites-convitehtml)
-8. [Padrões de Código](#padrões-de-código)
+5. [Convites (convite.html)](#convites-convitehtml)
+6. [Padrões de Código](#padrões-de-código)
+
+> **Nota:** As páginas `cardapio.html` e `clientes.html` foram **integradas ao dashboard** (index.html) como parte da arquitetura SPA modular. Veja [ARQUITETURA_MODULAR.md](./ARQUITETURA_MODULAR.md) para detalhes.
 
 ---
 
@@ -26,23 +26,35 @@ Este documento detalha **exatamente** como cada página do frontend se comunica 
 
 ```
 backend/
-├── static/               # Todos os arquivos frontend
-│   ├── index.html       # Dashboard principal
+├── static/               # Frontend (Arquitetura Modular)
+│   ├── index.html       # Dashboard principal (36 linhas - SPA)
 │   ├── motoboy.html     # App PWA motoboys
 │   ├── auth.html        # Login/Cadastro
-│   ├── cardapio.html    # Gestão cardápio
-│   ├── clientes.html    # Gestão clientes
 │   ├── convite.html     # Aceitar convite
-│   └── recuperar-senha.html
+│   ├── recuperar-senha.html
+│   │
+│   ├── css/
+│   │   └── dashboard.css # Estilos do dashboard
+│   │
+│   └── js/
+│       ├── utils/
+│       │   └── helpers.js  # Auth, config, API utils
+│       ├── components.js   # Todos componentes React
+│       └── app.js          # Componente App principal
 ```
 
 ### Tecnologia Frontend
 
-**Todas as páginas usam:**
+**Dashboard (index.html) - Arquitetura Modular:**
 - **React 18** (via CDN - desenvolvimento mode)
 - **Babel Standalone** (JSX compilado no browser)
 - **Tailwind CSS** (via CDN)
 - **Fetch API** (requisições HTTP)
+- **Código separado em módulos** (helpers, components, app)
+
+**Outras páginas:**
+- Mesma stack do dashboard (React 18 + Tailwind)
+- Estrutura monolítica (código inline)
 
 **Estrutura Padrão:**
 ```html
@@ -66,19 +78,85 @@ backend/
 
 ---
 
-## Dashboard (index.html)
+## Dashboard (index.html) - **ARQUITETURA MODULAR**
 
 ### Localização
 **URL:** `/` ou `/dashboard`
-**Arquivo:** `backend/static/index.html`
-**Tamanho:** ~186KB (React inline)
+**Arquivos:**
+```
+backend/static/
+├── index.html (36 linhas - estrutura base)
+├── css/dashboard.css (556 linhas)
+└── js/
+    ├── utils/helpers.js (43 linhas)
+    ├── components.js (2907 linhas)
+    └── app.js (192 linhas)
+```
 
 ### Responsabilidades
+- **SPA (Single Page Application)** com navegação interna
 - Visualizar pedidos em tempo real
 - Criar novos pedidos
 - Executar dispatch
 - Visualizar lotes e rotas
 - Gerenciar motoboys
+- **Gestão de cardápio** (página integrada)
+- **Gestão de clientes** (página integrada)
+
+### Arquitetura
+
+#### **index.html** (Estrutura Base - 36 linhas)
+```html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>MotoFlash - Dashboard</title>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+    <div class="background">
+        <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=2864" alt="Motoboy">
+    </div>
+
+    <div id="root"></div>
+
+    <!-- Application Scripts -->
+    <script type="text/babel" src="/static/js/utils/helpers.js"></script>
+    <script type="text/babel" src="/static/js/components.js"></script>
+    <script type="text/babel" src="/static/js/app.js"></script>
+</body>
+</html>
+```
+
+#### **helpers.js** (Utilitários - 43 linhas)
+- Configuração (API_URL)
+- Funções de autenticação (getToken, isLoggedIn, authFetch)
+- Verificação de login automática
+
+#### **components.js** (Componentes React - 2907 linhas)
+- Timer, StatusBadge, StatsPanel
+- AlertsPanel, NewOrderForm, OrdersList
+- CouriersPanel, ActiveBatches, DispatchControl
+- Sidebar, DashboardPage
+- **CardapioPage** (gestão de cardápio integrada)
+- **ClientesPage** (gestão de clientes integrada)
+- PlaceholderPage (páginas futuras)
+
+#### **app.js** (App Principal - 192 linhas)
+- Componente MotoFlashApp
+- Gerenciamento de estado (pedidos, motoboys, batches)
+- Navegação entre páginas
+- Polling de dados
+- ReactDOM.render
 
 ---
 
