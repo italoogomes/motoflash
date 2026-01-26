@@ -190,3 +190,10 @@ function MotoFlashApp() {
                 {/* Footer */}
                 <footer className="text-center py-6" style={{ color: 'rgba(255,255,255,0.25)' }}>
                     MotoFlash MVP v0.4 - Sistema de Despacho Inteligente
+                </footer>
+            </div>
+        </>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<MotoFlashApp />);

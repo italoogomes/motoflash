@@ -41,3 +41,4 @@ const authFetch = async (url, options = {}) => {
 // Verifica login ao carregar
 if (!isLoggedIn()) {
     window.location.href = '/login';
+}
