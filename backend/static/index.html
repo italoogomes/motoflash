@@ -1744,7 +1744,7 @@
                                             {courier.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <div className="text-white font-medium">{courier.name}</div>
+                                            <div className="text-white font-medium">{courier.name}{courier.last_name ? ` ${courier.last_name}` : ''}</div>
                                             {returning ? (
                                                 <span className="badge" style={{ background: 'rgba(255, 107, 0, 0.15)', color: '#ff8c42', border: '1px solid rgba(255, 107, 0, 0.25)' }}>Retornando</span>
                                             ) : (

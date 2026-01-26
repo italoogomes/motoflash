@@ -30,22 +30,23 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Mensagem em background recebida:', payload);
 
-    // Extrai dados da notificacao
-    const notificationTitle = payload.notification?.title || 'MotoFlash';
+    // Extrai dados da notificacao (tenta varios caminhos)
+    const notificationTitle = payload.notification?.title
+        || payload.data?.title
+        || 'Novo Lote de Entregas!';
+
+    const notificationBody = payload.notification?.body
+        || payload.data?.body
+        || 'Voce recebeu novas entregas. Abra o app para ver.';
+
     const notificationOptions = {
-        body: payload.notification?.body || 'Nova notificacao',
+        body: notificationBody,
         icon: '/icons/icon-192.png',
         badge: '/icons/icon-72.png',
         tag: payload.data?.type || 'motoflash-notification',
         vibrate: [200, 100, 200, 100, 200],
         data: payload.data || {},
-        requireInteraction: true, // Mantem a notificacao visivel ate o usuario interagir
-        actions: [
-            {
-                action: 'open',
-                title: 'Abrir App'
-            }
-        ]
+        requireInteraction: true
     };
 
     // Mostra a notificacao

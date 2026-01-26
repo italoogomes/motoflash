@@ -7,12 +7,24 @@ Rotas de Clientes
 """
 from datetime import datetime
 from typing import List
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
 from models import Customer, CustomerCreate, CustomerUpdate, CustomerResponse, User
 from services.auth_service import get_current_user
+
+
+def normalize_text(text: str) -> str:
+    """Remove acentos e converte para minúsculas para busca"""
+    if not text:
+        return ""
+    # NFD decompõe caracteres acentuados (é -> e + acento)
+    # Filtra apenas caracteres que não são "combining marks" (acentos)
+    normalized = unicodedata.normalize('NFD', text)
+    without_accents = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    return without_accents.lower()
 
 router = APIRouter(prefix="/customers", tags=["Clientes"])
 
@@ -84,23 +96,26 @@ def list_customers(
 ):
     """
     Lista clientes do restaurante do usuário logado
-    
+
     🔒 Filtra automaticamente pelo restaurant_id
+    🔍 Busca ignora acentos e maiúsculas/minúsculas
     """
-    
+
     # 🔒 Filtra por restaurante
     query = select(Customer).where(
         Customer.restaurant_id == current_user.restaurant_id
     ).order_by(Customer.name)
-    
-    if search:
-        search_term = f"%{search}%"
-        query = query.where(
-            (Customer.name.ilike(search_term)) | 
-            (Customer.phone.ilike(search_term))
-        )
-    
+
     customers = session.exec(query).all()
+
+    # 🔍 Filtra por nome/telefone (ignora acentos e case)
+    if search:
+        search_normalized = normalize_text(search)
+        customers = [
+            c for c in customers
+            if search_normalized in normalize_text(c.name or '')
+            or search in (c.phone or '')  # Telefone: busca exata
+        ]
     
     return [
         CustomerResponse(

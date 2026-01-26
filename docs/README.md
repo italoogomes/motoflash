@@ -78,6 +78,21 @@ Bem-vindo à documentação completa do MotoFlash! Esta pasta contém toda a doc
 
 ---
 
+### 5. [FIREBASE.md](./FIREBASE.md)
+**O que é:** Push Notifications com Firebase Cloud Messaging
+
+**Você vai encontrar:**
+- Configuração do Firebase Admin SDK
+- Variáveis de ambiente necessárias
+- Fluxo de registro de token
+- Fluxo de envio de notificação
+- Compatibilidade (Android/iOS)
+- Troubleshooting
+
+**Leia quando:** Precisar configurar ou debugar push notifications.
+
+---
+
 ## 🎯 Guia Rápido - Por Tarefa
 
 ### Quero adicionar um novo endpoint
@@ -187,7 +202,7 @@ function ComponentName() {
 ## 🚀 Roadmap
 
 Ver issues no GitHub para features planejadas:
-- [ ] Firebase Push Notifications
+- [x] Firebase Push Notifications (implementado!)
 - [ ] Sistema de métricas e analytics
 - [ ] Alertas automáticos
 - [ ] Testes automatizados

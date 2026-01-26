@@ -1462,7 +1462,7 @@
                                 <Logo size={40} />
                                 <div>
                                     <h1 className="font-bold text-lg">MotoFlash</h1>
-                                    <p className="text-orange-100 text-sm">{courier.name}</p>
+                                    <p className="text-orange-100 text-sm">{courier.name}{courier.last_name ? ` ${courier.last_name}` : ''}</p>
                                 </div>
                             </div>
                             <button onClick={onLogout} className="bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded-lg text-sm">
