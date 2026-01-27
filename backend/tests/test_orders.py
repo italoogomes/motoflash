@@ -124,11 +124,12 @@ def test_isolamento_multi_tenant(
     Testa que um restaurante não vê pedidos de outro restaurante
     """
     from models import Restaurant, User, Order, OrderStatus, PrepType
-    from services.auth_service import get_password_hash
+    from services.auth_service import hash_password
 
     # Cria outro restaurante
     restaurant2 = Restaurant(
         name="Outro Restaurante",
+        slug="outro-restaurante",
         cnpj="99999999999999",
         email="outro@restaurante.com",
         phone="11988888888",
@@ -142,8 +143,8 @@ def test_isolamento_multi_tenant(
     # Cria usuário do outro restaurante
     user2 = User(
         email="admin@outro.com",
-        hashed_password=get_password_hash("senha123"),
-        full_name="Admin Outro",
+        password_hash=hash_password("senha123"),
+        name="Admin Outro",
         role="OWNER",
         restaurant_id=restaurant2.id
     )
@@ -215,6 +216,7 @@ def test_buscar_pedido_outro_restaurante(
     # Cria outro restaurante
     restaurant2 = Restaurant(
         name="Restaurante 2",
+        slug="restaurante-2",
         cnpj="88888888888888",
         email="r2@teste.com",
         phone="11977777777",

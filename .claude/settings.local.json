@@ -7,7 +7,13 @@
       "Read(//c/Users/italo.gomes/OneDrive - MMarra Distribuidora Automotiva/Documentos/motoflash/**)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(pytest:*)",
+      "Bash(pip install:*)",
+      "Bash(for file in test_*.py)",
+      "Bash(done)",
+      "Bash(start htmlcov/index.html)",
+      "Bash(grep:*)"
     ]
   }
 }

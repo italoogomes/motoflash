@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run tests
+      env:
+        TESTING: true
+        GOOGLE_MAPS_API_KEY: test_key
+        FIREBASE_PRIVATE_KEY_ID: test_key_id
+        FIREBASE_PRIVATE_KEY: test_private_key
+        FIREBASE_CLIENT_EMAIL: test@test.com
+        FIREBASE_PROJECT_ID: test_project
+      run: |
+        cd backend
+        pytest -v --tb=short
+
+    - name: Test Summary
+      if: always()
+      run: |
+        cd backend
+        pytest --tb=line --no-header -q

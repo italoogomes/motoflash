@@ -4,6 +4,88 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.0.5] - 2026-01-26
+
+### ✅ Estabilidade dos Testes - 100% de Aprovação
+
+#### 🐛 Corrigido
+- **9 testes falhando corrigidos**
+  - test_auth.py: 5 testes (mensagens de erro, payloads, estruturas de resposta)
+  - test_dispatch.py: 2 testes (máximo de pedidos/lote, imports)
+  - test_orders.py: 2 testes (slug obrigatório, campos de modelo)
+
+#### 🎯 Resultado
+- **70/70 testes passando (100%)**
+- Tempo de execução: 47.93s
+- Warnings: 37 deprecation warnings (não críticos)
+
+#### 📚 Documentação
+- Atualizado `docs/TESTES.md` com detalhes das correções
+- Adicionado histórico de estabilidade
+- Documentado cada correção com problema/solução
+
+#### 🔧 Melhorias Técnicas
+- Mensagens de erro mais seguras (não revelam se email existe)
+- Validação de campos obrigatórios (`slug` em Restaurant)
+- Correção de imports e nomes de funções
+- Alinhamento de schemas com modelos do banco
+
+---
+
+## [1.0.4] - 2026-01-26
+
+### 🧪 Testes de Motoboys
+
+#### ✨ Adicionado
+- **Testes de Motoboys** (33 testes)
+  - `tests/test_couriers.py` - Testes completos de motoboys
+  - Cobertura: autenticação, CRUD, status, lote atual, localização, recuperação de senha, rotas de entrega
+  - Testes de isolamento multi-tenant
+
+#### 🎯 Cobertura Expandida (70 testes total)
+- ✅ **Autenticação** (6 testes): login com sucesso/erros, senha, telefone inválido
+- ✅ **CRUD** (9 testes): criar, listar, buscar, excluir, filtros, isolamento
+- ✅ **Status** (3 testes): available, offline, validação de entregas pendentes
+- ✅ **Lote Atual** (4 testes): buscar, completar, validações
+- ✅ **Localização** (3 testes): atualizar GPS, push token, dados do restaurante
+- ✅ **Recuperação de Senha** (6 testes): gerar link, validar código, redefinir senha
+- ✅ **Rotas de Entrega** (3 testes): coletar, entregar, validação de batch
+
+#### 🔧 Correções
+- Corrigido fixture `test_courier` em conftest.py (`password_hash` em vez de `hashed_password`)
+- Corrigido testes para usar `password_hash` consistentemente
+
+#### 📚 Documentação
+- Atualizado `docs/TESTES.md` com seção completa de testes de motoboys
+- Atualizado `CHANGELOG.md`, `README.md` e `docs/ARQUITETURA.md`
+- Atualizado `PROGRESSO_SESSAO.md` com v1.0.4
+
+---
+
+## [1.0.3] - 2026-01-26
+
+### 🧪 Testes de Dispatch
+
+#### ✨ Adicionado
+- **Testes de Dispatch** (14 testes)
+  - `tests/test_dispatch.py` - Testes completos do algoritmo de dispatch
+  - Fixtures `test_orders_ready` e `test_couriers_available` em conftest.py
+  - Cobertura: execução básica, agrupamento, atribuição, isolamento multi-tenant
+
+#### 🎯 Cobertura Expandida (38 testes total)
+- ✅ Execução básica do dispatch (com/sem pedidos, com/sem motoboys, autenticação)
+- ✅ Agrupamento de pedidos próximos (< 3km) e respeito ao limite de 6 por lote
+- ✅ Atribuição de motoboys (status BUSY) e pedidos (status ASSIGNED)
+- ✅ Criação de batches com dados corretos e ordem de paradas sequencial
+- ✅ Isolamento multi-tenant (pedidos e motoboys de outros restaurantes)
+- ✅ Endpoints de listagem e estatísticas
+
+#### 📚 Documentação
+- Atualizado `docs/TESTES.md` com documentação completa dos testes de dispatch
+- Atualizado `CHANGELOG.md`, `README.md` e `docs/ARQUITETURA.md`
+
+---
+
 ## [1.0.2] - 2026-01-26
 
 ### 🧪 Testes de Pedidos

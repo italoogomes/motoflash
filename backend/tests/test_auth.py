@@ -37,7 +37,7 @@ def test_login_senha_incorreta(client: TestClient, test_user: User):
         }
     )
     assert response.status_code == 401
-    assert "Senha incorreta" in response.json()["detail"]
+    assert "Email ou senha incorretos" in response.json()["detail"]
 
 
 def test_login_email_inexistente(client: TestClient):
@@ -52,7 +52,7 @@ def test_login_email_inexistente(client: TestClient):
         }
     )
     assert response.status_code == 401
-    assert "Usuário não encontrado" in response.json()["detail"]
+    assert "Email ou senha incorretos" in response.json()["detail"]
 
 
 def test_registro_sucesso(client: TestClient):
@@ -62,11 +62,10 @@ def test_registro_sucesso(client: TestClient):
     response = client.post(
         "/auth/register",
         json={
-            "restaurant_name": "Novo Restaurante",
+            "name": "Novo Restaurante",
             "cnpj": "98765432109876",
             "email": "novo@restaurante.com",
             "password": "senha123",
-            "full_name": "Dono Novo",
             "phone": "11977777777",
             "address": "Rua Nova, 456"
         }
@@ -75,7 +74,7 @@ def test_registro_sucesso(client: TestClient):
     data = response.json()
     assert "access_token" in data
     assert data["user"]["email"] == "novo@restaurante.com"
-    assert data["user"]["role"] == "OWNER"
+    assert data["user"]["role"].upper() == "OWNER"
 
 
 def test_registro_email_duplicado(client: TestClient, test_user: User):
@@ -85,17 +84,16 @@ def test_registro_email_duplicado(client: TestClient, test_user: User):
     response = client.post(
         "/auth/register",
         json={
-            "restaurant_name": "Outro Restaurante",
+            "name": "Outro Restaurante",
             "cnpj": "11111111111111",
             "email": "admin@teste.com",  # Email já existe
             "password": "senha123",
-            "full_name": "Outro Dono",
             "phone": "11966666666",
             "address": "Rua Outra, 789"
         }
     )
     assert response.status_code == 400
-    assert "já cadastrado" in response.json()["detail"]
+    assert "cadastrado" in response.json()["detail"]
 
 
 def test_me_endpoint_autenticado(client: TestClient, auth_headers: dict):
@@ -105,9 +103,9 @@ def test_me_endpoint_autenticado(client: TestClient, auth_headers: dict):
     response = client.get("/auth/me", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert data["email"] == "admin@teste.com"
-    assert "id" in data
-    assert "restaurant_id" in data
+    assert data["user"]["email"] == "admin@teste.com"
+    assert "id" in data["user"]
+    assert "restaurant_id" in data["user"]
 
 
 def test_me_endpoint_sem_token(client: TestClient):

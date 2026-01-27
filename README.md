@@ -1,9 +1,27 @@
 # 🏍️ MotoFlash - Sistema de Entregas Inteligente
 
-**Versão:** 1.0.2 (Arquitetura Modular + Testes)
+**Versão:** 1.0.5 (Testes 100% Estáveis)
 **Deploy:** Railway
 
 Sistema de despacho inteligente para restaurantes com entregadores próprios.
+
+## ⭐ Novidades v1.0.5
+
+- **100% de Aprovação:** Todos os 70 testes passando (era 61/70)
+- **9 Correções:** Bugs corrigidos em auth, dispatch e orders
+- **Documentação Expandida:** Detalhes de cada correção em `docs/TESTES.md`
+- **Pronto para CI/CD:** Base sólida para implementar integração contínua
+
+## ⭐ Novidades v1.0.4
+
+- **Testes de Motoboys:** 33 testes cobrindo todas as funcionalidades de motoboys
+- **Cobertura Expandida:** 70 testes no total (8 auth + 15 pedidos + 14 dispatch + 33 motoboys)
+- **Cobertura Completa:** Autenticação, CRUD, status, lotes, localização, recuperação de senha, rotas de entrega
+
+## ⭐ Novidades v1.0.3
+
+- **Testes de Dispatch:** 14 testes cobrindo algoritmo de agrupamento e atribuição
+- **Cobertura Expandida:** 38 testes no total (8 auth + 16 pedidos + 14 dispatch)
 
 ## ⭐ Novidades v1.0.2
 

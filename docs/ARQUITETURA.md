@@ -360,7 +360,7 @@ Quando necessário:
 
 ## 🧪 Testes
 
-**Status:** ✅ Implementado (v1.0.2)
+**Status:** ✅ Implementado (v1.0.4)
 
 ### Framework
 - **pytest** (7.4+)
@@ -368,11 +368,12 @@ Quando necessário:
 - **FastAPI TestClient** (testes de API)
 - **SQLite em memória** (banco isolado)
 
-### Cobertura Atual (24 testes)
+### Cobertura Atual (70 testes)
 - ✅ **Autenticação**: 8 testes (login, registro, /me)
-- ✅ **Pedidos**: 16 testes (criar, listar, QR Code, status)
-- 🔄 **Dispatch**: Planejado
-- 🔄 **Motoboys**: Planejado
+- ✅ **Pedidos**: 15 testes (criar, listar, QR Code, status)
+- ✅ **Dispatch**: 14 testes (agrupamento, atribuição, isolamento)
+- ✅ **Motoboys**: 33 testes (autenticação, CRUD, status, lotes, recuperação de senha)
+- 🔄 **Cardápio**: Planejado
 
 ### Executar Testes
 ```bash
@@ -402,7 +403,9 @@ Ver: [RAILWAY_SETUP.md](../RAILWAY_SETUP.md)
 
 | Versão | Data | Mudanças |
 |--------|------|----------|
-| 1.0.2 | 2026-01-26 | **Testes de Pedidos** (16 testes + 24 total) |
+| 1.0.4 | 2026-01-26 | **Testes de Motoboys** (33 testes + 70 total) |
+| 1.0.3 | 2026-01-26 | **Testes de Dispatch** (14 testes + 38 total) |
+| 1.0.2 | 2026-01-26 | **Testes de Pedidos** (15 testes + 24 total) |
 | 1.0.1 | 2026-01-26 | **Testes Automatizados** (pytest + 8 testes de autenticação) |
 | 1.0.0 | 2026-01-26 | **Arquitetura Modular Frontend** (index.html: 3732→36 linhas) |
 | 0.9.0 | 2026-01 | Polyline de rotas + Segurança |

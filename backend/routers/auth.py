@@ -7,7 +7,9 @@ Endpoints para:
 - Verificar token
 - Dados do usuário logado
 """
+import os
 from datetime import datetime
+from functools import wraps
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import Session, select
 from slowapi import Limiter
@@ -28,14 +30,22 @@ from services.geocoding_service import geocode_address_detailed
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
-# Rate Limiter
+# Rate Limiter (desabilitado em modo de teste)
 limiter = Limiter(key_func=get_remote_address)
+
+def conditional_rate_limit(limit_string):
+    """Aplica rate limit apenas se não estiver em modo de teste"""
+    def decorator(func):
+        if os.getenv("TESTING") == "true":
+            return func  # Sem rate limit em testes
+        return limiter.limit(limit_string)(func)
+    return decorator
 
 
 # ============ CADASTRO ============
 
 @router.post("/register", response_model=LoginResponse)
-@limiter.limit("5/minute")  # Máximo 5 cadastros por minuto
+@conditional_rate_limit("5/minute")  # Máximo 5 cadastros por minuto
 def register_restaurant(
     request: Request,
     data: RestaurantCreate,
@@ -161,7 +171,7 @@ def register_restaurant(
 # ============ LOGIN ============
 
 @router.post("/login", response_model=LoginResponse)
-@limiter.limit("10/minute")  # Máximo 10 tentativas de login por minuto
+@conditional_rate_limit("10/minute")  # Máximo 10 tentativas de login por minuto
 def login(
     request: Request,
     data: LoginRequest,

@@ -1,6 +1,7 @@
 """
 Rotas de Motoqueiros (Couriers)
 """
+import os
 import secrets
 import string
 from datetime import datetime
@@ -22,14 +23,22 @@ from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/couriers", tags=["Motoqueiros"])
 
-# Rate Limiter
+# Rate Limiter (desabilitado em modo de teste)
 limiter = Limiter(key_func=get_remote_address)
+
+def conditional_rate_limit(limit_string):
+    """Aplica rate limit apenas se não estiver em modo de teste"""
+    def decorator(func):
+        if os.getenv("TESTING") == "true":
+            return func  # Sem rate limit em testes
+        return limiter.limit(limit_string)(func)
+    return decorator
 
 
 # ============ AUTENTICAÇÃO DO MOTOBOY ============
 
 @router.post("/login", response_model=CourierLoginResponse)
-@limiter.limit("10/minute")  # Máximo 10 tentativas de login por minuto
+@conditional_rate_limit("10/minute")  # Máximo 10 tentativas de login por minuto
 def courier_login(
     request: Request,
     data: CourierLoginRequest,
