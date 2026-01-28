@@ -233,14 +233,14 @@ def calcular_previsao_motoboys(
     
     # ===== LÓGICA DE RECOMENDAÇÃO =====
     
-    # Se não tem pedidos na fila
+    # Se não tem pedidos na fila = sem dados para recomendação
     if pedidos_fila == 0:
         return {
-            "motoboys_recomendados": total_ativos if total_ativos > 0 else None,
+            "motoboys_recomendados": None,  # None = sem dados para recomendação (aparece como "-")
             "motoboys_atuais": total_ativos,
             "motoboys_disponiveis": disponiveis,
             "status": "adequado",
-            "mensagem": "Nenhum pedido aguardando. Tudo OK!",
+            "mensagem": "Operação normal",
             "tempo_medio_preparo": round(tempo_preparo, 1) if tempo_preparo else None,
             "tempo_medio_rota": round(tempo_rota, 1) if tempo_rota else None,
             "pedidos_por_hora": pedidos_hora,

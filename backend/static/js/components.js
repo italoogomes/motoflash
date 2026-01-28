@@ -106,11 +106,11 @@ const AlertsPanel = ({ alerts, recommendation }) => {
                 {recommendation && (
                     <div className="flex items-center gap-2 text-sm">
                         <span style={{ color: 'rgba(255,255,255,0.5)' }}>Motoboys recomendados:</span>
-                        <span 
+                        <span
                             className="px-3 py-1 rounded-full font-bold text-white"
-                            style={{ background: statusBgColors[alerts.status_geral] || '#60a5fa' }}
+                            style={{ background: recommendation.motoboys_recomendados != null ? (statusBgColors[alerts.status_geral] || '#60a5fa') : 'rgba(255,255,255,0.2)' }}
                         >
-                            {recommendation.motoboys_recomendados}
+                            {recommendation.motoboys_recomendados != null ? recommendation.motoboys_recomendados : '-'}
                         </span>
                     </div>
                 )}
