@@ -142,7 +142,9 @@ def test_order_fixture(session: Session, test_restaurant: Restaurant):
         lng=-46.633308,
         prep_type=PrepType.SHORT,
         status=OrderStatus.CREATED,
-        restaurant_id=test_restaurant.id
+        restaurant_id=test_restaurant.id,
+        short_id=1001,
+        tracking_code="MF-TESTFIX"
     )
     session.add(order)
     session.commit()
@@ -173,7 +175,9 @@ def test_orders_ready_fixture(session: Session, test_restaurant: Restaurant):
             prep_type=PrepType.SHORT,
             status=OrderStatus.READY,
             ready_at=datetime.now(),
-            restaurant_id=test_restaurant.id
+            restaurant_id=test_restaurant.id,
+            short_id=1001,
+            tracking_code="MF-TEST01"
         ),
         Order(
             customer_name="Cliente 2",
@@ -183,7 +187,9 @@ def test_orders_ready_fixture(session: Session, test_restaurant: Restaurant):
             prep_type=PrepType.SHORT,
             status=OrderStatus.READY,
             ready_at=datetime.now(),
-            restaurant_id=test_restaurant.id
+            restaurant_id=test_restaurant.id,
+            short_id=1002,
+            tracking_code="MF-TEST02"
         ),
         # Grupo 2: Próximos (Jardins região)
         Order(
@@ -194,7 +200,9 @@ def test_orders_ready_fixture(session: Session, test_restaurant: Restaurant):
             prep_type=PrepType.SHORT,
             status=OrderStatus.READY,
             ready_at=datetime.now(),
-            restaurant_id=test_restaurant.id
+            restaurant_id=test_restaurant.id,
+            short_id=1003,
+            tracking_code="MF-TEST03"
         ),
         Order(
             customer_name="Cliente 4",
@@ -204,7 +212,9 @@ def test_orders_ready_fixture(session: Session, test_restaurant: Restaurant):
             prep_type=PrepType.SHORT,
             status=OrderStatus.READY,
             ready_at=datetime.now(),
-            restaurant_id=test_restaurant.id
+            restaurant_id=test_restaurant.id,
+            short_id=1004,
+            tracking_code="MF-TEST04"
         ),
         # Pedido distante (Zona Leste)
         Order(
@@ -215,7 +225,9 @@ def test_orders_ready_fixture(session: Session, test_restaurant: Restaurant):
             prep_type=PrepType.SHORT,
             status=OrderStatus.READY,
             ready_at=datetime.now(),
-            restaurant_id=test_restaurant.id
+            restaurant_id=test_restaurant.id,
+            short_id=1005,
+            tracking_code="MF-TEST05"
         ),
     ]
 

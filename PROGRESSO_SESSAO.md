@@ -1,7 +1,7 @@
 # 📋 Progresso da Sessão - MotoFlash
 
 **Data:** 2026-01-28
-**Versão Atual:** 1.1.0 ✅ ESTÁVEL (100% dos testes passando - 85 testes)
+**Versão Atual:** 1.2.0 ✅ ESTÁVEL (100% dos testes passando - 92 testes)
 
 ---
 
@@ -221,6 +221,144 @@ O campo "Motoboys recomendados" no dashboard estava simplesmente copiando o núm
 - **85/85 testes passando** (100%)
 - Dashboard agora mostra "-" quando não há dados para recomendação
 
+### 9️⃣ IDs Amigáveis para Pedidos (v1.2.0) ⭐ SESSÃO ATUAL
+
+#### 🏷️ Funcionalidades Implementadas
+
+Sistema de identificação amigável para pedidos com dois novos campos:
+
+**1. short_id - Número sequencial por restaurante**
+- Formato: #1001, #1002, #1003, ...
+- Independente por restaurante (cada restaurante começa em #1001)
+- Facilita comunicação: "Oi Maria, seu pedido é o #1234"
+- Exibido em destaque nos cards do dashboard
+
+**2. tracking_code - Código único de rastreio**
+- Formato: MF-ABC123 (6 caracteres alfanuméricos)
+- Único globalmente no sistema
+- Permite rastreamento público sem autenticação
+- Cliente pode acompanhar status do pedido
+
+#### ✅ Arquivos Criados/Modificados
+
+**Backend:**
+1. **`backend/models.py`**
+   - Adicionado campos `short_id` e `tracking_code` ao modelo `Order`
+   - Criado schema `OrderTrackingResponse` para rastreio público
+   - Atualizado `OrderResponse` com novos campos
+
+2. **`backend/services/order_service.py`** ⭐ NOVO
+   - `generate_short_id(restaurant_id, session)` - Gera short_id sequencial
+   - `ensure_unique_tracking_code(session)` - Gera tracking_code único com retry
+
+3. **`backend/routers/orders.py`**
+   - Atualizado `create_order` para gerar IDs automaticamente
+   - Adicionado endpoint `GET /orders/track/{tracking_code}` (público)
+
+4. **`backend/routers/dispatch.py`**
+   - Atualizado `list_active_batches` para incluir novos campos
+
+5. **`backend/routers/couriers.py`**
+   - Atualizado `get_current_batch` para incluir novos campos
+
+**Frontend:**
+6. **`backend/static/js/components.js`**
+   - OrderCard exibe badge com #short_id em destaque
+   - Mostra código de rastreio abaixo do endereço
+   - Mensagem de sucesso inclui IDs após criar pedido
+
+**Testes:**
+7. **`backend/tests/test_orders.py`**
+   - Adicionados 7 novos testes para short_id e tracking_code
+   - Total: 22 testes de pedidos (todos passando)
+
+8. **`backend/tests/conftest.py`** + outros
+   - Fixtures atualizadas com campos obrigatórios
+   - Todos os pedidos criados manualmente incluem os novos campos
+
+#### 🌐 Endpoint Público de Rastreio
+
+```http
+GET /orders/track/{tracking_code}
+```
+
+**Exemplo:**
+```bash
+curl https://api.motoflash.com/orders/track/MF-A3B7K9
+```
+
+**Resposta:**
+```json
+{
+  "short_id": 1234,
+  "tracking_code": "MF-A3B7K9",
+  "status": "assigned",
+  "created_at": "2026-01-28T14:30:00",
+  "ready_at": "2026-01-28T14:45:00",
+  "delivered_at": null,
+  "customer_name": "Maria Silva",
+  "address_text": "Rua das Flores, 123 - Apto 45"
+}
+```
+
+**Características:**
+- ✅ Não requer autenticação (público)
+- ✅ Retorna apenas informações básicas (sem dados sensíveis)
+- ✅ Código inválido retorna 404 com mensagem amigável
+
+#### 💻 Interface do Dashboard
+
+**Antes:**
+```
+┌──────────────────────────────┐
+│ Maria Silva                  │
+│ Rua das Flores, 123          │
+└──────────────────────────────┘
+```
+
+**Depois:**
+```
+┌──────────────────────────────┐
+│ #1234 Maria Silva            │
+│ Rua das Flores, 123          │
+│ Rastreio: MF-A3B7K9          │
+└──────────────────────────────┘
+```
+
+#### 🧪 Testes Implementados (7 novos)
+
+1. **test_pedido_criado_com_short_id**
+   - Verifica que pedido tem short_id ≥ 1001
+
+2. **test_pedido_criado_com_tracking_code**
+   - Verifica formato "MF-XXXXXX" (9 caracteres)
+
+3. **test_short_id_sequencial_por_restaurante**
+   - Verifica incremento sequencial (1001 → 1002 → 1003)
+
+4. **test_tracking_code_unico**
+   - Verifica que códigos são diferentes
+
+5. **test_endpoint_rastreio_publico**
+   - Testa acesso sem autenticação
+   - Verifica estrutura da resposta
+
+6. **test_endpoint_rastreio_codigo_invalido**
+   - Testa 404 para código inexistente
+
+7. **test_short_id_independente_por_restaurante**
+   - Verifica que restaurantes têm numeração independente
+
+#### 📊 Resultado
+
+**Testes:**
+- ✅ **92/92 testes passando (100%)**
+- 7 novos testes adicionados
+- Todos os testes antigos continuam passando
+
+**Antes:** 85 testes
+**Depois:** 92 testes (+7)
+
 ---
 
 ## 🎯 TAREFAS PLANEJADAS (PRÓXIMAS SESSÕES)
@@ -314,17 +452,17 @@ O campo "Motoboys recomendados" no dashboard estava simplesmente copiando o núm
 
 ```
 ✅ Autenticação:   8/8   testes (100%) ✓
-✅ Pedidos:       15/15  testes (100%) ✓
+✅ Pedidos:       22/22  testes (100%) ✓ ⭐ +7 NOVOS (short_id + tracking_code)
 ✅ Dispatch:      14/14  testes (100%) ✓
 ✅ Motoboys:      33/33  testes (100%) ✓
-✅ Previsão:      15/15  testes (100%) ✓ ⭐ NOVO
+✅ Previsão:      15/15  testes (100%) ✓
 🔄 Cardápio:       0     testes (opcional)
 ==========================================
-   TOTAL:         85/85 testes (100%) ⭐
+   TOTAL:         92/92 testes (100%) ⭐
 ```
 
-**Tempo de execução:** ~52s
-**Warnings:** 51 deprecation warnings (não críticos)
+**Tempo de execução:** ~56s
+**Warnings:** 57 deprecation warnings (não críticos)
 
 ---
 
@@ -525,11 +663,11 @@ FASE 2: Estabilização
 
 FASE 3: Funcionalidades Inteligentes
 ├── ✅ v1.1.0: Sistema de Previsão Híbrida (85/85 passando)
-└── ✅ v1.1.1: Correção bug "Motoboys Recomendados" ⭐ ATUAL
+└── ✅ v1.1.1: Correção bug "Motoboys Recomendados"
 
-FASE 4: Melhorias de UI/UX (Planejado)
-├── 🔄 Melhorias no Pedido (ID curto, rastreio)
-├── 🔄 Sistema de Rastreamento para Atendente
+FASE 4: Melhorias de UI/UX
+├── ✅ v1.2.0: IDs Amigáveis para Pedidos (92/92 passando) ⭐ ATUAL
+├── 🔄 Sistema de Rastreamento para Atendente (próximo)
 ├── 🔄 Redesign Aba de Pedidos
 ├── 🔄 Redesign Aba de Motoqueiros
 └── 🔄 Nova Aba de Relatórios
@@ -600,24 +738,26 @@ Sistema SaaS multi-tenant de gerenciamento de entregas para restaurantes com fro
 Olá! Você está continuando o trabalho no MotoFlash.
 
 **Situação atual:**
-- ✅ 85/85 testes implementados e passando (100%)
+- ✅ 92/92 testes implementados e passando (100%)
 - ✅ CI/CD implementado com GitHub Actions
 - ✅ Sistema de Previsão Híbrida implementado (v1.1.0)
 - ✅ Bug "Motoboys Recomendados" corrigido (v1.1.1)
+- ✅ IDs Amigáveis para Pedidos implementado (v1.2.0)
 - ✅ Documentação completa e atualizada
 
-**Contexto da última sessão (v1.1.1):**
-- Corrigimos bug onde "Motoboys recomendados" apenas copiava o número de ativos
-- Agora mostra "-" quando não há dados suficientes para recomendação
-- Arquivos alterados: alerts_service.py, prediction_service.py, models.py, components.js
+**Contexto da última sessão (v1.2.0):**
+- Implementado sistema de IDs amigáveis para pedidos
+- **short_id**: Número sequencial por restaurante (#1001, #1002, ...)
+- **tracking_code**: Código único de rastreio (MF-ABC123)
+- Endpoint público de rastreio: `GET /orders/track/{tracking_code}`
+- Frontend atualizado com badges e códigos visíveis
+- 7 novos testes adicionados (92 total)
+- Arquivos criados: order_service.py
+- Arquivos modificados: models.py, orders.py, dispatch.py, couriers.py, components.js
 
 **TAREFAS PLANEJADAS (pergunte ao usuário qual quer fazer):**
 
-1. **Melhorias no Pedido**
-   - Adicionar ID curto (#1234)
-   - Código de rastreio
-
-2. **Sistema de Rastreamento para Atendente** ⭐ PRIORIDADE
+1. **Sistema de Rastreamento para Atendente** ⭐ PRIORIDADE MÁXIMA
    - **Cenário:** Cliente liga perguntando do pedido
    - **Busca:** Por nome, telefone ou ID do pedido
    - **Card:** Mostra status, motoboy, posição na fila (2º de 3)
@@ -635,7 +775,7 @@ Olá! Você está continuando o trabalho no MotoFlash.
    - Visão geral, performance, gráficos
 
 **Importante:**
-- Todos os 85 testes DEVEM passar sempre (100%)
+- Todos os 92 testes DEVEM passar sempre (100%)
 - Sempre documente mudanças em CHANGELOG.md
 - Sempre atualize este arquivo (PROGRESSO_SESSAO.md)
 - Teste isolamento multi-tenant em novos features
@@ -645,5 +785,6 @@ Boa sorte! 🚀
 ---
 
 **Última atualização:** 2026-01-28
-**Próxima sessão:** Escolher uma das tarefas planejadas acima
-**Status:** ✅ ESTÁVEL - 85/85 testes passando - Bug corrigido
+**Próxima tarefa:** Sistema de Rastreamento para Atendente (tarefa #1 - prioridade máxima)
+**Próxima sessão:** Implementar busca de pedidos e visualização de rota para atendentes
+**Status:** ✅ ESTÁVEL - 92/92 testes passando - IDs amigáveis implementados

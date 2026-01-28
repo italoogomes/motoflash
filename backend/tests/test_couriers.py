@@ -466,7 +466,9 @@ def test_buscar_lote_atual_com_lote(
         prep_type=PrepType.SHORT,
         status=OrderStatus.ASSIGNED,
         restaurant_id=test_restaurant.id,
-        batch_id=batch.id
+        batch_id=batch.id,
+        short_id=1001,
+        tracking_code="MF-TEST01"
     )
     session.add(order)
     session.commit()

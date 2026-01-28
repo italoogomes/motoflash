@@ -72,6 +72,8 @@ def list_active_batches(
             orders=[
                 {
                     "id": o.id,
+                    "short_id": o.short_id,
+                    "tracking_code": o.tracking_code,
                     "customer_name": o.customer_name,
                     "address_text": o.address_text,
                     "lat": o.lat,

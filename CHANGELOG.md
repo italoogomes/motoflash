@@ -4,6 +4,54 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.2.0] - 2026-01-28
+
+### 🏷️ IDs Amigáveis para Pedidos
+
+#### ✨ Adicionado
+- **short_id** - Número sequencial por restaurante (#1001, #1002, ...)
+  - Facilita comunicação com clientes
+  - Exibido em destaque nos cards do dashboard
+  - Sequencial e independente por restaurante
+
+- **tracking_code** - Código único de rastreio (MF-ABC123)
+  - Formato: "MF-" + 6 caracteres alfanuméricos
+  - Único globalmente no sistema
+  - Permite rastreamento público sem autenticação
+
+- **Endpoint Público de Rastreio**
+  - `GET /orders/track/{tracking_code}` - Rastreio sem autenticação
+  - Retorna informações básicas do pedido (status, timestamps, cliente)
+  - Ideal para compartilhar com clientes
+
+#### 🛠️ Modificado
+- `Order` model - Adicionados campos `short_id` e `tracking_code`
+- `OrderResponse` schema - Inclui novos campos na API
+- `OrderTrackingResponse` schema - Novo schema para rastreio público
+- Frontend - Cards exibem #short_id e código de rastreio
+- Mensagem de sucesso - Mostra IDs após criar pedido
+
+#### 📦 Novos Arquivos
+- `backend/services/order_service.py` - Funções helper para gerar IDs
+  - `generate_short_id(restaurant_id, session)` - Gera short_id sequencial
+  - `ensure_unique_tracking_code(session)` - Gera tracking_code único
+
+#### 🧪 Testes
+- **7 novos testes** adicionados (92 total)
+  - Pedido criado com short_id
+  - Pedido criado com tracking_code
+  - Short_id sequencial por restaurante
+  - Tracking_code único
+  - Endpoint de rastreio público
+  - Endpoint de rastreio com código inválido
+  - Short_id independente por restaurante
+
+#### 📚 Documentação
+- Atualizado `CHANGELOG.md` com v1.2.0
+- Atualizado `PROGRESSO_SESSAO.md` com implementação completa
+
+---
+
 ## [1.1.0] - 2026-01-28
 
 ### 🔮 Sistema de Previsão Híbrida de Motoboys

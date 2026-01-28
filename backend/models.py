@@ -215,12 +215,16 @@ class MenuItem(SQLModel, table=True):
 class Order(SQLModel, table=True):
     """Pedido do restaurante"""
     __tablename__ = "orders"
-    
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    
+
     # NOVO: Vínculo com restaurante
     restaurant_id: Optional[str] = Field(default=None, foreign_key="restaurants.id", index=True)
-    
+
+    # IDs amigáveis para comunicação
+    short_id: Optional[int] = Field(default=None, index=True)  # Ex: 1001, 1002, ... (sequencial por restaurante)
+    tracking_code: Optional[str] = Field(default=None, index=True, unique=True)  # Ex: "MF-ABC123" (único global)
+
     # Informações do pedido
     customer_name: str = Field(default="Cliente")
     address_text: str
@@ -414,6 +418,8 @@ class OrderCreate(SQLModel):
 class OrderResponse(SQLModel):
     """Schema de resposta do pedido"""
     id: str
+    short_id: Optional[int]  # ID curto para comunicação (#1001)
+    tracking_code: Optional[str]  # Código de rastreio (MF-ABC123)
     customer_name: str
     address_text: str
     lat: float
@@ -424,6 +430,19 @@ class OrderResponse(SQLModel):
     ready_at: Optional[datetime]
     batch_id: Optional[str]
     stop_order: Optional[int]
+
+
+class OrderTrackingResponse(SQLModel):
+    """Schema de resposta pública do rastreamento (sem autenticação)"""
+    short_id: Optional[int]
+    tracking_code: str
+    status: OrderStatus
+    created_at: datetime
+    ready_at: Optional[datetime]
+    delivered_at: Optional[datetime]
+    # Informações básicas para o cliente
+    customer_name: str
+    address_text: str
 
 
 class CourierCreate(SQLModel):

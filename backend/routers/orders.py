@@ -12,11 +12,12 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import (
-    Order, OrderCreate, OrderResponse, OrderStatus, User, Restaurant
+    Order, OrderCreate, OrderResponse, OrderTrackingResponse, OrderStatus, User, Restaurant
 )
 from services.qrcode_service import generate_qrcode_base64, generate_qrcode_bytes
 from services.geocoding_service import geocode_address
 from services.auth_service import get_current_user
+from services.order_service import generate_short_id, ensure_unique_tracking_code
 
 router = APIRouter(prefix="/orders", tags=["Pedidos"])
 
@@ -65,6 +66,10 @@ def create_order(
                 detail=f"Não foi possível encontrar o endereço: {order_data.address_text}"
             )
     
+    # Gera IDs amigáveis
+    short_id = generate_short_id(current_user.restaurant_id, session)
+    tracking_code = ensure_unique_tracking_code(session)
+
     order = Order(
         customer_name=order_data.customer_name,
         address_text=order_data.address_text,
@@ -73,9 +78,11 @@ def create_order(
         prep_type=order_data.prep_type,
         status=OrderStatus.CREATED,
         created_at=created_at,
-        restaurant_id=current_user.restaurant_id  # 🔒 PROTEÇÃO: vincula ao restaurante
+        restaurant_id=current_user.restaurant_id,  # 🔒 PROTEÇÃO: vincula ao restaurante
+        short_id=short_id,
+        tracking_code=tracking_code
     )
-    
+
     session.add(order)
     session.commit()
     session.refresh(order)
@@ -303,9 +310,49 @@ def deliver_order(
     
     order.status = OrderStatus.DELIVERED
     order.delivered_at = datetime.now()
-    
+
     session.add(order)
     session.commit()
     session.refresh(order)
-    
+
     return order
+
+
+@router.get("/track/{tracking_code}", response_model=OrderTrackingResponse)
+def track_order(tracking_code: str, session: Session = Depends(get_session)):
+    """
+    🌐 Endpoint PÚBLICO de rastreamento de pedido (sem autenticação)
+
+    Permite que o cliente rastreie seu pedido usando o código de rastreio.
+    Exemplo: GET /orders/track/MF-A3B7K9
+
+    Args:
+        tracking_code: Código de rastreio do pedido (ex: MF-A3B7K9)
+
+    Returns:
+        OrderTrackingResponse: Informações básicas do pedido (status, timestamps)
+
+    Raises:
+        404: Se o código de rastreio não for encontrado
+    """
+    # Busca o pedido pelo tracking_code
+    statement = select(Order).where(Order.tracking_code == tracking_code)
+    order = session.exec(statement).first()
+
+    if not order:
+        raise HTTPException(
+            status_code=404,
+            detail="Código de rastreio não encontrado. Verifique se digitou corretamente."
+        )
+
+    # Retorna informações básicas (sem dados sensíveis)
+    return OrderTrackingResponse(
+        short_id=order.short_id,
+        tracking_code=order.tracking_code,
+        status=order.status,
+        created_at=order.created_at,
+        ready_at=order.ready_at,
+        delivered_at=order.delivered_at,
+        customer_name=order.customer_name,
+        address_text=order.address_text
+    )

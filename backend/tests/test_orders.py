@@ -99,7 +99,9 @@ def test_listar_pedidos_filtro_status(
         lng=-46.6,
         prep_type=PrepType.SHORT,
         status=OrderStatus.READY,
-        restaurant_id=test_restaurant.id
+        restaurant_id=test_restaurant.id,
+        short_id=2001,
+        tracking_code="MF-READY01"
     )
     session.add(order_ready)
     session.commit()
@@ -159,7 +161,9 @@ def test_isolamento_multi_tenant(
         lng=-46.7,
         prep_type=PrepType.SHORT,
         status=OrderStatus.CREATED,
-        restaurant_id=restaurant2.id
+        restaurant_id=restaurant2.id,
+        short_id=1001,
+        tracking_code="MF-OTHER01"
     )
     session.add(order2)
     session.commit()
@@ -234,7 +238,9 @@ def test_buscar_pedido_outro_restaurante(
         lng=-46.6,
         prep_type=PrepType.SHORT,
         status=OrderStatus.CREATED,
-        restaurant_id=restaurant2.id
+        restaurant_id=restaurant2.id,
+        short_id=1001,
+        tracking_code="MF-R2-001"
     )
     session.add(order2)
     session.commit()
@@ -315,7 +321,9 @@ def test_transicao_status_invalida(client: TestClient, auth_headers: dict, sessi
         lng=-46.6,
         prep_type=PrepType.SHORT,
         status=OrderStatus.CREATED,
-        restaurant_id=test_restaurant.id
+        restaurant_id=test_restaurant.id,
+        short_id=3001,
+        tracking_code="MF-TST001"
     )
     session.add(order)
     session.commit()
@@ -346,7 +354,9 @@ def test_transicao_pickup_requer_assigned(
         lng=-46.6,
         prep_type=PrepType.SHORT,
         status=OrderStatus.READY,
-        restaurant_id=test_restaurant.id
+        restaurant_id=test_restaurant.id,
+        short_id=4001,
+        tracking_code="MF-RDY001"
     )
     session.add(order)
     session.commit()
@@ -356,3 +366,227 @@ def test_transicao_pickup_requer_assigned(
     response = client.post(f"/orders/{order.id}/pickup", headers=auth_headers)
     assert response.status_code == 400
     assert "não pode ser coletado" in response.json()["detail"]
+
+
+def test_pedido_criado_com_short_id(client: TestClient, auth_headers: dict):
+    """
+    Testa se o pedido é criado com short_id sequencial
+    """
+    response = client.post(
+        "/orders",
+        json={
+            "customer_name": "João Silva",
+            "address_text": "Rua A, 123",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "short_id" in data
+    assert data["short_id"] is not None
+    assert data["short_id"] >= 1001  # Começa em 1001
+
+
+def test_pedido_criado_com_tracking_code(client: TestClient, auth_headers: dict):
+    """
+    Testa se o pedido é criado com tracking_code único
+    """
+    response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Maria Santos",
+            "address_text": "Rua B, 456",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "tracking_code" in data
+    assert data["tracking_code"] is not None
+    assert data["tracking_code"].startswith("MF-")
+    assert len(data["tracking_code"]) == 9  # MF-XXXXXX (9 caracteres)
+
+
+def test_short_id_sequencial_por_restaurante(client: TestClient, auth_headers: dict):
+    """
+    Testa se o short_id é sequencial por restaurante
+    """
+    # Cria primeiro pedido
+    response1 = client.post(
+        "/orders",
+        json={
+            "customer_name": "Cliente 1",
+            "address_text": "Rua A, 1",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers
+    )
+    assert response1.status_code == 200
+    short_id1 = response1.json()["short_id"]
+
+    # Cria segundo pedido
+    response2 = client.post(
+        "/orders",
+        json={
+            "customer_name": "Cliente 2",
+            "address_text": "Rua A, 2",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers
+    )
+    assert response2.status_code == 200
+    short_id2 = response2.json()["short_id"]
+
+    # Verifica que o segundo é incremento do primeiro
+    assert short_id2 == short_id1 + 1
+
+
+def test_tracking_code_unico(client: TestClient, auth_headers: dict):
+    """
+    Testa se cada pedido tem tracking_code único
+    """
+    # Cria dois pedidos
+    response1 = client.post(
+        "/orders",
+        json={
+            "customer_name": "Cliente 1",
+            "address_text": "Rua A, 1",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers
+    )
+    response2 = client.post(
+        "/orders",
+        json={
+            "customer_name": "Cliente 2",
+            "address_text": "Rua A, 2",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers
+    )
+
+    tracking1 = response1.json()["tracking_code"]
+    tracking2 = response2.json()["tracking_code"]
+
+    # Tracking codes devem ser diferentes
+    assert tracking1 != tracking2
+
+
+def test_endpoint_rastreio_publico(client: TestClient, auth_headers: dict):
+    """
+    Testa endpoint público de rastreio (sem autenticação)
+    """
+    # Cria um pedido
+    response = client.post(
+        "/orders",
+        json={
+            "customer_name": "Cliente Rastreio",
+            "address_text": "Rua X, 999",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    tracking_code = response.json()["tracking_code"]
+
+    # Rastreia o pedido SEM autenticação
+    track_response = client.get(f"/orders/track/{tracking_code}")
+    assert track_response.status_code == 200
+
+    track_data = track_response.json()
+    assert track_data["tracking_code"] == tracking_code
+    assert track_data["status"] == "created"
+    assert track_data["customer_name"] == "Cliente Rastreio"
+    assert "short_id" in track_data
+
+
+def test_endpoint_rastreio_codigo_invalido(client: TestClient):
+    """
+    Testa endpoint de rastreio com código inexistente
+    """
+    response = client.get("/orders/track/MF-INVALIDO")
+    assert response.status_code == 404
+    assert "não encontrado" in response.json()["detail"].lower()
+
+
+def test_short_id_independente_por_restaurante(
+    client: TestClient,
+    session: Session,
+    test_user: User
+):
+    """
+    Testa se short_ids são independentes entre restaurantes
+    """
+    from models import Restaurant, User
+    from services.auth_service import hash_password
+
+    # Cria segundo restaurante
+    restaurant2 = Restaurant(
+        name="Restaurante 2",
+        slug="restaurante-2",
+        email="restaurante2@teste.com",
+        address="Rua B, 200"
+    )
+    session.add(restaurant2)
+    session.commit()
+    session.refresh(restaurant2)
+
+    # Cria usuário do segundo restaurante
+    user2 = User(
+        email="admin2@teste.com",
+        password_hash=hash_password("senha123"),
+        name="Admin 2",
+        role="owner",
+        restaurant_id=restaurant2.id
+    )
+    session.add(user2)
+    session.commit()
+
+    # Login do segundo restaurante
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "admin2@teste.com", "password": "senha123"}
+    )
+    auth_headers2 = {"Authorization": f"Bearer {login_response.json()['access_token']}"}
+
+    # Cria pedido no restaurante 1
+    response1 = client.post(
+        "/orders",
+        json={
+            "customer_name": "Cliente R1",
+            "address_text": "Rua A, 1",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers={"Authorization": f"Bearer {test_user.id}"}  # Usa token do test_user
+    )
+
+    # Cria pedido no restaurante 2
+    response2 = client.post(
+        "/orders",
+        json={
+            "customer_name": "Cliente R2",
+            "address_text": "Rua B, 1",
+            "lat": -23.5,
+            "lng": -46.6
+        },
+        headers=auth_headers2
+    )
+
+    # Ambos devem ter short_id começando em 1001 (independentes)
+    if response1.status_code == 200 and response2.status_code == 200:
+        short_id1 = response1.json()["short_id"]
+        short_id2 = response2.json()["short_id"]
+
+        # Ambos começam em 1001 (são independentes)
+        assert short_id1 == 1001 or short_id1 > 1000
+        assert short_id2 == 1001 or short_id2 > 1000

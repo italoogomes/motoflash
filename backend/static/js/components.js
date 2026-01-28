@@ -512,8 +512,13 @@ const NewOrderForm = ({ onOrderCreated, simulatedDate }) => {
                 const error = await res.json();
                 throw new Error(error.detail || 'Erro ao criar pedido');
             }
-            
-            setStatus('✅ Pedido criado com sucesso!');
+
+            const newOrder = await res.json();
+
+            // Mensagem de sucesso com short_id e tracking_code
+            const orderInfo = newOrder.short_id ? `#${newOrder.short_id}` : '';
+            const trackingInfo = newOrder.tracking_code ? ` | Rastreio: ${newOrder.tracking_code}` : '';
+            setStatus(`✅ Pedido criado com sucesso! ${orderInfo}${trackingInfo}`);
             // Limpa formulário
             setPhone('');
             setCustomerName('');
@@ -856,6 +861,11 @@ const OrdersList = ({ orders, onRefresh }) => {
         <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
+                    {order.short_id && (
+                        <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>
+                            #{order.short_id}
+                        </span>
+                    )}
                     <span className="font-medium text-white">{order.customer_name}</span>
                     {order.prep_type === 'long' && (
                         <span className="badge badge-warning text-xs">Demorado</span>
@@ -872,6 +882,11 @@ const OrdersList = ({ orders, onRefresh }) => {
                 <div className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
                     {order.address_text?.split(' - ')[0]}
                 </div>
+                {order.tracking_code && (
+                    <div className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        Rastreio: {order.tracking_code}
+                    </div>
+                )}
                 {order.stop_order && (
                     <div className="text-xs mt-1" style={{ color: '#60a5fa' }}>Parada #{order.stop_order}</div>
                 )}
