@@ -1,8 +1,8 @@
 # 🧪 Testes Automatizados - MotoFlash
 
-**Versão:** 1.0.5
-**Data:** 2026-01-26
-**Status:** ✅ 100% dos testes passando (70/70)
+**Versão:** 1.1.0
+**Data:** 2026-01-28
+**Status:** ✅ 100% dos testes passando (85/85)
 
 ---
 
@@ -18,13 +18,15 @@ O MotoFlash utiliza **pytest** como framework de testes automatizados. Os testes
 | **Pedidos** | ✅ Implementado | 15 testes | 15/15 (100%) |
 | **Dispatch** | ✅ Implementado | 14 testes | 14/14 (100%) |
 | **Motoboys** | ✅ Implementado | 33 testes | 33/33 (100%) |
+| **Previsão** | ✅ Implementado | 15 testes | 15/15 (100%) | ⭐ **NOVO** |
 | **Cardápio** | 🔄 Planejado | - | - |
-| **TOTAL** | ✅ **Estável** | **70 testes** | **70/70 (100%)** |
+| **TOTAL** | ✅ **Estável** | **85 testes** | **85/85 (100%)** |
 
 ### 📈 Histórico de Estabilidade
 
 - **v1.0.4** (2026-01-26): 61/70 testes passando (87%)
-- **v1.0.5** (2026-01-26): 70/70 testes passando (100%) ⭐
+- **v1.0.5** (2026-01-26): 70/70 testes passando (100%)
+- **v1.1.0** (2026-01-28): 85/85 testes passando (100%) ⭐
 
 ---
 
@@ -104,7 +106,8 @@ backend/
 │   ├── test_auth.py         # Testes de autenticação (8 testes)
 │   ├── test_orders.py       # Testes de pedidos (15 testes)
 │   ├── test_dispatch.py     # Testes de dispatch (14 testes)
-│   └── test_couriers.py     # Testes de motoboys (33 testes)
+│   ├── test_couriers.py     # Testes de motoboys (33 testes)
+│   └── test_prediction.py   # Testes de previsão híbrida (15 testes) ⭐ NOVO
 ```
 
 ---
@@ -558,6 +561,84 @@ def test_exemplo(client: TestClient, auth_headers: dict):
 
 ---
 
+## ✅ Testes de Previsão Híbrida (test_prediction.py) ⭐ NOVO v1.1.0
+
+### Testes Implementados
+
+#### Endpoint de Previsão (4 testes)
+
+#### 1. `test_previsao_endpoint_retorna_estrutura_correta`
+- **O que testa:** Estrutura da resposta do endpoint /dispatch/previsao
+- **Resultado esperado:** Status 200, contém historico, atual, balanceamento, recomendacao
+
+#### 2. `test_previsao_sem_historico`
+- **O que testa:** Previsão quando não há dados históricos
+- **Resultado esperado:** historico.disponivel=false, recomendação baseada em tempo real
+
+#### 3. `test_previsao_com_pedidos_na_fila`
+- **O que testa:** Previsão quando há pedidos aguardando
+- **Resultado esperado:** Detecta pedidos na fila, recomenda motoboys suficientes
+
+#### 4. `test_previsao_sem_autenticacao`
+- **O que testa:** Previsão sem token JWT
+- **Resultado esperado:** Status 401
+
+#### Atualização de Padrões (3 testes)
+
+#### 5. `test_atualizar_padroes_sem_dados`
+- **O que testa:** Atualização quando não há pedidos históricos
+- **Resultado esperado:** padroes_atualizados=0
+
+#### 6. `test_atualizar_padroes_com_dados`
+- **O que testa:** Atualização com pedidos históricos
+- **Resultado esperado:** Padrões criados/atualizados no banco
+
+#### 7. `test_atualizar_padroes_sem_autenticacao`
+- **O que testa:** Atualização sem token JWT
+- **Resultado esperado:** Status 401
+
+#### Listagem de Padrões (2 testes)
+
+#### 8. `test_listar_padroes_vazio`
+- **O que testa:** Listagem quando não há padrões
+- **Resultado esperado:** total_padroes=0, lista vazia
+
+#### 9. `test_listar_padroes_com_dados`
+- **O que testa:** Listagem com padrões salvos
+- **Resultado esperado:** Retorna padrões com dia_nome em português
+
+#### Isolamento Multi-Tenant (2 testes)
+
+#### 10. `test_previsao_isolamento_multi_tenant`
+- **O que testa:** Previsão não considera dados de outros restaurantes
+- **Resultado esperado:** Pedidos de outros restaurantes não são contados
+
+#### 11. `test_padroes_isolamento_multi_tenant`
+- **O que testa:** Padrões são isolados por restaurante
+- **Resultado esperado:** Não vê padrões de outros restaurantes
+
+#### Balanceamento de Fluxo (2 testes)
+
+#### 12. `test_balanceamento_com_motoboys_disponiveis`
+- **O que testa:** Cálculo de capacidade de entrega
+- **Resultado esperado:** capacidade_entrega > 0 quando há motoboys
+
+#### 13. `test_balanceamento_sem_motoboys`
+- **O que testa:** Alerta quando não há motoboys disponíveis
+- **Resultado esperado:** status=atencao ou critico
+
+#### Comparação Histórico vs Atual (2 testes)
+
+#### 14. `test_variacao_demanda_acima_normal`
+- **O que testa:** Detecção de demanda acima do normal
+- **Resultado esperado:** variacao_demanda_pct > 0
+
+#### 15. `test_variacao_demanda_abaixo_normal`
+- **O que testa:** Detecção de demanda abaixo do normal
+- **Resultado esperado:** variacao_demanda_pct < 0
+
+---
+
 ## 📝 Como Escrever Novos Testes
 
 ### Estrutura Básica
@@ -740,5 +821,5 @@ tests/test_auth.py::test_me_endpoint_token_invalido PASSED       [100%]
 
 ---
 
-**Última atualização:** 2026-01-26
-**Próximo passo:** Implementar testes de pedidos
+**Última atualização:** 2026-01-28
+**Próximo passo:** Implementar testes de cardápio (opcional)

@@ -17,6 +17,11 @@ from models import (
 )
 from services.dispatch_service import run_dispatch, get_batch_orders
 from services.auth_service import get_current_user
+from services.prediction_service import (
+    calcular_previsao_hibrida,
+    atualizar_padroes_historicos,
+    obter_padrao_atual
+)
 
 router = APIRouter(prefix="/dispatch", tags=["Despacho"])
 
@@ -287,3 +292,157 @@ def test_google_optimization():
             "error": str(e),
             "api_key_used": GOOGLE_MAPS_API_KEY[:20] + "...",
         }
+
+
+# ============ PREVISÃO HÍBRIDA ============
+
+@router.get("/previsao")
+def get_previsao_hibrida(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🔮 Previsão Híbrida de Motoboys
+
+    Combina dados históricos (padrão do dia/hora) com situação em tempo real
+    para fornecer recomendação inteligente de quantos motoboys ativar.
+
+    🔒 Filtra por restaurant_id
+
+    RETORNO:
+    - Dados históricos (se disponíveis)
+    - Dados em tempo real
+    - Balanceamento de fluxo (taxa preparo vs taxa entrega)
+    - Comparação histórico vs atual (variação %)
+    - Recomendação final de motoboys
+    - Status (adequado/atencao/critico)
+    - Mensagem explicativa
+    """
+    previsao = calcular_previsao_hibrida(session, restaurant_id=current_user.restaurant_id)
+
+    return {
+        # Dados históricos
+        "historico": {
+            "pedidos_hora": previsao.historico_pedidos_hora,
+            "tempo_preparo_min": previsao.historico_tempo_preparo,
+            "tempo_rota_min": previsao.historico_tempo_rota,
+            "motoboys_recomendados": previsao.historico_motoboys,
+            "amostras": previsao.historico_amostras,
+            "disponivel": previsao.dados_historicos_disponiveis
+        },
+
+        # Dados em tempo real
+        "atual": {
+            "pedidos_hora": previsao.atual_pedidos_hora,
+            "tempo_preparo_min": previsao.atual_tempo_preparo,
+            "tempo_rota_min": previsao.atual_tempo_rota,
+            "motoboys_ativos": previsao.atual_motoboys_ativos,
+            "motoboys_disponiveis": previsao.atual_motoboys_disponiveis,
+            "pedidos_fila": previsao.atual_pedidos_fila,
+            "pedidos_em_rota": previsao.atual_pedidos_em_rota
+        },
+
+        # Balanceamento de fluxo
+        "balanceamento": {
+            "taxa_saida_pedidos": previsao.taxa_saida_pedidos,
+            "capacidade_entrega": previsao.capacidade_entrega,
+            "balanco_fluxo": previsao.balanco_fluxo,
+            "tempo_acumulo_min": previsao.tempo_acumulo_estimado
+        },
+
+        # Comparação
+        "comparacao": {
+            "variacao_demanda_pct": previsao.variacao_demanda_pct
+        },
+
+        # Recomendação final
+        "recomendacao": {
+            "motoboys": previsao.motoboys_recomendados,
+            "status": previsao.status,
+            "mensagem": previsao.mensagem,
+            "sugestao_acao": previsao.sugestao_acao
+        },
+
+        # Metadata
+        "dia_semana": previsao.dia_semana,
+        "hora_atual": previsao.hora_atual,
+        "timestamp": previsao.timestamp.isoformat()
+    }
+
+
+@router.post("/atualizar-padroes")
+def atualizar_padroes(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    📚 Atualiza Padrões Históricos
+
+    Analisa os pedidos das últimas 4 semanas e atualiza os padrões
+    de demanda por dia da semana e hora.
+
+    🔒 Filtra por restaurant_id
+
+    USE QUANDO:
+    - Após período inicial de coleta de dados
+    - Semanalmente para manter padrões atualizados
+    - Após mudanças significativas na operação
+
+    RETORNO:
+    - Quantidade de padrões atualizados
+    - Quantidade de pedidos analisados
+    """
+    resultado = atualizar_padroes_historicos(session, restaurant_id=current_user.restaurant_id)
+
+    return {
+        "sucesso": True,
+        "padroes_atualizados": resultado["padroes_atualizados"],
+        "pedidos_analisados": resultado["amostras_analisadas"],
+        "mensagem": f"Padrões atualizados! {resultado['padroes_atualizados']} slots de dia/hora processados."
+    }
+
+
+@router.get("/padroes")
+def listar_padroes(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    📊 Lista Padrões Históricos
+
+    Retorna todos os padrões de demanda aprendidos para o restaurante.
+
+    🔒 Filtra por restaurant_id
+
+    Útil para visualizar:
+    - Quais dias/horas são mais movimentados
+    - Tempo médio de preparo e rota por período
+    - Quantidade de motoboys recomendada por período
+    """
+    from models import PadraoDemanda
+
+    padroes = session.exec(
+        select(PadraoDemanda)
+        .where(PadraoDemanda.restaurant_id == current_user.restaurant_id)
+        .order_by(PadraoDemanda.dia_semana, PadraoDemanda.hora)
+    ).all()
+
+    dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+
+    return {
+        "total_padroes": len(padroes),
+        "padroes": [
+            {
+                "dia_semana": p.dia_semana,
+                "dia_nome": dias[p.dia_semana] if 0 <= p.dia_semana <= 6 else str(p.dia_semana),
+                "hora": p.hora,
+                "media_pedidos_hora": round(p.media_pedidos_hora, 1),
+                "media_tempo_preparo_min": round(p.media_tempo_preparo, 1),
+                "media_tempo_rota_min": round(p.media_tempo_rota, 1),
+                "motoboys_recomendados": p.motoboys_recomendados,
+                "amostras": p.amostras,
+                "ultima_atualizacao": p.ultima_atualizacao.isoformat()
+            }
+            for p in padroes
+        ]
+    }

@@ -4,6 +4,48 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.1.0] - 2026-01-28
+
+### 🔮 Sistema de Previsão Híbrida de Motoboys
+
+#### ✨ Adicionado
+- **Modelo Híbrido de Previsão**
+  - Combina dados históricos (últimas 4 semanas) com situação em tempo real
+  - Analisa padrões por dia da semana e hora
+  - Balanceamento de fluxo (teoria de filas)
+
+- **Novos Endpoints**
+  - `GET /dispatch/previsao` - Previsão híbrida completa
+  - `POST /dispatch/atualizar-padroes` - Atualiza padrões históricos
+  - `GET /dispatch/padroes` - Lista padrões aprendidos
+
+- **Novos Arquivos**
+  - `backend/models.py` - Models `PadraoDemanda` e `PrevisaoHibrida`
+  - `backend/services/prediction_service.py` - Serviço de previsão
+  - `backend/tests/test_prediction.py` - 15 testes do sistema
+
+#### 🎯 Funcionalidades
+- **Aprendizado Histórico**: Analisa pedidos entregues das últimas 4 semanas
+- **Balanceamento de Fluxo**: Detecta quando `taxa_preparo > taxa_entrega`
+- **Alertas Inteligentes**: Avisa quando demanda está acima/abaixo do normal
+- **Recomendação em Tempo Real**: Sugere quantidade ideal de motoboys
+
+#### 🧪 Testes
+- **15 novos testes** adicionados (85 total)
+  - Endpoint de previsão (4 testes)
+  - Atualização de padrões (3 testes)
+  - Listagem de padrões (2 testes)
+  - Isolamento multi-tenant (2 testes)
+  - Balanceamento de fluxo (2 testes)
+  - Comparação histórico vs atual (2 testes)
+
+#### 📚 Documentação
+- Atualizado `docs/API_ENDPOINTS.md` com novos endpoints
+- Atualizado `docs/TESTES.md` com seção de testes de previsão
+- Atualizado `PROGRESSO_SESSAO.md` com v1.1.0
+
+---
+
 ## [1.0.5] - 2026-01-26
 
 ### ✅ Estabilidade dos Testes - 100% de Aprovação

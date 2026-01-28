@@ -749,3 +749,88 @@ class InviteValidation(SQLModel):
     expires_at: Optional[datetime] = None
     time_remaining: Optional[str] = None
     message: str
+
+
+# ============ MODELO HÍBRIDO DE PREVISÃO ============
+
+class PadraoDemanda(SQLModel, table=True):
+    """
+    Padrão de Demanda Histórico
+
+    Armazena médias históricas por dia da semana e hora.
+    Usado pelo sistema híbrido de previsão de motoboys.
+
+    Exemplo de uso:
+    - Segunda às 19h: média de 15 pedidos/hora, preparo 12min, rota 25min
+    - Sexta às 20h: média de 25 pedidos/hora, preparo 10min, rota 30min
+    """
+    __tablename__ = "padroes_demanda"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+
+    # 🔒 Multi-tenant
+    restaurant_id: str = Field(foreign_key="restaurants.id", index=True)
+
+    # Identificadores do padrão
+    dia_semana: int = Field(index=True)  # 0=Segunda, 1=Terça... 6=Domingo
+    hora: int = Field(index=True)         # 0-23
+
+    # Métricas históricas
+    media_pedidos_hora: float = 0.0       # Média de pedidos por hora
+    media_tempo_preparo: float = 15.0     # Tempo médio de preparo (min)
+    media_tempo_rota: float = 30.0        # Tempo médio de rota ida+volta (min)
+
+    # Capacidade calculada
+    motoboys_recomendados: int = 1        # Recomendação baseada no histórico
+
+    # Metadata
+    amostras: int = 0                     # Quantidade de dados usados
+    ultima_atualizacao: datetime = Field(default_factory=datetime.now)
+
+    class Config:
+        # Índice único composto: restaurant_id + dia_semana + hora
+        pass
+
+
+class PrevisaoHibrida(SQLModel):
+    """
+    Schema de resposta da previsão híbrida
+
+    Combina dados históricos com situação em tempo real.
+    """
+    # Dados históricos (aprendido)
+    historico_pedidos_hora: Optional[float] = None
+    historico_tempo_preparo: Optional[float] = None
+    historico_tempo_rota: Optional[float] = None
+    historico_motoboys: Optional[int] = None
+    historico_amostras: int = 0
+
+    # Dados em tempo real
+    atual_pedidos_hora: int = 0
+    atual_tempo_preparo: Optional[float] = None
+    atual_tempo_rota: Optional[float] = None
+    atual_motoboys_ativos: int = 0
+    atual_motoboys_disponiveis: int = 0
+    atual_pedidos_fila: int = 0
+    atual_pedidos_em_rota: int = 0
+
+    # Análise de fluxo (balanceamento)
+    taxa_saida_pedidos: Optional[float] = None    # Pedidos prontos por hora
+    capacidade_entrega: Optional[float] = None    # Entregas por hora (motoboys)
+    balanco_fluxo: Optional[float] = None         # Diferença (negativo = acumulando)
+    tempo_acumulo_estimado: Optional[int] = None  # Min até fila crescer
+
+    # Comparação histórico vs atual
+    variacao_demanda_pct: Optional[float] = None  # % acima/abaixo do normal
+
+    # Recomendação final
+    motoboys_recomendados: int = 1
+    status: str = "adequado"  # adequado, atencao, critico
+    mensagem: str = ""
+    sugestao_acao: Optional[str] = None
+
+    # Metadata
+    dia_semana: int = 0       # 0=Segunda... 6=Domingo
+    hora_atual: int = 0
+    timestamp: datetime = Field(default_factory=datetime.now)
+    dados_historicos_disponiveis: bool = False

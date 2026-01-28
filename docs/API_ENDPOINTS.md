@@ -1,6 +1,6 @@
 # 📡 API Endpoints - MotoFlash
 
-**Versão da API:** 0.9.0
+**Versão da API:** 1.1.0
 **Base URL:** `https://motoflash-production.up.railway.app` (produção)
 **Documentação Interativa:** `/docs` (Swagger UI)
 
@@ -591,6 +591,116 @@ Retorna a polyline da rota para desenhar no mapa.
 **Notas:**
 - Usa Google Directions API
 - Polyline pode ser decodificada com Leaflet ou Google Maps
+
+---
+
+### GET /dispatch/previsao ⭐ NOVO (v1.1.0)
+
+Previsão híbrida de motoboys - combina dados históricos com tempo real.
+
+**Headers:** Requer `Authorization`
+
+**Response 200:**
+```json
+{
+  "historico": {
+    "pedidos_hora": 15.0,
+    "tempo_preparo_min": 12.0,
+    "tempo_rota_min": 30.0,
+    "motoboys_recomendados": 3,
+    "amostras": 10,
+    "disponivel": true
+  },
+  "atual": {
+    "pedidos_hora": 20,
+    "tempo_preparo_min": 10.5,
+    "tempo_rota_min": 28.0,
+    "motoboys_ativos": 2,
+    "motoboys_disponiveis": 1,
+    "pedidos_fila": 3,
+    "pedidos_em_rota": 2
+  },
+  "balanceamento": {
+    "taxa_saida_pedidos": 20.0,
+    "capacidade_entrega": 4.0,
+    "balanco_fluxo": -16.0,
+    "tempo_acumulo_min": 4
+  },
+  "comparacao": {
+    "variacao_demanda_pct": 33.3
+  },
+  "recomendacao": {
+    "motoboys": 5,
+    "status": "atencao",
+    "mensagem": "Demanda 33% acima do normal para Quinta às 19h",
+    "sugestao_acao": "Considere ativar 3 motoboy(s) adicional(is)"
+  },
+  "dia_semana": 3,
+  "hora_atual": 19,
+  "timestamp": "2026-01-28T19:30:00"
+}
+```
+
+**Notas:**
+- `historico.disponivel`: `false` se não há dados históricos suficientes
+- `balanco_fluxo`: Negativo indica que pedidos estão acumulando
+- `status`: `adequado`, `atencao` ou `critico`
+
+---
+
+### POST /dispatch/atualizar-padroes ⭐ NOVO (v1.1.0)
+
+Atualiza padrões históricos analisando últimas 4 semanas de pedidos.
+
+**Headers:** Requer `Authorization`
+
+**Response 200:**
+```json
+{
+  "sucesso": true,
+  "padroes_atualizados": 45,
+  "pedidos_analisados": 320,
+  "mensagem": "Padrões atualizados! 45 slots de dia/hora processados."
+}
+```
+
+**Notas:**
+- Recomendado executar semanalmente
+- Analisa pedidos DELIVERED das últimas 4 semanas
+- Calcula médias por dia da semana e hora
+
+---
+
+### GET /dispatch/padroes ⭐ NOVO (v1.1.0)
+
+Lista padrões históricos aprendidos.
+
+**Headers:** Requer `Authorization`
+
+**Response 200:**
+```json
+{
+  "total_padroes": 45,
+  "padroes": [
+    {
+      "dia_semana": 0,
+      "dia_nome": "Segunda",
+      "hora": 19,
+      "media_pedidos_hora": 15.5,
+      "media_tempo_preparo_min": 12.0,
+      "media_tempo_rota_min": 28.5,
+      "motoboys_recomendados": 3,
+      "amostras": 8,
+      "ultima_atualizacao": "2026-01-28T10:00:00"
+    }
+  ]
+}
+```
+
+**Notas:**
+- `dia_semana`: 0=Segunda, 1=Terça... 6=Domingo
+- `amostras`: Quantidade de dados históricos usados
+- Útil para visualizar quais horários são mais movimentados
 
 ---
 

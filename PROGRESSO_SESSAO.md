@@ -1,7 +1,7 @@
 # 📋 Progresso da Sessão - MotoFlash
 
-**Data:** 2026-01-26
-**Versão Atual:** 1.0.5 ✅ ESTÁVEL (100% dos testes passando)
+**Data:** 2026-01-28
+**Versão Atual:** 1.1.0 ✅ ESTÁVEL (100% dos testes passando - 85 testes)
 
 ---
 
@@ -64,7 +64,7 @@
 - ✅ Fixture `test_courier` corrigido (`password_hash` em vez de `hashed_password`)
 - ✅ Documentação atualizada (TESTES.md, CHANGELOG.md, README.md, ARQUITETURA.md)
 
-### 6️⃣ Estabilização e CI/CD (v1.0.5) ⭐ ACABAMOS DE TERMINAR
+### 6️⃣ Estabilização e CI/CD (v1.0.5)
 
 #### 🐛 Correção de 9 Testes Falhando
 - ✅ **test_auth.py (5 correções)**
@@ -103,22 +103,113 @@
 - ✅ `CHANGELOG.md` atualizado com v1.0.5
 - ✅ `README.md` atualizado com novidades
 
+### 7️⃣ Sistema de Previsão Híbrida (v1.1.0) ⭐ ACABAMOS DE TERMINAR
+
+#### 🔮 Modelo Híbrido de Previsão de Motoboys
+Sistema inteligente que combina dados históricos com situação em tempo real para recomendar quantidade ideal de motoboys.
+
+**CONCEITO PRINCIPAL: Balanceamento de Fluxo**
+- Se `taxa_preparo > taxa_entrega` → pedidos acumulam na fila
+- Se `taxa_preparo < taxa_entrega` → operação flui bem
+
+#### ✅ Arquivos Criados
+
+1. **Model `PadraoDemanda`** (`backend/models.py`)
+   - Armazena padrões históricos por dia da semana + hora
+   - Métricas: média pedidos/hora, tempo preparo, tempo rota
+   - Multi-tenant: isolado por `restaurant_id`
+
+2. **Schema `PrevisaoHibrida`** (`backend/models.py`)
+   - Estrutura de resposta da previsão
+   - Combina dados históricos + tempo real + balanceamento
+
+3. **Serviço `prediction_service.py`** (`backend/services/`)
+   - `atualizar_padroes_historicos()` - Aprende com últimas 4 semanas
+   - `calcular_balanceamento_fluxo()` - Teoria de filas
+   - `calcular_previsao_hibrida()` - Combina tudo
+
+4. **Endpoints no Router** (`backend/routers/dispatch.py`)
+   - `GET /dispatch/previsao` - Previsão híbrida completa
+   - `POST /dispatch/atualizar-padroes` - Força atualização de padrões
+   - `GET /dispatch/padroes` - Lista padrões aprendidos
+
+5. **Testes** (`backend/tests/test_prediction.py`)
+   - 15 testes cobrindo todos os cenários
+   - Isolamento multi-tenant testado
+
+#### 📊 Resposta do Endpoint `/dispatch/previsao`
+
+```json
+{
+  "historico": {
+    "pedidos_hora": 15.0,
+    "tempo_preparo_min": 12.0,
+    "tempo_rota_min": 30.0,
+    "motoboys_recomendados": 3,
+    "amostras": 10,
+    "disponivel": true
+  },
+  "atual": {
+    "pedidos_hora": 20,
+    "tempo_preparo_min": 10.5,
+    "tempo_rota_min": 28.0,
+    "motoboys_ativos": 2,
+    "motoboys_disponiveis": 1,
+    "pedidos_fila": 3,
+    "pedidos_em_rota": 2
+  },
+  "balanceamento": {
+    "taxa_saida_pedidos": 20.0,
+    "capacidade_entrega": 4.0,
+    "balanco_fluxo": -16.0,
+    "tempo_acumulo_min": 4
+  },
+  "comparacao": {
+    "variacao_demanda_pct": 33.3
+  },
+  "recomendacao": {
+    "motoboys": 5,
+    "status": "atencao",
+    "mensagem": "Demanda 33% acima do normal para Quinta às 19h",
+    "sugestao_acao": "Considere ativar 3 motoboy(s) adicional(is)"
+  }
+}
+```
+
+#### 🧪 Como Usar
+
+1. **Ativar previsão em tempo real:**
+   ```bash
+   curl -X GET /dispatch/previsao -H "Authorization: Bearer $TOKEN"
+   ```
+
+2. **Atualizar padrões históricos (rodar semanalmente):**
+   ```bash
+   curl -X POST /dispatch/atualizar-padroes -H "Authorization: Bearer $TOKEN"
+   ```
+
+3. **Ver padrões aprendidos:**
+   ```bash
+   curl -X GET /dispatch/padroes -H "Authorization: Bearer $TOKEN"
+   ```
+
 ---
 
 ## 📊 Status Atual dos Testes
 
 ```
-✅ Autenticação:  8/8   testes (100%) ✓
-✅ Pedidos:      15/15  testes (100%) ✓
-✅ Dispatch:     14/14  testes (100%) ✓
-✅ Motoboys:     33/33  testes (100%) ✓
-🔄 Cardápio:      0     testes (opcional)
+✅ Autenticação:   8/8   testes (100%) ✓
+✅ Pedidos:       15/15  testes (100%) ✓
+✅ Dispatch:      14/14  testes (100%) ✓
+✅ Motoboys:      33/33  testes (100%) ✓
+✅ Previsão:      15/15  testes (100%) ✓ ⭐ NOVO
+🔄 Cardápio:       0     testes (opcional)
 ==========================================
-   TOTAL:        70/70 testes (100%) ⭐
+   TOTAL:         85/85 testes (100%) ⭐
 ```
 
-**Tempo de execução:** 47.93s
-**Warnings:** 37 deprecation warnings (não críticos)
+**Tempo de execução:** ~52s
+**Warnings:** 51 deprecation warnings (não críticos)
 
 ---
 
@@ -210,6 +301,7 @@ Criar arquivo: `backend/tests/test_menu.py`
 - `backend/tests/test_orders.py` - 15 testes (100%)
 - `backend/tests/test_dispatch.py` - 14 testes (100%)
 - `backend/tests/test_couriers.py` - 33 testes (100%)
+- `backend/tests/test_prediction.py` - 15 testes (100%) ⭐ NOVO
 
 ### CI/CD
 - `.github/workflows/tests.yml` - Pipeline GitHub Actions
@@ -226,9 +318,11 @@ Criar arquivo: `backend/tests/test_menu.py`
 - `backend/main.py` - API FastAPI
 - `backend/routers/auth.py` - Rate limiting condicional
 - `backend/routers/couriers.py` - Rate limiting condicional
+- `backend/routers/dispatch.py` - Endpoints de dispatch + previsão ⭐ ATUALIZADO
 - `backend/tests/conftest.py` - `TESTING=true` env var
 - `backend/services/auth_service.py` - `hash_password()` function
-- `backend/models.py` - Restaurant com `slug` obrigatório
+- `backend/services/prediction_service.py` - Sistema de previsão híbrida ⭐ NOVO
+- `backend/models.py` - Restaurant + PadraoDemanda + PrevisaoHibrida ⭐ ATUALIZADO
 
 ---
 
@@ -274,7 +368,7 @@ Quero continuar com [escolha uma das opções A, B ou C acima]."
 ## 💡 Lembretes Importantes
 
 ### Sobre Testes:
-- ✅ **100% passando** (70/70) - MANTIDO!
+- ✅ **100% passando** (85/85) - MANTIDO!
 - Banco de dados é **SQLite em memória** (isolado por teste)
 - Cada teste é **independente** (não compartilha dados)
 - Use `auth_headers` fixture para requisições autenticadas
@@ -314,10 +408,14 @@ FASE 2: Estabilização
 ├── ✅ v1.0.5: Correção de 9 bugs (70/70 passando)
 └── ✅ v1.0.5: CI/CD com GitHub Actions
 
-FASE 3: Próximos Passos (Escolher)
+FASE 3: Funcionalidades Inteligentes
+└── ✅ v1.1.0: Sistema de Previsão Híbrida (85/85 passando) ⭐ ATUAL
+
+FASE 4: Próximos Passos (Escolher)
 ├── 🔄 Opção A: Commit e Push (recomendado)
 ├── 🔄 Opção B: Observabilidade (Sentry, logs, métricas)
-└── 🔄 Opção C: Testes de cardápio (opcional)
+├── 🔄 Opção C: Testes de cardápio (opcional)
+└── 🔄 Opção D: Integrar previsão no Dashboard
 ```
 
 ---
@@ -329,7 +427,7 @@ FASE 3: Próximos Passos (Escolher)
 cd backend
 pip install -r requirements.txt
 
-# Rodar todos os testes (deve passar 70/70)
+# Rodar todos os testes (deve passar 85/85)
 pytest
 
 # Rodar com saída detalhada
@@ -337,9 +435,11 @@ pytest -v
 
 # Rodar apenas um arquivo
 pytest tests/test_auth.py
+pytest tests/test_prediction.py  # ⭐ NOVO
 
 # Rodar um teste específico
 pytest tests/test_auth.py::test_login_sucesso
+pytest tests/test_prediction.py::test_previsao_endpoint_retorna_estrutura_correta
 
 # Rodar testes e ver prints
 pytest -s
@@ -383,28 +483,31 @@ Sistema SaaS multi-tenant de gerenciamento de entregas para restaurantes com fro
 Olá! Você está continuando o trabalho no MotoFlash.
 
 Claude, leia o arquivo PROGRESSO_SESSAO.md na raiz do projeto.
-Quero continuar com a Opção [A/B/C].
+Quero continuar com a Opção [A/B/C/D].
 
 **Situação atual:**
-- ✅ 70/70 testes implementados e passando (100%)
+- ✅ 85/85 testes implementados e passando (100%)
 - ✅ CI/CD implementado com GitHub Actions
+- ✅ Sistema de Previsão Híbrida implementado (v1.1.0)
 - ✅ Documentação completa e atualizada
-- ✅ Base sólida para próximos passos
 
-**Contexto da última sessão (v1.0.5):**
-- Corrigimos 9 testes falhando (de 61/70 para 70/70)
-- Implementamos GitHub Actions para CI/CD
-- Criamos documentação completa das correções
-- Sistema está estável e pronto para produção
+**Contexto da última sessão (v1.1.0):**
+- Implementamos modelo híbrido de previsão de motoboys
+- Criamos model `PadraoDemanda` para padrões históricos
+- Criamos serviço `prediction_service.py` com balanceamento de fluxo
+- Adicionamos 3 novos endpoints no dispatch router
+- Criamos 15 novos testes (85 total)
+- Sistema combina aprendizado histórico + tempo real
 
 **O que fazer agora:**
 Pergunte ao usuário qual opção ele quer seguir:
 - **Opção A:** Fazer commit e push (recomendado)
 - **Opção B:** Implementar observabilidade (Sentry, logs, métricas)
 - **Opção C:** Adicionar testes de cardápio (opcional)
+- **Opção D:** Integrar previsão no Dashboard (UI)
 
 **Importante:**
-- Todos os 70 testes DEVEM passar sempre (100%)
+- Todos os 85 testes DEVEM passar sempre (100%)
 - Sempre documente mudanças em CHANGELOG.md
 - Sempre atualize este arquivo (PROGRESSO_SESSAO.md)
 - Teste isolamento multi-tenant em novos features
@@ -413,6 +516,6 @@ Boa sorte! 🚀
 
 ---
 
-**Última atualização:** 2026-01-26 22:00
-**Próxima sessão:** Escolher entre Opções A, B ou C acima
-**Status:** ✅ ESTÁVEL - Pronto para produção
+**Última atualização:** 2026-01-28
+**Próxima sessão:** Escolher entre Opções A, B, C ou D acima
+**Status:** ✅ ESTÁVEL - 85/85 testes passando - Sistema de Previsão Híbrida implementado

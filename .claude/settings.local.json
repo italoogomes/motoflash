@@ -13,7 +13,9 @@
       "Bash(for file in test_*.py)",
       "Bash(done)",
       "Bash(start htmlcov/index.html)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cd:*)",
+      "Bash(/c/Users/italo.gomes/AppData/Local/anaconda3/python.exe -m pytest:*)"
     ]
   }
 }
