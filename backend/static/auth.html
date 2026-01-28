@@ -601,6 +601,7 @@
             const [showSuccess, setShowSuccess] = useState(false);
             const [showExpired, setShowExpired] = useState(false);
             const [showSplash, setShowSplash] = useState(false);
+            const [splashFadeOut, setSplashFadeOut] = useState(false);
             const [splashRestaurantName, setSplashRestaurantName] = useState('');
             
             // Login states
@@ -776,10 +777,19 @@
                         // Mostra splash screen e depois redireciona
                         setSplashRestaurantName(data.restaurant.name);
                         setShowSplash(true);
+                        setSplashFadeOut(false);
 
+                        // Inicia fade out após 3.5s
                         setTimeout(() => {
+                            setSplashFadeOut(true);
+                        }, 3500);
+
+                        // Oculta splash e redireciona após 4s
+                        setTimeout(() => {
+                            setShowSplash(false);
+                            setSplashFadeOut(false);
                             window.location.href = '/dashboard';
-                        }, 4000); // 3.5s de animação + 0.5s de fade
+                        }, 4000);
                     }
                     
                 } catch (err) {
@@ -1030,7 +1040,7 @@
 
                     {/* Splash Screen Overlay */}
                     {showSplash && (
-                        <div className="splash-overlay">
+                        <div className={`splash-overlay ${splashFadeOut ? 'splash-fade-out' : ''}`}>
                             <div className="splash-container">
                                 <div className="logo-wrapper-splash">
                                     <div className="glow-splash" />
@@ -1074,6 +1084,12 @@
                                     height: 100%;
                                     z-index: 10000;
                                     animation: splashFadeIn 0.3s ease-out;
+                                    transition: opacity 0.5s ease-out;
+                                    opacity: 1;
+                                }
+
+                                .splash-overlay.splash-fade-out {
+                                    opacity: 0;
                                 }
 
                                 @keyframes splashFadeIn {
