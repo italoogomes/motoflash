@@ -1,14 +1,56 @@
 import React, { useState, useEffect } from 'react';
 
-export default function MotoFlashSplash() {
+/**
+ * Splash Screen do MotoFlash
+ *
+ * IMPORTANTE: Este componente usa fundo transparente.
+ * Adicione no HTML onde for usar este componente:
+ *
+ * <div class="background-image">
+ *   <img src="/static/fundo/cidade_3.jpg" alt="City Background">
+ * </div>
+ *
+ * E o CSS do fundo (igual ao login):
+ *
+ * .background-image {
+ *   position: fixed;
+ *   top: 0;
+ *   left: 0;
+ *   width: 100%;
+ *   height: 100%;
+ *   z-index: 0;
+ * }
+ * .background-image img {
+ *   width: 100%;
+ *   height: 100%;
+ *   object-fit: cover;
+ *   object-position: center bottom;
+ *   filter: brightness(0.75) saturate(1.1);
+ * }
+ * .background-image::after {
+ *   content: '';
+ *   position: absolute;
+ *   top: 0;
+ *   left: 0;
+ *   width: 100%;
+ *   height: 100%;
+ *   background: linear-gradient(
+ *     180deg,
+ *     rgba(10, 10, 15, 0.2) 0%,
+ *     rgba(10, 10, 15, 0.1) 50%,
+ *     rgba(10, 10, 15, 0.4) 100%
+ *   );
+ * }
+ */
+export default function MotoFlashSplash({ restaurantName = "seu restaurante" }) {
   const [showSplash, setShowSplash] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [key, setKey] = useState(0);
 
   useEffect(() => {
-    const fadeTimer = setTimeout(() => setFadeOut(true), 4000);
-    const hideTimer = setTimeout(() => setShowSplash(false), 4500);
-    
+    const fadeTimer = setTimeout(() => setFadeOut(true), 3500);
+    const hideTimer = setTimeout(() => setShowSplash(false), 4000);
+
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(hideTimer);
@@ -29,7 +71,7 @@ export default function MotoFlashSplash() {
         <button onClick={restart} className="restart-btn">
           ↻ Ver splash novamente
         </button>
-        
+
         <style>{`
           .main-content {
             min-height: 100vh;
@@ -37,10 +79,12 @@ export default function MotoFlashSplash() {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #f97316;
+            background: transparent;
             color: white;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             gap: 12px;
+            position: relative;
+            z-index: 10;
           }
           .main-content h1 { font-size: 28px; font-weight: 700; margin: 0; }
           .main-content p { font-size: 16px; color: rgba(255,255,255,0.9); margin: 0; }
@@ -95,12 +139,12 @@ export default function MotoFlashSplash() {
       <div className="logo-wrapper">
         <div className="glow" />
         
-        {/* Logo - Círculo branco com raio laranja */}
+        {/* Logo - Círculo laranja com raio branco (igual ao logo real) */}
         <div className="logo-circle">
-          <svg viewBox="0 0 64 64" className="bolt-icon">
+          <svg viewBox="0 0 80 80" className="bolt-icon">
             <path
-              d="M36 6 L18 32 L29 32 L26 58 L48 28 L36 28 L40 6 Z"
-              fill="#f97316"
+              d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z"
+              fill="white"
             />
           </svg>
         </div>
@@ -110,7 +154,7 @@ export default function MotoFlashSplash() {
           <span className="brand-flash">Flash</span>
         </h1>
 
-        <p className="tagline">Carregando dados do seu restaurante</p>
+        <p className="tagline">Bem-vindo de volta, {restaurantName}!</p>
 
         <div className="loading-dots">
           <span className="dot" />
@@ -173,8 +217,13 @@ export default function MotoFlashSplash() {
         }
         
         @keyframes boltShine {
-          0%, 100% { filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.3)); }
-          50% { filter: drop-shadow(0 0 20px rgba(249, 115, 22, 0.6)); }
+          0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4)); }
+          50% { filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8)); }
+        }
+
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 0 0 8px rgba(255,255,255,0.1), 0 0 60px rgba(255, 107, 0, 0.4); }
+          50% { transform: scale(1.05); box-shadow: 0 15px 50px rgba(0,0,0,0.2), 0 0 0 12px rgba(255,255,255,0.15), 0 0 80px rgba(255, 107, 0, 0.6); }
         }
 
         .splash-container {
@@ -189,11 +238,11 @@ export default function MotoFlashSplash() {
         }
         
         .splash-container.fade-out { opacity: 0; }
-        
+
         .background {
           position: absolute;
           inset: 0;
-          background: linear-gradient(145deg, #fb923c 0%, #f97316 50%, #ea580c 100%);
+          background: transparent;
         }
         
         .mini-bolts {
@@ -288,27 +337,28 @@ export default function MotoFlashSplash() {
           height: 200px;
           background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
           border-radius: 50%;
-          top: -20px;
+          top: -30px;
           pointer-events: none;
         }
         
         .logo-circle {
           width: 140px;
           height: 140px;
-          background: white;
+          background: #FF6B00;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 
+          box-shadow:
             0 10px 40px rgba(0,0,0,0.15),
-            0 0 0 8px rgba(255,255,255,0.1);
-          animation: float 3s ease-in-out infinite;
+            0 0 0 8px rgba(255,255,255,0.1),
+            0 0 60px rgba(255, 107, 0, 0.4);
+          animation: float 3s ease-in-out infinite, pulse 2s ease-in-out infinite;
         }
         
         .bolt-icon {
-          width: 80px;
-          height: 80px;
+          width: 140px;
+          height: 140px;
           animation: boltShine 2s ease-in-out infinite;
         }
         
@@ -322,7 +372,13 @@ export default function MotoFlashSplash() {
         }
         
         .brand-moto { color: white; }
-        .brand-flash { color: rgba(255,255,255,0.9); font-weight: 700; }
+        .brand-flash {
+          background: linear-gradient(135deg, #ff6b00 0%, #ff8c42 50%, #ffad42 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          font-weight: 700;
+        }
         
         .tagline {
           font-size: 15px;
@@ -366,7 +422,7 @@ export default function MotoFlashSplash() {
           height: 100%;
           background: white;
           border-radius: 4px;
-          animation: loadingProgress 4s ease-out forwards;
+          animation: loadingProgress 3.5s ease-out forwards;
           box-shadow: 0 0 10px rgba(255,255,255,0.5);
         }
       `}</style>

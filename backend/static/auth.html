@@ -600,6 +600,8 @@
             const [isFlipped, setIsFlipped] = useState(false);
             const [showSuccess, setShowSuccess] = useState(false);
             const [showExpired, setShowExpired] = useState(false);
+            const [showSplash, setShowSplash] = useState(false);
+            const [splashRestaurantName, setSplashRestaurantName] = useState('');
             
             // Login states
             const [loginEmail, setLoginEmail] = useState('');
@@ -763,15 +765,21 @@
                         throw new Error(data.detail || 'Email ou senha incorretos');
                     }
                     
-                    localStorage.setItem('motoflash_token', data.access_token);
-                    localStorage.setItem('motoflash_user', JSON.stringify(data.user));
-                    localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
-                    
+                    sessionStorage.setItem('motoflash_token', data.access_token);
+                    sessionStorage.setItem('motoflash_user', JSON.stringify(data.user));
+                    sessionStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
+
                     if (data.restaurant.blocked) {
                         setBlockedRestaurant(data.restaurant);
                         setShowExpired(true);
                     } else {
-                        window.location.href = '/dashboard';
+                        // Mostra splash screen e depois redireciona
+                        setSplashRestaurantName(data.restaurant.name);
+                        setShowSplash(true);
+
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 4000); // 3.5s de animação + 0.5s de fade
                     }
                     
                 } catch (err) {
@@ -817,11 +825,17 @@
                     localStorage.setItem('motoflash_token', data.access_token);
                     localStorage.setItem('motoflash_user', JSON.stringify(data.user));
                     localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
-                    
+
                     setShowSuccess(true);
-                    
+
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        setShowSuccess(false);
+                        setSplashRestaurantName(data.restaurant.name);
+                        setShowSplash(true);
+
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 4000);
                     }, 2500);
                     
                 } catch (err) {
@@ -1020,7 +1034,213 @@
                             </div>
                         </div>
                     </div>
-                    
+
+                    {/* Splash Screen Overlay */}
+                    {showSplash && (
+                        <div className="splash-overlay">
+                            <div className="splash-container">
+                                <div className="logo-wrapper-splash">
+                                    <div className="glow-splash" />
+
+                                    <div className="logo-circle-splash">
+                                        <svg viewBox="0 0 80 80" className="bolt-icon-splash">
+                                            <path
+                                                d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z"
+                                                fill="white"
+                                            />
+                                        </svg>
+                                    </div>
+
+                                    <h1 className="brand-name-splash">
+                                        <span className="brand-moto-splash">Moto</span>
+                                        <span className="brand-flash-splash">Flash</span>
+                                    </h1>
+
+                                    <p className="tagline-splash">Bem-vindo de volta, {splashRestaurantName}!</p>
+
+                                    <div className="loading-dots-splash">
+                                        <span className="dot-splash" />
+                                        <span className="dot-splash" />
+                                        <span className="dot-splash" />
+                                    </div>
+
+                                    <div className="loading-container-splash">
+                                        <div className="loading-track-splash">
+                                            <div className="loading-bar-splash" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <style>{`
+                                .splash-overlay {
+                                    position: fixed;
+                                    top: 0;
+                                    left: 0;
+                                    width: 100%;
+                                    height: 100%;
+                                    z-index: 10000;
+                                    animation: splashFadeIn 0.3s ease-out;
+                                }
+
+                                @keyframes splashFadeIn {
+                                    from { opacity: 0; }
+                                    to { opacity: 1; }
+                                }
+
+                                .splash-container {
+                                    position: fixed;
+                                    inset: 0;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    overflow: hidden;
+                                }
+
+                                .logo-wrapper-splash {
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
+                                    gap: 20px;
+                                    z-index: 10;
+                                    animation: fadeInUp 0.8s ease-out;
+                                    position: relative;
+                                }
+
+                                @keyframes fadeInUp {
+                                    from { opacity: 0; transform: translateY(30px); }
+                                    to { opacity: 1; transform: translateY(0); }
+                                }
+
+                                .glow-splash {
+                                    position: absolute;
+                                    width: 200px;
+                                    height: 200px;
+                                    background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
+                                    border-radius: 50%;
+                                    top: -30px;
+                                    pointer-events: none;
+                                }
+
+                                .logo-circle-splash {
+                                    width: 140px;
+                                    height: 140px;
+                                    background: #FF6B00;
+                                    border-radius: 50%;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    box-shadow:
+                                        0 10px 40px rgba(0,0,0,0.15),
+                                        0 0 0 8px rgba(255,255,255,0.1),
+                                        0 0 60px rgba(255, 107, 0, 0.4);
+                                    animation: floatSplash 3s ease-in-out infinite, pulseSplash 2s ease-in-out infinite;
+                                }
+
+                                @keyframes floatSplash {
+                                    0%, 100% { transform: translateY(0px) rotate(0deg); }
+                                    50% { transform: translateY(-8px) rotate(1deg); }
+                                }
+
+                                @keyframes pulseSplash {
+                                    0%, 100% {
+                                        transform: scale(1);
+                                        box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 0 0 8px rgba(255,255,255,0.1), 0 0 60px rgba(255, 107, 0, 0.4);
+                                    }
+                                    50% {
+                                        transform: scale(1.05);
+                                        box-shadow: 0 15px 50px rgba(0,0,0,0.2), 0 0 0 12px rgba(255,255,255,0.15), 0 0 80px rgba(255, 107, 0, 0.6);
+                                    }
+                                }
+
+                                .bolt-icon-splash {
+                                    width: 140px;
+                                    height: 140px;
+                                    animation: boltShineSplash 2s ease-in-out infinite;
+                                }
+
+                                @keyframes boltShineSplash {
+                                    0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4)); }
+                                    50% { filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8)); }
+                                }
+
+                                .brand-name-splash {
+                                    font-size: 44px;
+                                    font-weight: 800;
+                                    letter-spacing: -1px;
+                                    margin: 0;
+                                    font-family: 'Outfit', sans-serif;
+                                    text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                }
+
+                                .brand-moto-splash { color: white; }
+                                .brand-flash-splash {
+                                    background: linear-gradient(135deg, #ff6b00 0%, #ff8c42 50%, #ffad42 100%);
+                                    -webkit-background-clip: text;
+                                    -webkit-text-fill-color: transparent;
+                                    background-clip: text;
+                                    font-weight: 700;
+                                }
+
+                                .tagline-splash {
+                                    font-size: 15px;
+                                    color: rgba(255,255,255,0.85);
+                                    margin: 0;
+                                    font-weight: 500;
+                                    font-family: 'Plus Jakarta Sans', sans-serif;
+                                }
+
+                                .loading-dots-splash {
+                                    display: flex;
+                                    gap: 8px;
+                                    margin-top: 4px;
+                                }
+
+                                .dot-splash {
+                                    width: 8px;
+                                    height: 8px;
+                                    background: rgba(255,255,255,0.8);
+                                    border-radius: 50%;
+                                    animation: dotPulseSplash 1.4s ease-in-out infinite;
+                                }
+
+                                .dot-splash:nth-child(2) { animation-delay: 0.2s; }
+                                .dot-splash:nth-child(3) { animation-delay: 0.4s; }
+
+                                @keyframes dotPulseSplash {
+                                    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+                                    40% { transform: scale(1); opacity: 1; }
+                                }
+
+                                .loading-container-splash {
+                                    margin-top: 8px;
+                                    width: 200px;
+                                }
+
+                                .loading-track-splash {
+                                    width: 100%;
+                                    height: 4px;
+                                    background: rgba(255,255,255,0.2);
+                                    border-radius: 4px;
+                                    overflow: hidden;
+                                }
+
+                                .loading-bar-splash {
+                                    height: 100%;
+                                    background: white;
+                                    border-radius: 4px;
+                                    animation: loadingProgressSplash 3.5s ease-out forwards;
+                                    box-shadow: 0 0 10px rgba(255,255,255,0.5);
+                                }
+
+                                @keyframes loadingProgressSplash {
+                                    0% { width: 0%; }
+                                    100% { width: 100%; }
+                                }
+                            `}</style>
+                        </div>
+                    )}
+
                     {/* Success Overlay */}
                     <div className={`overlay ${showSuccess ? 'active' : ''}`}>
                         <div className="glass-card p-8 max-w-sm w-full text-center mx-4">
