@@ -103,7 +103,7 @@
 - ✅ `CHANGELOG.md` atualizado com v1.0.5
 - ✅ `README.md` atualizado com novidades
 
-### 7️⃣ Sistema de Previsão Híbrida (v1.1.0) ⭐ ACABAMOS DE TERMINAR
+### 7️⃣ Sistema de Previsão Híbrida (v1.1.0)
 
 #### 🔮 Modelo Híbrido de Previsão de Motoboys
 Sistema inteligente que combina dados históricos com situação em tempo real para recomendar quantidade ideal de motoboys.
@@ -192,6 +192,121 @@ Sistema inteligente que combina dados históricos com situação em tempo real p
    ```bash
    curl -X GET /dispatch/padroes -H "Authorization: Bearer $TOKEN"
    ```
+
+### 8️⃣ Correção Bug "Motoboys Recomendados" (v1.1.1) ⭐ SESSÃO ATUAL
+
+#### 🐛 Bug Corrigido
+O campo "Motoboys recomendados" no dashboard estava simplesmente copiando o número de motoboys ativos, em vez de fazer uma recomendação real.
+
+**Problema:** Quando não havia pedidos na fila, o sistema retornava `total_ativos` como recomendação.
+```python
+# ANTES (errado)
+"motoboys_recomendados": total_ativos if total_ativos > 0 else None
+```
+
+**Solução:** Retornar `None` (exibido como "-") quando não há dados suficientes.
+```python
+# DEPOIS (correto)
+"motoboys_recomendados": None  # Sem dados para recomendação
+```
+
+#### ✅ Arquivos Corrigidos
+1. **`backend/services/alerts_service.py:239`** - Retorna `None` quando sem fila
+2. **`backend/services/prediction_service.py:424`** - Lógica de recomendação melhorada
+3. **`backend/models.py:827`** - Campo aceita `Optional[int]`
+4. **`backend/static/js/components.js:113`** - Frontend mostra "-" quando `null`
+5. **`backend/tests/test_prediction.py:63`** - Teste ajustado para aceitar `None`
+
+#### 🧪 Resultado
+- **85/85 testes passando** (100%)
+- Dashboard agora mostra "-" quando não há dados para recomendação
+
+---
+
+## 🎯 TAREFAS PLANEJADAS (PRÓXIMAS SESSÕES)
+
+### 📦 Melhorias no Pedido
+- [ ] Adicionar **ID curto** (ex: `#1234`) para comunicação fácil
+- [ ] Adicionar **código de rastreio** para cliente
+- [ ] Melhorar informações de identificação
+
+### 🔍 Sistema de Rastreamento para Atendente ⭐ PRIORIDADE
+
+**CENÁRIO:** Maria liga no restaurante perguntando do pedido dela. A atendente precisa:
+1. Buscar o pedido da Maria (por nome, telefone ou ID)
+2. Ver onde o motoboy está e qual a posição do pedido na rota
+3. Informar: "Oi Maria, seu pedido é o próximo da entrega!"
+
+**FLUXO DA INTERFACE:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔍 Buscar Pedido                                           │
+│  ┌────────────────────────────────┐  ┌─────────────────┐   │
+│  │ Maria / #1234 / 99999-1234     │  │   🔍 Buscar     │   │
+│  └────────────────────────────────┘  └─────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+        ↓ Encontrou o pedido #1234
+
+┌─────────────────────────────────────────────────────────────┐
+│  📦 Pedido #1234 - Maria Silva                              │
+│  Status: 🛵 EM ROTA | Motoboy: João Gomes                   │
+│  Posição na fila: 2º de 3 pedidos | Estimativa: ~8 min      │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │          🗺️  Ver no Mapa                            │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+        ↓ Clicou em "Ver no Mapa"
+
+┌─────────────────────────────────────────────────────────────┐
+│  🗺️ Rota do Motoboy - João Gomes                           │
+│  [MAPA COM LEAFLET]                                         │
+│   🏠 Restaurante (início)                                   │
+│      │  ✅ 1. Carlos - Rua A, 100 (ENTREGUE)               │
+│      │  📍 2. MARIA - Rua B, 200 (PRÓXIMO) ← DESTACADO     │
+│      │  ⏳ 3. Pedro - Rua C, 300                            │
+│   🛵 Posição atual do motoboy (GPS em tempo real)           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**O QUE JÁ TEMOS PRONTO NO BACKEND:**
+- ✅ GPS do motoboy (`lat`, `lng` no model Courier)
+- ✅ Rotas com paradas (model BatchStop com `stop_sequence`)
+- ✅ Polyline da rota (Google Directions API)
+- ✅ Sequência de entregas (`stop_order`)
+- ✅ Status de cada parada (completed ou não)
+
+**O QUE PRECISA CRIAR:**
+- [ ] **Endpoint de busca** - `GET /orders/search?q=maria` (busca por nome, telefone ou ID)
+- [ ] **Campo de busca no frontend** - Input com autocomplete
+- [ ] **Card de resultado** - Mostra pedido + status + motoboy + posição na fila
+- [ ] **Modal de mapa** - Reutilizar lógica do app do motoboy (já existe!)
+- [ ] **Destaque visual** - Destacar o pedido buscado na lista de paradas
+
+### 📋 Aba de Pedidos (Redesign)
+- [ ] Filtros rápidos por status
+- [ ] Busca por nome/telefone/ID
+- [ ] Timeline visual (Kanban ou lista)
+- [ ] Ações rápidas (marcar pronto, cancelar, reimprimir QR)
+- [ ] Modal de detalhes expandido
+- [ ] Histórico de dias anteriores
+
+### 🛵 Aba de Motoqueiros (Redesign)
+- [ ] Mapa em tempo real com posição de cada motoboy
+- [ ] Estatísticas individuais (entregas hoje, tempo médio)
+- [ ] Histórico de entregas do dia/semana
+- [ ] Gestão de status (ativar/pausar)
+- [ ] Chat/Notificação para motoboy
+- [ ] Ranking de performance
+
+### 📊 Aba de Relatórios (Nova)
+- [ ] Visão geral (pedidos, receita, ticket médio)
+- [ ] Performance por motoboy (ranking, tempo médio)
+- [ ] Horários de pico (gráfico por hora/dia)
+- [ ] Evolução do tempo de entrega
+- [ ] Clientes frequentes
+- [ ] Exportar PDF/Excel
 
 ---
 
@@ -409,13 +524,15 @@ FASE 2: Estabilização
 └── ✅ v1.0.5: CI/CD com GitHub Actions
 
 FASE 3: Funcionalidades Inteligentes
-└── ✅ v1.1.0: Sistema de Previsão Híbrida (85/85 passando) ⭐ ATUAL
+├── ✅ v1.1.0: Sistema de Previsão Híbrida (85/85 passando)
+└── ✅ v1.1.1: Correção bug "Motoboys Recomendados" ⭐ ATUAL
 
-FASE 4: Próximos Passos (Escolher)
-├── 🔄 Opção A: Commit e Push (recomendado)
-├── 🔄 Opção B: Observabilidade (Sentry, logs, métricas)
-├── 🔄 Opção C: Testes de cardápio (opcional)
-└── 🔄 Opção D: Integrar previsão no Dashboard
+FASE 4: Melhorias de UI/UX (Planejado)
+├── 🔄 Melhorias no Pedido (ID curto, rastreio)
+├── 🔄 Sistema de Rastreamento para Atendente
+├── 🔄 Redesign Aba de Pedidos
+├── 🔄 Redesign Aba de Motoqueiros
+└── 🔄 Nova Aba de Relatórios
 ```
 
 ---
@@ -482,29 +599,40 @@ Sistema SaaS multi-tenant de gerenciamento de entregas para restaurantes com fro
 
 Olá! Você está continuando o trabalho no MotoFlash.
 
-Claude, leia o arquivo PROGRESSO_SESSAO.md na raiz do projeto.
-Quero continuar com a Opção [A/B/C/D].
-
 **Situação atual:**
 - ✅ 85/85 testes implementados e passando (100%)
 - ✅ CI/CD implementado com GitHub Actions
 - ✅ Sistema de Previsão Híbrida implementado (v1.1.0)
+- ✅ Bug "Motoboys Recomendados" corrigido (v1.1.1)
 - ✅ Documentação completa e atualizada
 
-**Contexto da última sessão (v1.1.0):**
-- Implementamos modelo híbrido de previsão de motoboys
-- Criamos model `PadraoDemanda` para padrões históricos
-- Criamos serviço `prediction_service.py` com balanceamento de fluxo
-- Adicionamos 3 novos endpoints no dispatch router
-- Criamos 15 novos testes (85 total)
-- Sistema combina aprendizado histórico + tempo real
+**Contexto da última sessão (v1.1.1):**
+- Corrigimos bug onde "Motoboys recomendados" apenas copiava o número de ativos
+- Agora mostra "-" quando não há dados suficientes para recomendação
+- Arquivos alterados: alerts_service.py, prediction_service.py, models.py, components.js
 
-**O que fazer agora:**
-Pergunte ao usuário qual opção ele quer seguir:
-- **Opção A:** Fazer commit e push (recomendado)
-- **Opção B:** Implementar observabilidade (Sentry, logs, métricas)
-- **Opção C:** Adicionar testes de cardápio (opcional)
-- **Opção D:** Integrar previsão no Dashboard (UI)
+**TAREFAS PLANEJADAS (pergunte ao usuário qual quer fazer):**
+
+1. **Melhorias no Pedido**
+   - Adicionar ID curto (#1234)
+   - Código de rastreio
+
+2. **Sistema de Rastreamento para Atendente** ⭐ PRIORIDADE
+   - **Cenário:** Cliente liga perguntando do pedido
+   - **Busca:** Por nome, telefone ou ID do pedido
+   - **Card:** Mostra status, motoboy, posição na fila (2º de 3)
+   - **Modal:** Mapa com rota do motoboy, paradas numeradas, GPS em tempo real
+   - **Backend já tem:** GPS, polyline, BatchStop, stop_sequence
+   - **Ver seção detalhada** em "TAREFAS PLANEJADAS > Sistema de Rastreamento"
+
+3. **Redesign Aba de Pedidos**
+   - Filtros, busca, timeline visual
+
+4. **Redesign Aba de Motoqueiros**
+   - Mapa em tempo real, estatísticas, ranking
+
+5. **Nova Aba de Relatórios**
+   - Visão geral, performance, gráficos
 
 **Importante:**
 - Todos os 85 testes DEVEM passar sempre (100%)
@@ -517,5 +645,5 @@ Boa sorte! 🚀
 ---
 
 **Última atualização:** 2026-01-28
-**Próxima sessão:** Escolher entre Opções A, B, C ou D acima
-**Status:** ✅ ESTÁVEL - 85/85 testes passando - Sistema de Previsão Híbrida implementado
+**Próxima sessão:** Escolher uma das tarefas planejadas acima
+**Status:** ✅ ESTÁVEL - 85/85 testes passando - Bug corrigido
