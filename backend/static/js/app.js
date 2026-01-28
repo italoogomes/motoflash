@@ -13,7 +13,7 @@ function MotoFlashApp() {
     
     // Restaurante
     const [restaurantName, setRestaurantName] = useState(() => {
-        const data = localStorage.getItem('motoflash_restaurant');
+        const data = sessionStorage.getItem('motoflash_restaurant');
         if (data) {
             try {
                 return JSON.parse(data).name || 'Restaurante';
@@ -21,16 +21,16 @@ function MotoFlashApp() {
         }
         return 'Restaurante';
     });
-    
+
     // Data simulada
     const [simulatedDate, setSimulatedDate] = useState(() => {
         return new Date().toISOString().split('T')[0];
     });
-    
+
     const handleLogout = () => {
-        localStorage.removeItem('motoflash_token');
-        localStorage.removeItem('motoflash_user');
-        localStorage.removeItem('motoflash_restaurant');
+        sessionStorage.removeItem('motoflash_token');
+        sessionStorage.removeItem('motoflash_user');
+        sessionStorage.removeItem('motoflash_restaurant');
         window.location.href = '/login';
     };
     

@@ -633,7 +633,7 @@
             const [checkingToken, setCheckingToken] = useState(true);
             
             useEffect(() => {
-                const token = localStorage.getItem('motoflash_token');
+                const token = sessionStorage.getItem('motoflash_token');
                 if (token) {
                     verifyToken(token);
                 } else {
@@ -649,10 +649,10 @@
                     
                     if (res.ok) {
                         const data = await res.json();
-                        localStorage.setItem('motoflash_token', data.access_token);
-                        localStorage.setItem('motoflash_user', JSON.stringify(data.user));
-                        localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
-                        
+                        sessionStorage.setItem('motoflash_token', data.access_token);
+                        sessionStorage.setItem('motoflash_user', JSON.stringify(data.user));
+                        sessionStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
+
                         if (data.restaurant.blocked) {
                             setBlockedRestaurant(data.restaurant);
                             setShowExpired(true);
@@ -660,9 +660,9 @@
                             window.location.href = '/dashboard';
                         }
                     } else {
-                        localStorage.removeItem('motoflash_token');
-                        localStorage.removeItem('motoflash_user');
-                        localStorage.removeItem('motoflash_restaurant');
+                        sessionStorage.removeItem('motoflash_token');
+                        sessionStorage.removeItem('motoflash_user');
+                        sessionStorage.removeItem('motoflash_restaurant');
                     }
                 } catch (err) {
                     console.error('Erro ao verificar token:', err);
@@ -821,21 +821,14 @@
                     if (!res.ok) {
                         throw new Error(data.detail || 'Erro ao cadastrar');
                     }
-                    
-                    localStorage.setItem('motoflash_token', data.access_token);
-                    localStorage.setItem('motoflash_user', JSON.stringify(data.user));
-                    localStorage.setItem('motoflash_restaurant', JSON.stringify(data.restaurant));
 
+                    // NÃO salva o token - usuário deve fazer login após cadastro
                     setShowSuccess(true);
 
                     setTimeout(() => {
                         setShowSuccess(false);
-                        setSplashRestaurantName(data.restaurant.name);
-                        setShowSplash(true);
-
-                        setTimeout(() => {
-                            window.location.href = '/dashboard';
-                        }, 4000);
+                        setIsFlipped(false); // Volta para a tela de login
+                        setLoginEmail(email); // Pre-preenche o email no login
                     }, 2500);
                     
                 } catch (err) {
@@ -846,9 +839,9 @@
             };
             
             const handleLogout = () => {
-                localStorage.removeItem('motoflash_token');
-                localStorage.removeItem('motoflash_user');
-                localStorage.removeItem('motoflash_restaurant');
+                sessionStorage.removeItem('motoflash_token');
+                sessionStorage.removeItem('motoflash_user');
+                sessionStorage.removeItem('motoflash_restaurant');
                 setBlockedRestaurant(null);
                 setShowExpired(false);
             };
@@ -1257,13 +1250,8 @@
                                 Seu período de teste de <strong className="text-white">14 dias</strong> começou.
                             </p>
                             <p className="text-xs" style={{color: 'rgba(255,255,255,0.4)'}}>
-                                Redirecionando para o dashboard...
+                                Faça login para acessar o sistema...
                             </p>
-                            <div className="mt-5">
-                                <div className="w-full rounded-full h-1" style={{background: 'rgba(255,255,255,0.1)'}}>
-                                    <div className="h-1 rounded-full animate-pulse" style={{width: '60%', background: 'linear-gradient(135deg, var(--accent-orange), #ff8c42)'}}></div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                     
