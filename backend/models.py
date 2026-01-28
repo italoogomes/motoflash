@@ -824,7 +824,7 @@ class PrevisaoHibrida(SQLModel):
     variacao_demanda_pct: Optional[float] = None  # % acima/abaixo do normal
 
     # Recomendação final
-    motoboys_recomendados: int = 1
+    motoboys_recomendados: Optional[int] = None  # None = sem dados para recomendação
     status: str = "adequado"  # adequado, atencao, critico
     mensagem: str = ""
     sugestao_acao: Optional[str] = None

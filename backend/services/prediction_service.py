@@ -421,10 +421,14 @@ def calcular_previsao_hibrida(
     # ===== 5. RECOMENDAÇÃO FINAL =====
     # Combina histórico + situação atual
 
-    motoboys_rec = 1
+    motoboys_rec = None  # None = sem dados para recomendação (aparece como "-")
     status = "adequado"
     mensagem = ""
     sugestao = None
+
+    # Verifica se há dados suficientes para uma recomendação
+    tem_fila = pedidos["fila"] > 0
+    tem_pedidos_recentes = pedidos["ultima_hora"] > 0
 
     # Se tem histórico confiável, usa como base
     if historico_disponivel:
@@ -450,18 +454,24 @@ def calcular_previsao_hibrida(
         else:
             motoboys_rec = motoboys_base
             mensagem = f"Baseado no histórico: {motoboys_base} motoboy(s) recomendado(s)"
-    else:
-        # Sem histórico: usa apenas tempo real
+    elif tem_fila or tem_pedidos_recentes:
+        # Sem histórico mas tem atividade: calcula baseado no tempo real
         motoboys_rec = calcular_motoboys_necessarios(
-            float(pedidos["ultima_hora"]),
+            float(pedidos["ultima_hora"]) if tem_pedidos_recentes else float(pedidos["fila"]),
             tempo_ciclo
         )
         mensagem = "Ainda coletando dados históricos. Recomendação baseada no ritmo atual."
+    else:
+        # Sem histórico E sem atividade: não há dados para recomendar
+        motoboys_rec = None
+        mensagem = "Sem dados suficientes para recomendação. Aguardando mais pedidos."
 
     # Verifica situação crítica (fila crescendo)
     if pedidos["fila"] > 0 and disponiveis == 0:
         status = "critico" if pedidos["fila"] >= 3 else "atencao"
         mensagem = f"{pedidos['fila']} pedido(s) aguardando e nenhum motoboy disponível!"
+        # Calcula recomendação urgente baseada na fila
+        motoboys_rec = max(motoboys_rec or 1, (pedidos["fila"] // 2) + 1)
         sugestao = f"Ative mais motoboys AGORA! Recomendado: {motoboys_rec}"
 
     # Verifica balanceamento negativo
@@ -471,8 +481,9 @@ def calcular_previsao_hibrida(
         if balanceamento["tempo_acumulo_min"]:
             mensagem += f" Fila pode crescer em ~{balanceamento['tempo_acumulo_min']}min."
 
-    # Garante mínimo baseado na fila atual
-    motoboys_rec = max(motoboys_rec, (pedidos["fila"] // 2) + 1 if pedidos["fila"] > 0 else 1)
+    # Se tem fila, garante recomendação mínima baseada na fila atual
+    if tem_fila and motoboys_rec is not None:
+        motoboys_rec = max(motoboys_rec, (pedidos["fila"] // 2) + 1)
 
     # ===== MONTA RESPOSTA =====
     return PrevisaoHibrida(

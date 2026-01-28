@@ -58,8 +58,10 @@ def test_previsao_sem_historico(
     assert data["historico"]["disponivel"] is False
     assert data["historico"]["amostras"] == 0
 
-    # Recomendação deve existir mesmo sem histórico
-    assert data["recomendacao"]["motoboys"] >= 1
+    # Sem histórico E sem atividade = recomendação pode ser None (exibido como "-")
+    # Se tiver atividade (pedidos), deve ter recomendação >= 1
+    motoboys_rec = data["recomendacao"]["motoboys"]
+    assert motoboys_rec is None or motoboys_rec >= 1
     assert data["recomendacao"]["status"] in ["adequado", "atencao", "critico"]
 
 

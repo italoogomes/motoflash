@@ -15,7 +15,8 @@
       "Bash(start htmlcov/index.html)",
       "Bash(grep:*)",
       "Bash(cd:*)",
-      "Bash(/c/Users/italo.gomes/AppData/Local/anaconda3/python.exe -m pytest:*)"
+      "Bash(/c/Users/italo.gomes/AppData/Local/anaconda3/python.exe -m pytest:*)",
+      "Bash(python -m pytest:*)"
     ]
   }
 }
