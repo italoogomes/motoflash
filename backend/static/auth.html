@@ -1042,13 +1042,6 @@
                     {showSplash && (
                         <div className={`splash-overlay ${splashFadeOut ? 'splash-fade-out' : ''}`}>
                             <div className="splash-container">
-                                {/* Linhas de energia sutis */}
-                                <div className="energy-lines-splash">
-                                    <div className="energy-line-splash l1" />
-                                    <div className="energy-line-splash l2" />
-                                    <div className="energy-line-splash l3" />
-                                </div>
-
                                 <div className="logo-wrapper-splash">
                                     <div className="glow-splash" />
 
@@ -1124,46 +1117,6 @@
                                     align-items: center;
                                     justify-content: center;
                                     overflow: hidden;
-                                }
-
-                                .energy-lines-splash {
-                                    position: absolute;
-                                    inset: 0;
-                                    overflow: hidden;
-                                    pointer-events: none;
-                                }
-
-                                .energy-line-splash {
-                                    position: absolute;
-                                    height: 2px;
-                                    width: 100px;
-                                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), rgba(255,255,255,0.6), rgba(255,255,255,0.4), transparent);
-                                    border-radius: 2px;
-                                }
-
-                                .energy-line-splash.l1 {
-                                    top: 30%;
-                                    animation: energyMoveSplash 3s ease-in-out infinite;
-                                }
-
-                                .energy-line-splash.l2 {
-                                    top: 50%;
-                                    width: 80px;
-                                    animation: energyMoveSplash 3.5s ease-in-out infinite;
-                                    animation-delay: 1s;
-                                }
-
-                                .energy-line-splash.l3 {
-                                    top: 70%;
-                                    width: 120px;
-                                    animation: energyMoveSplash 4s ease-in-out infinite;
-                                    animation-delay: 2s;
-                                }
-
-                                @keyframes energyMoveSplash {
-                                    0% { transform: translateX(-100%) scaleX(0.5); opacity: 0; }
-                                    50% { opacity: 1; }
-                                    100% { transform: translateX(200vw) scaleX(0.5); opacity: 0; }
                                 }
 
                                 .logo-wrapper-splash {
