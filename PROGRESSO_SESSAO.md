@@ -1,7 +1,7 @@
 # 📋 Progresso da Sessão - MotoFlash
 
-**Data:** 2026-01-28
-**Versão Atual:** 1.3.0 ✅ ESTÁVEL (100% dos testes passando - 92 testes)
+**Data:** 2026-01-29
+**Versão Atual:** 1.3.1 ✅ ESTÁVEL (100% dos testes passando - 92 testes)
 
 ---
 
@@ -553,121 +553,257 @@ Atendente: *busca por "Maria Silva"* → "Oi Maria! Seu pedido #1234 está em ro
 
 ---
 
-#### 🐛 BUG PENDENTE - Busca Não Encontra Pedidos ⚠️
+#### 🐛 BUG RESOLVIDO - Endpoint /search Retornava 404 ✅
 
 **Situação:**
-- Busca de rastreamento NÃO está encontrando pedidos existentes
-- Usuário tem pedido "Ítalo Gomes" (#1002 ou #1003) em status de entrega
-- Busca por nome ("Ítalo Gomes") e tracking code retorna "Nenhum pedido encontrado"
-- Sidebar mostra badge "1" na aba "Pedidos" (que nem está implementada) - comportamento estranho
+- Busca de rastreamento retornava erro **404 Not Found**
+- Endpoint `/orders/search?q=Ítalo` não era encontrado pelo FastAPI
+- Código do endpoint existia no arquivo mas não funcionava em produção
 
-**Tentativa de Correção (backend/routers/orders.py:431-458):**
-- **Problema identificado**: Search endpoint só buscava em Customer table (via join)
-- **Consequência**: Orders criados digitando nome diretamente (sem Customer record) não apareciam
-- **Fix aplicado**: Modificado para buscar DIRETO em `Order.customer_name`
-- **Resultado**: ❌ **NÃO FUNCIONOU** - Busca continua retornando vazio
+**Investigação:**
+1. ✅ Código do endpoint `/search` existia (linha 375 do orders.py)
+2. ✅ Commits estavam no GitHub (verificado com git log)
+3. ❌ Railway deployou mas endpoint continuava 404
 
-**Commit Criado (NÃO DEPLOYED):**
+**Causa Raiz Identificada:**
+- **Problema:** Ordem incorreta das rotas no FastAPI
+- Rota específica `/search` estava **DEPOIS** da rota genérica `/{order_id}`
+- FastAPI processa rotas na ordem em que são definidas
+- Quando acessava `/orders/search`, FastAPI interpretava "search" como um `order_id`
+- Tentava executar `get_order(order_id="search")` em vez de `search_orders()`
+
+**Ordem ERRADA (antes):**
+```python
+@router.get("/{order_id}")        # Linha 134 - Genérica (captura tudo)
+@router.get("/search")            # Linha 375 - Específica (nunca executada)
 ```
-Fix: Busca de rastreamento não encontrava pedidos sem Customer
 
-- Busca agora procura direto no campo Order.customer_name
-- Mantém busca secundária por telefone via Customer table
-- 1 file changed, 18 insertions(+), 8 deletions(-)
+**Solução Aplicada:**
+- Movido `@router.get("/search")` para ANTES de `@router.get("/{order_id}")`
+- Rotas específicas devem sempre vir ANTES de rotas com path parameters
+
+**Ordem CORRETA (depois):**
+```python
+@router.get("/search")            # Linha 134 - Específica ✅
+@router.get("/{order_id}")        # Linha 244 - Genérica
 ```
 
-**Status Git:**
-- ✅ Commit criado localmente
-- ❌ Push falhou: "fatal: User canceled device code authentication"
-- ⚠️ **PRECISA FAZER GIT PUSH MANUALMENTE** para deployment no Railway
+**Arquivos Modificados:**
+- `backend/routers/orders.py` - Reordenação de funções (110 linhas movidas)
 
-**Possíveis Causas para Investigar Amanhã:**
+**Commits:**
+```
+caeb44a - Fix: Ordem de rotas no FastAPI - /search antes de /{order_id}
+e6d93ec - Trigger Railway redeploy - fix search endpoint (commit vazio)
+```
 
-1. **Fix não foi deployed:**
-   - Código corrigido está apenas local
-   - Railway ainda rodando versão antiga
-   - **PRIMEIRO PASSO**: `git push` manual
+**Resultado:**
+- ✅ Endpoint `/orders/search` funciona corretamente
+- ✅ Busca por nome encontra pedidos (ex: "it" → encontra "Ítalo Gomes")
+- ✅ Busca por tracking code funciona (ex: "MF-HJGDG9")
+- ✅ Busca por short_id funciona (ex: "#1003")
 
-2. **Filtro de status muito restritivo:**
-   ```python
-   Order.status != OrderStatus.DELIVERED
-   ```
-   - Verificar qual é o status real do pedido no banco
-   - Talvez o pedido tenha status diferente do esperado
+**Lição Aprendida:**
+- Em FastAPI, **ordem das rotas importa**
+- Rotas específicas (`/search`, `/track/{code}`) devem vir ANTES de rotas genéricas (`/{id}`)
+- Usar decorators de forma estratégica para evitar conflitos
 
-3. **Filtro de restaurant_id:**
-   ```python
-   Order.restaurant_id == current_user.restaurant_id
-   ```
-   - Verificar se usuário logado tem mesmo restaurant_id do pedido
-   - Pode ser problema de multi-tenant incorreto
+**Data do Bug:** 2026-01-28
+**Reportado por:** Usuário (Ítalo)
+**Resolvido por:** Claude + Ítalo
+**Status:** ✅ **RESOLVIDO**
 
-4. **Normalização de texto:**
-   ```python
-   normalize_text("Ítalo Gomes")  # → "italo gomes"
-   ```
-   - Verificar se função normalize_text está funcionando corretamente
-   - Testar com acentos (Ítalo tem acento agudo)
+### 1️⃣1️⃣ Correção do Endpoint /search (v1.3.1) ⭐ SESSÃO ATUAL
 
-5. **Pedido realmente existe?:**
-   - Verificar diretamente no banco se existe Order com customer_name="Ítalo Gomes"
-   - Verificar short_id, tracking_code, restaurant_id, status
+#### 🐛 Bug Crítico Corrigido
 
-6. **Badge "1" na aba Pedidos:**
-   - Investigar de onde vem esse badge
-   - Código não implementado mas está mostrando número
-   - Pode indicar problema de cache ou estado do React
+**Problema:**
+Endpoint `/orders/search` retornava **404 Not Found** apesar do código existir e estar deployado no Railway.
 
-**Comandos para Debug Amanhã:**
+**Causa Raiz:**
+- **Ordem incorreta das rotas no FastAPI**
+- Rota específica `/search` estava APÓS rota genérica `/{order_id}`
+- FastAPI interpretava "search" como um `order_id`
+- Endpoint nunca era executado
+
+**Solução:**
+- Movido `@router.get("/search")` para ANTES de `@router.get("/{order_id}")`
+- Rotas específicas agora vêm antes de rotas com path parameters
+
+**Arquivos Modificados:**
+1. `backend/routers/orders.py` - Reordenação de rotas (110 linhas)
+2. `PROGRESSO_SESSAO.md` - Documentação da solução
+
+**Ordem Correta das Rotas:**
+```python
+# ✅ CORRETO
+@router.get("")                    # Linha 107 - Lista de pedidos
+@router.get("/search")             # Linha 134 - Busca (específica) ✅
+@router.get("/{order_id}")         # Linha 244 - Get pedido (genérica)
+@router.get("/{order_id}/qrcode")  # Linha 264 - QR Code
+@router.get("/track/{code}")       # Linha 445 - Rastreio público
+```
+
+**Resultado:**
+- ✅ Busca por nome funciona (ex: "it" → "Ítalo Gomes")
+- ✅ Busca por tracking code funciona (ex: "MF-HJGDG9")
+- ✅ Busca por short_id funciona (ex: "#1003")
+- ✅ Sistema de rastreamento totalmente funcional
+
+**Commits:**
+```bash
+caeb44a - Fix: Ordem de rotas no FastAPI - /search antes de /{order_id}
+e6d93ec - Trigger Railway redeploy - fix search endpoint
+```
+
+**📊 Testes:**
+- ✅ **92/92 testes passando (100%)**
+- Nenhum teste quebrado pela refatoração
+
+**💡 Lição Aprendida:**
+> Em FastAPI, a **ordem das rotas é crucial**. Rotas específicas (`/search`, `/track/{code}`) devem SEMPRE vir ANTES de rotas genéricas com path parameters (`/{id}`).
+
+**💰 Nota sobre Custos de API:**
+O sistema de rastreamento **NÃO gasta requisições extras** do Google Maps:
+- ✅ Busca: apenas banco de dados (R$ 0,00)
+- ✅ Visualização: reutiliza polyline já gerada (R$ 0,00)
+- 🔴 Custo: apenas no dispatch ao criar lote (1 requisição Directions API)
+
+---
+
+### 1️⃣2️⃣ 🐛 BUG PENDENTE - Mapa Preto no TrackingModal (v1.3.2) ⚠️ PARA RESOLVER AMANHÃ
+
+**Data:** 2026-01-29
+**Status:** 🔴 **NÃO RESOLVIDO - PENDENTE**
+
+#### 📋 Problema Relatado:
+
+Após correção do bug de busca (v1.3.1), usuário reportou dois problemas no modal de rastreamento:
+1. **Zoom resetando sozinho** após ~1 segundo de abrir o modal
+2. **Marcador do motoboy não aparecendo no mapa** (ícone 🏍️ azul)
+
+#### 🔍 Tentativas de Correção (4 commits):
+
+**Commit b766271 - Fix v1:**
+- Tentativa: Separar useEffect de criação do mapa vs atualização de marcadores
+- Resultado: ❌ Não resolveu
+
+**Commit 454997c - Fix v2:**
+- Tentativa: Replicar exatamente a lógica do `motoboy.html`
+  - Adicionadas refs: `markersLayerRef`, `routeLayerRef`, `courierMarkerRef`, `initialFitDoneRef`
+  - Map criado uma única vez (sem dependência de `trackingDetails`)
+  - Marcador atualizado com `setLatLng()` em vez de recriar
+  - `fitBounds` apenas na primeira vez
+- Resultado: ❌ Não resolveu
+
+**Commit 56f43f9 - Fix v3:**
+- Tentativa: Resolver mapa preto com `invalidateSize()`
+  - Adicionado `trackingDetails` de volta às dependências do useEffect do mapa
+  - Adicionado `setTimeout(() => map.invalidateSize(), 100)`
+- Resultado: ✅ Deploy feito, mas mapa apareceu preto
+- Problema: Dependência de `trackingDetails` causa cleanup/recriação do mapa
+
+**Commit 20202d5 - Fix v4:** ⭐ ATUAL
+- Tentativa: Remover dependência de `trackingDetails` para evitar cleanup
+  - Map criado apenas uma vez (dependencies: `[]`)
+  - `invalidateSize` separado em useEffect próprio com flag `mapInvalidatedRef`
+  - Evita destruição do mapa durante polling (10s)
+- Resultado: ❌ **Mapa voltou a ficar preto**
+
+#### 🧩 Análise do Problema:
+
+**Conflito entre duas necessidades:**
+1. **Mapa precisa aguardar dados** (`trackingDetails`) para ter coordenadas corretas
+2. **Mapa NÃO pode depender de dados** senão é recriado a cada polling (10s)
+
+**Comparação com motoboy.html (que funciona):**
+- ✅ `motoboy.html`: Dados vêm de polling próprio, não de props
+- ✅ `motoboy.html`: Map criado antes de ter dados (coordenadas default)
+- ✅ `motoboy.html`: Usa `currentPosition` state separado para GPS
+
+**TrackingModal (que não funciona):**
+- ❌ Dados vêm de props (`trackingDetails`) que mudam a cada 10s
+- ❌ Precisa de `invalidateSize()` porque modal não está visível na criação
+- ❌ Timing complexo: aguardar modal renderizar + dados chegarem
+
+#### 🎯 Possíveis Soluções para Amanhã:
+
+**Opção 1: Forçar criação do mapa imediatamente**
+- Criar mapa assim que modal abre (sem aguardar dados)
+- Usar coordenadas default do restaurante
+- Quando dados chegarem, atualizar marcadores/rota/zoom
+- Chamar `invalidateSize()` após 100ms sempre
+
+**Opção 2: Usar setTimeout no próprio modal**
+- Aguardar 200ms após modal abrir para criar mapa
+- Garantir que container está 100% renderizado e visível
+- Não depender de `trackingDetails` para criar mapa
+
+**Opção 3: Refatorar para usar state interno**
+- Copiar estratégia do `motoboy.html`
+- Polling dentro do TrackingModal (não via props)
+- State separado para GPS do motoboy
+
+**Opção 4: Verificar console do navegador**
+- Ver erros JavaScript do Leaflet
+- Verificar se tiles do OpenStreetMap estão carregando
+- Debug: `trackingDetails.courier.current_lat/lng` está chegando?
+
+#### 📂 Arquivos Afetados:
+
+- `backend/static/js/components.js` (linhas 2950-3250 aprox.)
+  - Componente `TrackingModal`
+  - 4 tentativas de correção aplicadas
+
+#### 📊 Commits da Sessão:
 
 ```bash
-# 1. PRIMEIRO: Push do código corrigido
-git push
-
-# 2. Verificar logs do Railway após deployment
-railway logs
-
-# 3. Testar endpoint diretamente (Postman/curl)
-curl -X GET "https://[railway-url]/orders/search?q=Ítalo" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 4. Ver todos os pedidos do restaurante
-curl -X GET "https://[railway-url]/orders" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 5. Testar normalização de texto
-python3 -c "
-import unicodedata
-def normalize_text(text):
-    nfkd = unicodedata.normalize('NFKD', text)
-    text_without_accents = ''.join([c for c in nfkd if not unicodedata.combining(c)])
-    return text_without_accents.lower()
-print(normalize_text('Ítalo Gomes'))  # Deve retornar: 'italo gomes'
-"
-
-# 6. Consultar banco SQLite direto (se acessível)
-sqlite3 motoflash.db "SELECT id, customer_name, short_id, tracking_code, status, restaurant_id FROM orders WHERE customer_name LIKE '%Ítalo%';"
+b766271 - Fix: Zoom resetando e motoboy não aparecendo no mapa de rastreamento
+454997c - Fix v2: Replicar lógica do motoboy.html no TrackingModal
+56f43f9 - Fix v3: Mapa preto - invalidateSize e aguardar trackingDetails
+20202d5 - Fix v4: Mapa recriado a cada polling - marcador do motoboy sumia
 ```
 
-**Arquivos Envolvidos:**
-- `backend/routers/orders.py` (linhas 431-472) - Endpoint de busca
-- `backend/static/js/components.js` - TrackingPage component
-- `backend/static/js/app.js` - Sidebar badges
+#### 💡 Lições Aprendidas:
 
-**Próximos Passos Amanhã:**
-1. ✅ Fazer `git push` manual
-2. ✅ Aguardar deployment no Railway (~2-3 min)
-3. ✅ Testar busca novamente no frontend
-4. Se ainda não funcionar:
-   - Verificar logs do Railway
-   - Testar endpoint direto com curl/Postman
-   - Verificar dados reais no banco
-   - Adicionar logs de debug no endpoint
-   - Investigar badge "1" estranho na sidebar
+1. **Leaflet + Modal + Polling = Timing complexo**
+   - Container precisa estar visível antes de criar mapa
+   - `invalidateSize()` é crítico para modais
+   - Dependências do useEffect causam cleanup inesperado
 
-**Data do Bug:** 2026-01-28 23:XX
-**Reportado por:** Usuário (Ítalo)
-**Status:** 🔴 PENDENTE INVESTIGAÇÃO
+2. **Props vs State Interno**
+   - Props que mudam frequentemente causam re-renders
+   - Polling dentro do componente pode ser mais estável
+   - Refs são essenciais para manter instâncias
+
+3. **Debug necessário:**
+   - Console do navegador (F12) para ver erros
+   - Network tab para verificar tiles do mapa
+   - React DevTools para ver re-renders
+
+#### 📝 Próximos Passos (Amanhã):
+
+1. **Debug primeiro:**
+   - Abrir console do navegador (F12)
+   - Tentar abrir modal de rastreamento
+   - Verificar erros JavaScript/Leaflet
+   - Ver se `trackingDetails.courier` tem coordenadas
+
+2. **Se mapa está preto:**
+   - Verificar se container tem altura (`height: 350px`)
+   - Verificar se tiles do OpenStreetMap carregam (Network tab)
+   - Tentar `map.invalidateSize()` com delay maior (500ms)
+
+3. **Se zoom reseta:**
+   - Verificar flag `initialFitDoneRef` está funcionando
+   - Confirmar que mapa não está sendo recriado (add console.log)
+
+4. **Testar solução do motoboy.html:**
+   - Copiar estrutura exata de polling/state
+   - Criar mapa com coordenadas default imediatamente
+   - Atualizar depois quando dados chegarem
+
+---
 
 #### 🎨 UI/UX
 
@@ -955,7 +1091,8 @@ FASE 3: Funcionalidades Inteligentes
 
 FASE 4: Melhorias de UI/UX
 ├── ✅ v1.2.0: IDs Amigáveis para Pedidos (92/92 passando)
-├── ✅ v1.3.0: Sistema de Rastreamento para Atendente (92/92 passando) ⭐ ATUAL
+├── ✅ v1.3.0: Sistema de Rastreamento para Atendente (92/92 passando)
+├── ✅ v1.3.1: Correção Ordem de Rotas FastAPI (92/92 passando) ⭐ ATUAL
 ├── 🔄 Redesign Aba de Pedidos (próximo)
 ├── 🔄 Redesign Aba de Motoqueiros
 └── 🔄 Nova Aba de Relatórios
@@ -1031,37 +1168,47 @@ Olá! Você está continuando o trabalho no MotoFlash.
 - ✅ Sistema de Previsão Híbrida implementado (v1.1.0)
 - ✅ Bug "Motoboys Recomendados" corrigido (v1.1.1)
 - ✅ IDs Amigáveis para Pedidos implementado (v1.2.0)
+- ✅ Sistema de Rastreamento implementado (v1.3.0)
+- ✅ Bug crítico do endpoint /search corrigido (v1.3.1)
 - ✅ Documentação completa e atualizada
 
-**Contexto da última sessão (v1.3.0):**
-- Implementado Sistema de Rastreamento para Atendente
-- **Busca multi-campo**: nome, telefone, #ID, código de rastreio
-- **Mapa interativo**: Leaflet.js com GPS do motoboy em tempo real
-- **Polling**: Atualização automática a cada 10 segundos
-- **WhatsApp**: Botão para enviar link de rastreio
-- **Modal completo**: Detalhes do pedido, lote, motoboy, rota numerada
-- Nova aba "📍 Rastreamento" na sidebar
-- Arquivos criados: 6 novos schemas em models.py
-- Arquivos modificados: models.py, orders.py, app.js, components.js, index.html, dashboard.css
-- ~900 linhas de código novo (backend + frontend + CSS)
+**Contexto da última sessão (2026-01-29):**
+- ✅ **Bug Crítico Resolvido**: Endpoint `/orders/search` retornava 404 (v1.3.1)
+- ✅ **Causa**: Ordem incorreta de rotas no FastAPI (rota específica após genérica)
+- ✅ **Solução**: Movido `/search` para ANTES de `/{order_id}`
+- ✅ **Resultado**: Busca de rastreamento funciona 100%
+- 🔴 **Bug Pendente**: Mapa do TrackingModal fica preto (4 tentativas de correção)
+  - Ver seção "🐛 BUG PENDENTE - Mapa Preto no TrackingModal" acima
+  - Commits: b766271, 454997c, 56f43f9, 20202d5
+  - Problema: Conflito entre timing do modal + invalidateSize + polling
 
-**TAREFAS PLANEJADAS (pergunte ao usuário qual quer fazer):**
+**🚨 TAREFA URGENTE PARA PRÓXIMA SESSÃO:**
 
-1. **Sistema de Rastreamento para Atendente** ⭐ PRIORIDADE MÁXIMA
-   - **Cenário:** Cliente liga perguntando do pedido
-   - **Busca:** Por nome, telefone ou ID do pedido
-   - **Card:** Mostra status, motoboy, posição na fila (2º de 3)
-   - **Modal:** Mapa com rota do motoboy, paradas numeradas, GPS em tempo real
-   - **Backend já tem:** GPS, polyline, BatchStop, stop_sequence
-   - **Ver seção detalhada** em "TAREFAS PLANEJADAS > Sistema de Rastreamento"
+**1. 🐛 Resolver Bug do Mapa Preto (v1.3.2)** ⚠️ PRIORIDADE MÁXIMA
+   - Mapa do TrackingModal aparece preto após abrir
+   - Ver seção completa acima com análise detalhada
+   - 4 commits de tentativas de correção
+   - Possíveis soluções listadas
+   - **Começar com debug no console (F12) antes de fazer mudanças**
 
-3. **Redesign Aba de Pedidos**
+**Sistema de Rastreamento - Status Atual:**
+- ✅ Busca multi-campo: nome, telefone, #ID, código de rastreio
+- 🔴 Mapa interativo: **MAPA FICA PRETO** (bug pendente)
+- ✅ Polling: Atualização automática a cada 10 segundos (backend funcionando)
+- ✅ WhatsApp: Botão para enviar link de rastreio
+- ✅ Modal completo: Detalhes do pedido, lote, motoboy, rota numerada
+- ✅ Nova aba "📍 Rastreamento" na sidebar
+- ✅ **NÃO gasta requisições extras do Google Maps** (reutiliza polyline)
+
+**TAREFAS PLANEJADAS (depois de resolver bug):**
+
+2. **Redesign Aba de Pedidos**
    - Filtros, busca, timeline visual
 
-4. **Redesign Aba de Motoqueiros**
+3. **Redesign Aba de Motoqueiros**
    - Mapa em tempo real, estatísticas, ranking
 
-5. **Nova Aba de Relatórios**
+4. **Nova Aba de Relatórios**
    - Visão geral, performance, gráficos
 
 **Importante:**
@@ -1074,10 +1221,8 @@ Boa sorte! 🚀
 
 ---
 
-**Última atualização:** 2026-01-28
-**Próxima tarefa:** 🐛 **URGENTE**: Investigar e corrigir bug da busca de rastreamento (ver seção "BUG PENDENTE" em v1.3.0)
-**Próxima sessão:**
-1. Fazer `git push` manual (commit já criado)
-2. Testar busca após deployment
-3. Se não funcionar, debugar com logs/banco direto
-**Status:** ⚠️ **BUG CRÍTICO** - Busca de rastreamento não funciona (pedidos não aparecem) - Commit criado mas não deployed
+**Última atualização:** 2026-01-29 23:58
+**Última tarefa concluída:** ✅ Bug crítico da busca de rastreamento (v1.3.1) - Ordem de rotas corrigida
+**Próxima tarefa:** 🚨 **URGENTE** - Resolver bug do mapa preto no TrackingModal (v1.3.2)
+**Status:** ⚠️ **BUG PENDENTE** - Busca funciona 100%, mas mapa do rastreamento fica preto
+**Commits da sessão:** caeb44a, e6d93ec, b766271, 454997c, 56f43f9, 20202d5

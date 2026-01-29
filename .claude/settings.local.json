@@ -18,7 +18,9 @@
       "Bash(/c/Users/italo.gomes/AppData/Local/anaconda3/python.exe -m pytest:*)",
       "Bash(python -m pytest:*)",
       "Bash(pkill:*)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(node:*)"
     ]
   }
 }
