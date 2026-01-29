@@ -2979,9 +2979,9 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
         return () => clearInterval(interval);
     }, [fetchTrackingDetails]);
 
-    // Inicializar mapa (apenas UMA VEZ) - SEM trackingDetails nas dependências
+    // Inicializar mapa (apenas UMA VEZ) - Aguarda trackingDetails estar disponível
     React.useEffect(() => {
-        if (mapInstanceRef.current || !mapRef.current) return;
+        if (mapInstanceRef.current || !mapRef.current || !trackingDetails) return;
 
         const map = L.map(mapRef.current).setView(
             [restaurantData.lat || -23.5505, restaurantData.lng || -46.6333],
@@ -2996,6 +2996,13 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
         markersLayerRef.current = L.layerGroup().addTo(map);
         routeLayerRef.current = L.layerGroup().addTo(map);
 
+        // IMPORTANTE: invalidateSize após modal estar visível (fix para mapa preto)
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize();
+            }
+        }, 100);
+
         // Cleanup
         return () => {
             if (mapInstanceRef.current) {
@@ -3003,7 +3010,7 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
                 mapInstanceRef.current = null;
             }
         };
-    }, []);
+    }, [trackingDetails]);
 
     // Atualizar marcador do motoboy (usa setLatLng, não recria)
     React.useEffect(() => {
