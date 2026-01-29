@@ -2956,7 +2956,6 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
     const routeLayerRef = React.useRef(null);
     const courierMarkerRef = React.useRef(null);
     const initialFitDoneRef = React.useRef(false);
-    const mapInvalidatedRef = React.useRef(false);
 
     // Buscar detalhes do rastreamento
     const fetchTrackingDetails = React.useCallback(async () => {
@@ -2980,22 +2979,39 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
         return () => clearInterval(interval);
     }, [fetchTrackingDetails]);
 
-    // Inicializar mapa (apenas UMA VEZ, sem dependência de dados)
+    // Inicializar mapa APENAS quando container estiver visível (solução profissional para modals)
     React.useEffect(() => {
-        if (mapInstanceRef.current || !mapRef.current) return;
+        if (mapInstanceRef.current) return; // Já foi criado
 
-        const map = L.map(mapRef.current).setView(
-            [restaurantData.lat || -23.5505, restaurantData.lng || -46.6333],
-            13
-        );
+        const createMapWhenReady = () => {
+            // Verifica se o container tem altura real (está visível)
+            if (!mapRef.current || mapRef.current.offsetHeight === 0) {
+                // Container ainda hidden/sem dimensões, aguarda próximo frame
+                requestAnimationFrame(createMapWhenReady);
+                return;
+            }
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+            // Container está VISÍVEL! Agora sim cria o mapa
+            console.log('✅ Container visível! Criando mapa. Altura:', mapRef.current.offsetHeight);
 
-        mapInstanceRef.current = map;
-        markersLayerRef.current = L.layerGroup().addTo(map);
-        routeLayerRef.current = L.layerGroup().addTo(map);
+            const map = L.map(mapRef.current).setView(
+                [restaurantData.lat || -23.5505, restaurantData.lng || -46.6333],
+                13
+            );
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            mapInstanceRef.current = map;
+            markersLayerRef.current = L.layerGroup().addTo(map);
+            routeLayerRef.current = L.layerGroup().addTo(map);
+
+            console.log('✅ Mapa criado com sucesso!');
+        };
+
+        // Inicia a verificação recursiva
+        requestAnimationFrame(createMapWhenReady);
 
         // Cleanup
         return () => {
@@ -3005,18 +3021,6 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
             }
         };
     }, []);
-
-    // invalidateSize quando trackingDetails chegar pela primeira vez
-    React.useEffect(() => {
-        if (mapInstanceRef.current && trackingDetails && !mapInvalidatedRef.current) {
-            setTimeout(() => {
-                if (mapInstanceRef.current) {
-                    mapInstanceRef.current.invalidateSize();
-                    mapInvalidatedRef.current = true;
-                }
-            }, 100);
-        }
-    }, [trackingDetails]);
 
     // Atualizar marcador do motoboy (usa setLatLng, não recria)
     React.useEffect(() => {
