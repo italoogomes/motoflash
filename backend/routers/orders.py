@@ -131,6 +131,116 @@ def list_orders(
     return orders
 
 
+@router.get("/search", response_model=List[OrderResponse])
+def search_orders(
+    q: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🔍 Busca pedidos para rastreamento (atendente)
+
+    Busca por:
+    - Nome do cliente (ignora acentos e case)
+    - Telefone do cliente (busca exata)
+    - Short ID (ex: "1234" ou "#1234")
+    - Tracking code (ex: "MF-ABC123")
+
+    Filtra:
+    - Por restaurant_id (multi-tenant seguro)
+    - Apenas pedidos ATIVOS (exclui delivered)
+    - Limita a 10 resultados
+
+    🔒 PROTEÇÃO: Retorna apenas pedidos do restaurante do usuário logado
+    """
+    if not current_user.restaurant_id:
+        return []
+
+    # Normalizar query para busca
+    q_normalized = normalize_text(q)
+    q_clean = q.strip().upper()
+
+    # Lista para armazenar pedidos encontrados (usaremos set para evitar duplicatas)
+    found_orders = set()
+
+    # 1. Buscar por short_id (se for número)
+    # Aceita "1234" ou "#1234"
+    if q.replace("#", "").isdigit():
+        short_id_search = int(q.replace("#", ""))
+        statement = select(Order).where(
+            Order.restaurant_id == current_user.restaurant_id,
+            Order.short_id == short_id_search,
+            Order.status != OrderStatus.DELIVERED
+        )
+        order = session.exec(statement).first()
+        if order:
+            found_orders.add(order.id)
+
+    # 2. Buscar por tracking_code (se começar com "MF-")
+    if q_clean.startswith("MF-"):
+        statement = select(Order).where(
+            Order.restaurant_id == current_user.restaurant_id,
+            Order.tracking_code == q_clean,
+            Order.status != OrderStatus.DELIVERED
+        )
+        order = session.exec(statement).first()
+        if order:
+            found_orders.add(order.id)
+
+    # 3. Buscar por nome do cliente DIRETO no pedido (sem precisar de Customer cadastrado)
+    # Busca no campo customer_name do Order
+    orders_by_name = session.exec(
+        select(Order).where(
+            Order.restaurant_id == current_user.restaurant_id,
+            Order.status != OrderStatus.DELIVERED
+        )
+    ).all()
+
+    # Filtra localmente por nome normalizado
+    for order in orders_by_name:
+        if q_normalized in normalize_text(order.customer_name or ''):
+            found_orders.add(order.id)
+
+    # 4. Buscar TAMBÉM por telefone via Customer (se houver Customer cadastrado)
+    customer_statement = select(Customer).where(
+        Customer.restaurant_id == current_user.restaurant_id
+    )
+    customers = session.exec(customer_statement).all()
+
+    # Filtrar clientes por telefone
+    matching_customer_names = []
+    for customer in customers:
+        if q in (customer.phone or ''):  # Telefone: busca exata
+            matching_customer_names.append(customer.name)
+
+    # Se encontrou clientes por telefone, buscar pedidos desses clientes
+    if matching_customer_names:
+        for customer_name in matching_customer_names:
+            orders_statement = select(Order).where(
+                Order.restaurant_id == current_user.restaurant_id,
+                Order.customer_name == customer_name,
+                Order.status != OrderStatus.DELIVERED
+            ).order_by(Order.created_at.desc())
+
+            orders = session.exec(orders_statement).all()
+            for order in orders:
+                found_orders.add(order.id)
+
+    # Buscar os objetos Order completos dos IDs encontrados
+    if not found_orders:
+        return []
+
+    result_orders = []
+    for order_id in found_orders:
+        order = session.get(Order, order_id)
+        if order:
+            result_orders.append(order)
+
+    # Ordenar por data de criação (mais recente primeiro) e limitar a 10
+    result_orders.sort(key=lambda o: o.created_at, reverse=True)
+    return result_orders[:10]
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order(
     order_id: str, 
@@ -370,116 +480,6 @@ def track_order(tracking_code: str, session: Session = Depends(get_session)):
         customer_name=order.customer_name,
         address_text=order.address_text
     )
-
-
-@router.get("/search", response_model=List[OrderResponse])
-def search_orders(
-    q: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    🔍 Busca pedidos para rastreamento (atendente)
-
-    Busca por:
-    - Nome do cliente (ignora acentos e case)
-    - Telefone do cliente (busca exata)
-    - Short ID (ex: "1234" ou "#1234")
-    - Tracking code (ex: "MF-ABC123")
-
-    Filtra:
-    - Por restaurant_id (multi-tenant seguro)
-    - Apenas pedidos ATIVOS (exclui delivered)
-    - Limita a 10 resultados
-
-    🔒 PROTEÇÃO: Retorna apenas pedidos do restaurante do usuário logado
-    """
-    if not current_user.restaurant_id:
-        return []
-
-    # Normalizar query para busca
-    q_normalized = normalize_text(q)
-    q_clean = q.strip().upper()
-
-    # Lista para armazenar pedidos encontrados (usaremos set para evitar duplicatas)
-    found_orders = set()
-
-    # 1. Buscar por short_id (se for número)
-    # Aceita "1234" ou "#1234"
-    if q.replace("#", "").isdigit():
-        short_id_search = int(q.replace("#", ""))
-        statement = select(Order).where(
-            Order.restaurant_id == current_user.restaurant_id,
-            Order.short_id == short_id_search,
-            Order.status != OrderStatus.DELIVERED
-        )
-        order = session.exec(statement).first()
-        if order:
-            found_orders.add(order.id)
-
-    # 2. Buscar por tracking_code (se começar com "MF-")
-    if q_clean.startswith("MF-"):
-        statement = select(Order).where(
-            Order.restaurant_id == current_user.restaurant_id,
-            Order.tracking_code == q_clean,
-            Order.status != OrderStatus.DELIVERED
-        )
-        order = session.exec(statement).first()
-        if order:
-            found_orders.add(order.id)
-
-    # 3. Buscar por nome do cliente DIRETO no pedido (sem precisar de Customer cadastrado)
-    # Busca no campo customer_name do Order
-    orders_by_name = session.exec(
-        select(Order).where(
-            Order.restaurant_id == current_user.restaurant_id,
-            Order.status != OrderStatus.DELIVERED
-        )
-    ).all()
-
-    # Filtra localmente por nome normalizado
-    for order in orders_by_name:
-        if q_normalized in normalize_text(order.customer_name or ''):
-            found_orders.add(order.id)
-
-    # 4. Buscar TAMBÉM por telefone via Customer (se houver Customer cadastrado)
-    customer_statement = select(Customer).where(
-        Customer.restaurant_id == current_user.restaurant_id
-    )
-    customers = session.exec(customer_statement).all()
-
-    # Filtrar clientes por telefone
-    matching_customer_names = []
-    for customer in customers:
-        if q in (customer.phone or ''):  # Telefone: busca exata
-            matching_customer_names.append(customer.name)
-
-    # Se encontrou clientes por telefone, buscar pedidos desses clientes
-    if matching_customer_names:
-        for customer_name in matching_customer_names:
-            orders_statement = select(Order).where(
-                Order.restaurant_id == current_user.restaurant_id,
-                Order.customer_name == customer_name,
-                Order.status != OrderStatus.DELIVERED
-            ).order_by(Order.created_at.desc())
-
-            orders = session.exec(orders_statement).all()
-            for order in orders:
-                found_orders.add(order.id)
-
-    # Buscar os objetos Order completos dos IDs encontrados
-    if not found_orders:
-        return []
-
-    result_orders = []
-    for order_id in found_orders:
-        order = session.get(Order, order_id)
-        if order:
-            result_orders.append(order)
-
-    # Ordenar por data de criação (mais recente primeiro) e limitar a 10
-    result_orders.sort(key=lambda o: o.created_at, reverse=True)
-    return result_orders[:10]
 
 
 @router.get("/{order_id}/tracking-details", response_model=OrderTrackingDetails)
