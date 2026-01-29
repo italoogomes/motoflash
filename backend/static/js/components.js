@@ -2952,6 +2952,8 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
     const [loading, setLoading] = React.useState(true);
     const mapRef = React.useRef(null);
     const mapInstanceRef = React.useRef(null);
+    const courierMarkerRef = React.useRef(null);
+    const isFirstRenderRef = React.useRef(true);
 
     // Buscar detalhes do rastreamento
     const fetchTrackingDetails = React.useCallback(async () => {
@@ -2975,7 +2977,7 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
         return () => clearInterval(interval);
     }, [fetchTrackingDetails]);
 
-    // Inicializar mapa
+    // Inicializar mapa (apenas UMA VEZ)
     React.useEffect(() => {
         if (!mapRef.current || !trackingDetails || mapInstanceRef.current) return;
 
@@ -3015,20 +3017,6 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
             .addTo(map)
             .bindPopup('<b>Restaurante</b><br/>' + restaurantData.name);
 
-        // Marcador do motoboy (se disponível)
-        if (trackingDetails.courier?.current_lat && trackingDetails.courier?.current_lng) {
-            const courierIcon = L.divIcon({
-                className: 'custom-marker',
-                html: `<div style="background: #3B82F6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(59,130,246,0.5); animation: pulse 2s infinite;">🏍️</div>`,
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
-            });
-
-            L.marker([trackingDetails.courier.current_lat, trackingDetails.courier.current_lng], { icon: courierIcon })
-                .addTo(map)
-                .bindPopup(`<b>Motoboy</b><br/>${trackingDetails.courier.name}`);
-        }
-
         // Marcadores dos pedidos do lote (numerados)
         if (trackingDetails.batch?.orders) {
             trackingDetails.batch.orders.forEach((o, index) => {
@@ -3046,7 +3034,7 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
             });
         }
 
-        // Ajustar zoom para mostrar todos os pontos
+        // Ajustar zoom inicial para mostrar todos os pontos (APENAS UMA VEZ)
         const allPoints = [];
         allPoints.push([restaurantData.lat, restaurantData.lng]);
         if (trackingDetails.courier?.current_lat) {
@@ -3060,14 +3048,48 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
             map.fitBounds(bounds, { padding: [50, 50] });
         }
 
+        isFirstRenderRef.current = false;
+
         // Cleanup
         return () => {
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.remove();
                 mapInstanceRef.current = null;
             }
+            if (courierMarkerRef.current) {
+                courierMarkerRef.current = null;
+            }
         };
     }, [trackingDetails, restaurantData, order.id]);
+
+    // Atualizar marcador do motoboy (quando GPS muda, SEM resetar zoom)
+    React.useEffect(() => {
+        if (!mapInstanceRef.current || !trackingDetails) return;
+
+        const map = mapInstanceRef.current;
+
+        // Remover marcador antigo do motoboy se existir
+        if (courierMarkerRef.current) {
+            map.removeLayer(courierMarkerRef.current);
+        }
+
+        // Adicionar marcador atualizado do motoboy (se disponível)
+        if (trackingDetails.courier?.current_lat && trackingDetails.courier?.current_lng) {
+            const courierIcon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="background: #3B82F6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(59,130,246,0.5); animation: pulse 2s infinite;">🏍️</div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            courierMarkerRef.current = L.marker(
+                [trackingDetails.courier.current_lat, trackingDetails.courier.current_lng],
+                { icon: courierIcon }
+            )
+                .addTo(map)
+                .bindPopup(`<b>Motoboy</b><br/>${trackingDetails.courier.name}`);
+        }
+    }, [trackingDetails]);
 
     // Função para enviar por WhatsApp
     const handleSendWhatsApp = () => {
