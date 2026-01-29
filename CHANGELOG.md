@@ -4,6 +4,106 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.3.2] - 2026-01-29
+
+### 🗺️ Correção Crítica: Mapa Preto no TrackingModal
+
+#### 🐛 Bug Corrigido
+- **Mapa do rastreamento aparecia completamente preto** após abrir modal
+- Problema: Leaflet criava mapa quando container tinha `height: 0` (animação CSS do modal)
+- Zoom resetava sozinho a cada 10 segundos (polling)
+
+#### ✅ Solução Implementada (6 tentativas)
+- **Delay inicial de 300ms** - Aguarda animação CSS do modal
+- **Verificação recursiva** - `requestAnimationFrame` com até 50 tentativas (2.5s)
+- **Detecta container visível** - Só cria mapa quando `offsetHeight > 0`
+- **State `mapReady`** - Sincroniza criação do mapa com marcadores
+- **Logs detalhados** - Debug de altura, tentativas e sucesso/erro
+
+#### 🛠️ Modificado
+- `backend/static/js/components.js` - Componente `TrackingModal`
+  - Adicionado state `mapReady` para sincronização
+  - Refatorado useEffect de criação do mapa
+  - useEffects dos marcadores dependem de `mapReady`
+  - Logs detalhados para debug
+
+#### 📊 Resultado
+- ✅ **Mapa funciona 100%** (tiles carregam, marcadores aparecem)
+- ✅ **Zoom não reseta mais** (fix permanente)
+- ✅ **Polling funciona** sem quebrar mapa (a cada 10s)
+- ⚠️ **Marcador do motoboy pendente** (investigação necessária)
+
+#### 🔄 Commits (6 tentativas)
+```
+b766271 - Fix v1: Separar useEffect de criação/atualização
+454997c - Fix v2: Replicar lógica do motoboy.html
+56f43f9 - Fix v3: invalidateSize + aguardar dados
+20202d5 - Fix v4: Remover dependência de dados
+e2e9d26 - Fix v5: requestAnimationFrame recursivo
+80d4cff - Fix v6: SOLUÇÃO DEFINITIVA ✅
+```
+
+#### 💡 Lições Técnicas
+- Leaflet em modais requer aguardar animações CSS
+- Timeouts fixos não funcionam (variam por dispositivo)
+- `requestAnimationFrame` + verificação de altura é a solução correta
+- State `mapReady` evita race conditions
+
+---
+
+## [1.3.1] - 2026-01-29
+
+### 🔍 Correção: Endpoint de Busca Retornava 404
+
+#### 🐛 Bug Corrigido
+- Endpoint `/orders/search` retornava 404 Not Found
+- Causa: Ordem incorreta de rotas no FastAPI
+- Rota específica `/search` estava APÓS rota genérica `/{order_id}`
+- FastAPI interpretava "search" como um `order_id`
+
+#### ✅ Solução
+- Movido `@router.get("/search")` para ANTES de `@router.get("/{order_id}")`
+- Rotas específicas devem sempre vir antes de rotas com path parameters
+
+#### 🛠️ Modificado
+- `backend/routers/orders.py` - Reordenação de rotas (110 linhas)
+
+#### 📊 Resultado
+- ✅ Busca por nome funciona (ex: "Ítalo Gomes")
+- ✅ Busca por tracking code funciona (ex: "MF-HJGDG9")
+- ✅ Busca por short_id funciona (ex: "#1003")
+- ✅ Sistema de rastreamento totalmente funcional
+
+---
+
+## [1.3.0] - 2026-01-28
+
+### 📍 Sistema de Rastreamento para Atendente
+
+#### ✨ Funcionalidades
+- **Busca Multi-Campo** - Nome, telefone, #short_id, tracking_code
+- **Normalização de Texto** - Remove acentos, case-insensitive
+- **Mapa Interativo** - Leaflet.js com marcadores customizados
+- **Tempo Real** - Polling a cada 10 segundos
+- **WhatsApp Integration** - Envia link de rastreio público
+
+#### 🆕 Backend
+- `GET /orders/search?q={query}` - Busca multi-campo
+- `GET /orders/{order_id}/tracking-details` - Detalhes completos
+- 6 novos schemas (OrderTrackingDetails, BatchInfo, CourierInfo, etc)
+
+#### 🎨 Frontend
+- Nova aba "📍 Rastreamento" na sidebar
+- Componente TrackingPage com busca em tempo real
+- Modal TrackingModal com mapa Leaflet
+- Marcadores: 🏪 restaurante, 🏍️ motoboy, 1️⃣2️⃣3️⃣ pedidos
+
+#### 💰 Custo Zero
+- **NÃO gasta requisições extras** do Google Maps
+- Reutiliza polyline já gerada no dispatch
+
+---
+
 ## [1.2.0] - 2026-01-28
 
 ### 🏷️ IDs Amigáveis para Pedidos

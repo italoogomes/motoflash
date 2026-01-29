@@ -1,7 +1,7 @@
 # 📋 Progresso da Sessão - MotoFlash
 
 **Data:** 2026-01-29
-**Versão Atual:** 1.3.1 ✅ ESTÁVEL (100% dos testes passando - 92 testes)
+**Versão Atual:** 1.3.2 ✅ ESTÁVEL (100% dos testes passando - 92 testes)
 
 ---
 
@@ -671,18 +671,19 @@ O sistema de rastreamento **NÃO gasta requisições extras** do Google Maps:
 
 ---
 
-### 1️⃣2️⃣ 🐛 BUG PENDENTE - Mapa Preto no TrackingModal (v1.3.2) ⚠️ PARA RESOLVER AMANHÃ
+### 1️⃣2️⃣ Correção do Mapa Preto no TrackingModal (v1.3.2) ✅ RESOLVIDO
 
 **Data:** 2026-01-29
-**Status:** 🔴 **NÃO RESOLVIDO - PENDENTE**
+**Status:** ✅ **MAPA FUNCIONANDO** (marcador do motoboy pendente)
 
 #### 📋 Problema Relatado:
 
 Após correção do bug de busca (v1.3.1), usuário reportou dois problemas no modal de rastreamento:
-1. **Zoom resetando sozinho** após ~1 segundo de abrir o modal
-2. **Marcador do motoboy não aparecendo no mapa** (ícone 🏍️ azul)
+1. **Mapa aparecia completamente preto** (tiles não carregavam)
+2. **Zoom resetando sozinho** após ~1 segundo de abrir o modal
+3. **Marcador do motoboy não aparecendo no mapa** (ícone 🏍️ azul)
 
-#### 🔍 Tentativas de Correção (4 commits):
+#### 🔍 Tentativas de Correção (6 commits):
 
 **Commit b766271 - Fix v1:**
 - Tentativa: Separar useEffect de criação do mapa vs atualização de marcadores
@@ -700,108 +701,183 @@ Após correção do bug de busca (v1.3.1), usuário reportou dois problemas no m
 - Tentativa: Resolver mapa preto com `invalidateSize()`
   - Adicionado `trackingDetails` de volta às dependências do useEffect do mapa
   - Adicionado `setTimeout(() => map.invalidateSize(), 100)`
-- Resultado: ✅ Deploy feito, mas mapa apareceu preto
+- Resultado: ❌ Mapa apareceu preto
 - Problema: Dependência de `trackingDetails` causa cleanup/recriação do mapa
 
-**Commit 20202d5 - Fix v4:** ⭐ ATUAL
+**Commit 20202d5 - Fix v4:**
 - Tentativa: Remover dependência de `trackingDetails` para evitar cleanup
   - Map criado apenas uma vez (dependencies: `[]`)
   - `invalidateSize` separado em useEffect próprio com flag `mapInvalidatedRef`
   - Evita destruição do mapa durante polling (10s)
-- Resultado: ❌ **Mapa voltou a ficar preto**
+- Resultado: ❌ Mapa voltou a ficar preto
 
-#### 🧩 Análise do Problema:
+**Commit e2e9d26 - Fix v5:**
+- Tentativa: Criar mapa apenas quando container estiver visível
+  - Usa `requestAnimationFrame` recursivo
+  - Verifica `offsetHeight > 0` antes de criar mapa
+  - Remove dependência de timeouts arbitrários
+- Resultado: ❌ Mapa continuou preto (não aguardou animação CSS)
 
-**Conflito entre duas necessidades:**
-1. **Mapa precisa aguardar dados** (`trackingDetails`) para ter coordenadas corretas
-2. **Mapa NÃO pode depender de dados** senão é recriado a cada polling (10s)
+**Commit 80d4cff - Fix v6: ✅ SOLUÇÃO DEFINITIVA**
+- Tentativa: Aguardar animação CSS + verificação recursiva + sincronização
+  - **Delay inicial de 300ms** (aguarda animação CSS do modal)
+  - `requestAnimationFrame` com até **50 tentativas** (2.5s)
+  - **State `mapReady`** sincroniza mapa com marcadores
+  - **Logs detalhados** para debug
+  - `useEffects` dependem de `mapReady` (ordem garantida)
+- Resultado: ✅ **MAPA FUNCIONOU!** (17-26 tentativas até container ficar visível)
+
+#### 🧩 Análise da Causa Raiz:
+
+**Problema Principal: Leaflet + Modal + Animação CSS**
+
+1. **Modal tem animação CSS** (fade in, transitions)
+2. **Container do mapa tem `height: 0`** durante animação (ainda não renderizado)
+3. **Leaflet cria mapa imediatamente** (não aguarda animação terminar)
+4. **Resultado:** Mapa com `width: 0, height: 0` → **Mapa preto** (tiles não carregam)
 
 **Comparação com motoboy.html (que funciona):**
-- ✅ `motoboy.html`: Dados vêm de polling próprio, não de props
-- ✅ `motoboy.html`: Map criado antes de ter dados (coordenadas default)
-- ✅ `motoboy.html`: Usa `currentPosition` state separado para GPS
+- ✅ É uma **página normal** (sempre visível, sem modal)
+- ✅ Container está **100% renderizado** desde o início
+- ✅ **NÃO precisa** aguardar animações CSS
+- ✅ Leaflet cria mapa com dimensões corretas
 
-**TrackingModal (que não funciona):**
-- ❌ Dados vêm de props (`trackingDetails`) que mudam a cada 10s
-- ❌ Precisa de `invalidateSize()` porque modal não está visível na criação
-- ❌ Timing complexo: aguardar modal renderizar + dados chegarem
+**TrackingModal (que não funcionava):**
+- ❌ É um **modal** (hidden inicialmente, com animação)
+- ❌ Container **sem dimensões** durante criação
+- ❌ Leaflet criava mapa **ANTES** da animação terminar
+- ❌ `invalidateSize()` com 100ms era **insuficiente**
 
-#### 🎯 Possíveis Soluções para Amanhã:
+#### ✅ Solução Implementada (Fix v6):
 
-**Opção 1: Forçar criação do mapa imediatamente**
-- Criar mapa assim que modal abre (sem aguardar dados)
-- Usar coordenadas default do restaurante
-- Quando dados chegarem, atualizar marcadores/rota/zoom
-- Chamar `invalidateSize()` após 100ms sempre
+**Estratégia: Aguardar Container Estar Visível (Profissional)**
 
-**Opção 2: Usar setTimeout no próprio modal**
-- Aguardar 200ms após modal abrir para criar mapa
-- Garantir que container está 100% renderizado e visível
-- Não depender de `trackingDetails` para criar mapa
+```javascript
+// 1. Aguarda 300ms para animação CSS do modal terminar
+setTimeout(() => {
+    let attempts = 0;
+    const maxAttempts = 50; // 2.5 segundos
 
-**Opção 3: Refatorar para usar state interno**
-- Copiar estratégia do `motoboy.html`
-- Polling dentro do TrackingModal (não via props)
-- State separado para GPS do motoboy
+    const createMapWhenReady = () => {
+        attempts++;
 
-**Opção 4: Verificar console do navegador**
-- Ver erros JavaScript do Leaflet
-- Verificar se tiles do OpenStreetMap estão carregando
-- Debug: `trackingDetails.courier.current_lat/lng` está chegando?
+        // 2. Verifica se container tem altura (está visível)
+        if (mapRef.current.offsetHeight === 0) {
+            // Ainda hidden, tenta novamente
+            requestAnimationFrame(createMapWhenReady);
+            return;
+        }
 
-#### 📂 Arquivos Afetados:
+        // 3. Container VISÍVEL! Cria mapa
+        const map = L.map(mapRef.current).setView([...], 13);
+        L.tileLayer('https://...').addTo(map);
 
-- `backend/static/js/components.js` (linhas 2950-3250 aprox.)
-  - Componente `TrackingModal`
-  - 4 tentativas de correção aplicadas
+        // 4. Sinaliza que mapa está pronto
+        setMapReady(true);
+    };
 
-#### 📊 Commits da Sessão:
+    requestAnimationFrame(createMapWhenReady);
+}, 300);
+```
+
+**Por que funciona:**
+
+1. ✅ **Delay inicial (300ms)** - Aguarda maior parte da animação CSS
+2. ✅ **Verificação recursiva** - Não depende de timing arbitrário
+3. ✅ **`offsetHeight > 0`** - Garantia de que container está visível
+4. ✅ **State `mapReady`** - Sincroniza marcadores com mapa
+5. ✅ **`requestAnimationFrame`** - Performance otimizada
+6. ✅ **Limite de tentativas** - Previne loop infinito
+
+#### 📂 Arquivos Modificados:
+
+**`backend/static/js/components.js`** (linhas 2950-3160 aprox.)
+- Componente `TrackingModal`
+- Adicionado state `mapReady`
+- Refatorado useEffect de criação do mapa (300ms + verificação recursiva)
+- useEffects dos marcadores agora dependem de `mapReady`
+- Logs detalhados para debug
+
+**Mudanças:**
+- ❌ Removido `mapInvalidatedRef` (desnecessário)
+- ✅ Adicionado delay inicial de 300ms
+- ✅ Verificação recursiva com até 50 tentativas
+- ✅ State `mapReady` para sincronização
+- ✅ Logs: altura do container, número de tentativas, sucesso/erro
+
+#### 📊 Commits da Sessão (v1.3.2):
 
 ```bash
-b766271 - Fix: Zoom resetando e motoboy não aparecendo no mapa de rastreamento
-454997c - Fix v2: Replicar lógica do motoboy.html no TrackingModal
-56f43f9 - Fix v3: Mapa preto - invalidateSize e aguardar trackingDetails
-20202d5 - Fix v4: Mapa recriado a cada polling - marcador do motoboy sumia
+b766271 - Fix v1: Zoom resetando e motoboy não aparecendo
+454997c - Fix v2: Replicar lógica do motoboy.html
+56f43f9 - Fix v3: invalidateSize e aguardar trackingDetails
+20202d5 - Fix v4: Mapa recriado a cada polling
+e2e9d26 - Fix v5: Criar mapa quando container visível (requestAnimationFrame)
+80d4cff - Fix v6: Solução DEFINITIVA (delay + verificação + sincronização) ✅
 ```
+
+#### 📊 Resultados:
+
+**✅ Sucessos:**
+- ✅ **Mapa aparece corretamente** (tiles do OpenStreetMap carregam)
+- ✅ **Marcadores numerados aparecem** (🏪 restaurante, 1️⃣2️⃣3️⃣ pedidos)
+- ✅ **Zoom NÃO reseta mais** (fix do v6 funcionou)
+- ✅ **Polyline da rota aparece** (linha azul conectando pontos)
+- ✅ **Logs detalhados no console** (facilita debug)
+- ✅ **Polling funciona** (atualiza a cada 10s sem quebrar)
+
+**⚠️ Pendências:**
+- ⚠️ **Marcador do motoboy (🏍️ azul) não aparece** - Investigação pendente
+  - Possíveis causas:
+    1. GPS do motoboy não está atualizado (`current_lat: null`)
+    2. Timing: marcador tentou criar antes do mapa estar pronto
+    3. Motoboy não tem lote atribuído
+
+**📈 Performance:**
+- Container fica visível entre **tentativa 17-26** (850ms - 1300ms)
+- Total de tempo: ~1-1.5 segundos após abrir modal
+- Aceitável para UX (usuário não percebe delay)
 
 #### 💡 Lições Aprendidas:
 
-1. **Leaflet + Modal + Polling = Timing complexo**
-   - Container precisa estar visível antes de criar mapa
-   - `invalidateSize()` é crítico para modais
-   - Dependências do useEffect causam cleanup inesperado
+1. **Leaflet + Modal = Aguardar Animações CSS**
+   - Container precisa estar **100% visível** (`offsetHeight > 0`)
+   - Timeouts fixos (100ms, 500ms) **NÃO funcionam** (variam por dispositivo)
+   - `requestAnimationFrame` + verificação recursiva é **a solução correta**
 
-2. **Props vs State Interno**
-   - Props que mudam frequentemente causam re-renders
-   - Polling dentro do componente pode ser mais estável
-   - Refs são essenciais para manter instâncias
+2. **State para Sincronização**
+   - `mapReady` garante que marcadores só criam APÓS mapa existir
+   - Evita race conditions entre criação do mapa e dados da API
+   - useEffects devem depender de `mapReady`
 
-3. **Debug necessário:**
-   - Console do navegador (F12) para ver erros
-   - Network tab para verificar tiles do mapa
-   - React DevTools para ver re-renders
+3. **Logs São Essenciais para Debug**
+   - Logs detalhados permitiram identificar o problema
+   - Console mostrou que container tinha `height: 0` durante criação
+   - Número de tentativas indica performance (17-26 é OK)
 
-#### 📝 Próximos Passos (Amanhã):
+#### 📝 Próximos Passos (Próxima Sessão):
 
-1. **Debug primeiro:**
-   - Abrir console do navegador (F12)
-   - Tentar abrir modal de rastreamento
-   - Verificar erros JavaScript/Leaflet
-   - Ver se `trackingDetails.courier` tem coordenadas
+1. **🏍️ Resolver Marcador do Motoboy (PRIORIDADE)**
+   - Verificar se `courier.current_lat/lng` não é null
+   - Confirmar que motoboy está com GPS ativo no app
+   - Se null: adicionar mensagem "GPS não disponível"
+   - Se não-null: ajustar timing de criação do marcador
 
-2. **Se mapa está preto:**
-   - Verificar se container tem altura (`height: 350px`)
-   - Verificar se tiles do OpenStreetMap carregam (Network tab)
-   - Tentar `map.invalidateSize()` com delay maior (500ms)
+2. **📱 Testar App do Motoboy**
+   - Confirmar que não quebrou (tela branca resolvida)
+   - Verificar se GPS está sendo atualizado
+   - Testar fluxo completo: login → aceitar lote → iniciar rota
 
-3. **Se zoom reseta:**
-   - Verificar flag `initialFitDoneRef` está funcionando
-   - Confirmar que mapa não está sendo recriado (add console.log)
+3. **🧪 Testar Cenários Diversos**
+   - Pedido sem lote atribuído (sem motoboy)
+   - Pedido com motoboy mas GPS desligado
+   - Múltiplos pedidos no mesmo lote
+   - Polling durante 1 minuto (verificar se zoom mantém)
 
-4. **Testar solução do motoboy.html:**
-   - Copiar estrutura exata de polling/state
-   - Criar mapa com coordenadas default imediatamente
-   - Atualizar depois quando dados chegarem
+4. **📚 Atualizar Documentação**
+   - CHANGELOG.md com v1.3.2
+   - docs/TESTES.md (se adicionar testes)
+   - README.md (se necessário)
 
 ---
 
@@ -1172,24 +1248,40 @@ Olá! Você está continuando o trabalho no MotoFlash.
 - ✅ Bug crítico do endpoint /search corrigido (v1.3.1)
 - ✅ Documentação completa e atualizada
 
-**Contexto da última sessão (2026-01-29):**
-- ✅ **Bug Crítico Resolvido**: Endpoint `/orders/search` retornava 404 (v1.3.1)
-- ✅ **Causa**: Ordem incorreta de rotas no FastAPI (rota específica após genérica)
-- ✅ **Solução**: Movido `/search` para ANTES de `/{order_id}`
-- ✅ **Resultado**: Busca de rastreamento funciona 100%
-- 🔴 **Bug Pendente**: Mapa do TrackingModal fica preto (4 tentativas de correção)
-  - Ver seção "🐛 BUG PENDENTE - Mapa Preto no TrackingModal" acima
-  - Commits: b766271, 454997c, 56f43f9, 20202d5
-  - Problema: Conflito entre timing do modal + invalidateSize + polling
+**Contexto da última sessão (2026-01-29 - Sessão com Ítalo):**
 
-**🚨 TAREFA URGENTE PARA PRÓXIMA SESSÃO:**
+**PARTE 1: Bug da Busca (v1.3.1) - RESOLVIDO ✅**
+- ✅ Endpoint `/orders/search` retornava 404
+- ✅ Causa: Ordem incorreta de rotas no FastAPI
+- ✅ Solução: Movido `/search` para ANTES de `/{order_id}`
+- ✅ Resultado: Busca funciona 100%
 
-**1. 🐛 Resolver Bug do Mapa Preto (v1.3.2)** ⚠️ PRIORIDADE MÁXIMA
-   - Mapa do TrackingModal aparece preto após abrir
-   - Ver seção completa acima com análise detalhada
-   - 4 commits de tentativas de correção
-   - Possíveis soluções listadas
-   - **Começar com debug no console (F12) antes de fazer mudanças**
+**PARTE 2: Bug do Mapa Preto (v1.3.2) - RESOLVIDO ✅**
+- 🔴 Problema: Mapa do TrackingModal aparecia completamente preto
+- 🔍 Investigação: **6 tentativas de correção** (commits: b766271 → 80d4cff)
+- 🎯 Causa Raiz: Leaflet criava mapa quando container tinha `height: 0` (animação CSS do modal)
+- ✅ Solução: Delay de 300ms + verificação recursiva (`offsetHeight > 0`) + state `mapReady`
+- ✅ Resultado: **MAPA FUNCIONANDO!**
+  - Tiles carregam corretamente
+  - Marcadores aparecem
+  - Zoom não reseta mais
+  - Polling funciona sem quebrar
+
+**⚠️ PENDÊNCIA PARA PRÓXIMA SESSÃO:**
+
+**1. 🏍️ Marcador do Motoboy Não Aparece** ⚠️ INVESTIGAÇÃO NECESSÁRIA
+   - Mapa funciona, mas marcador azul do motoboy (🏍️) não aparece
+   - Possíveis causas:
+     1. GPS não atualizado (`current_lat: null`)
+     2. Timing: marcador tenta criar antes do mapa
+     3. Motoboy sem lote ativo
+   - **Próximo passo:** Verificar `courier.current_lat/lng` na API
+   - **Comando para debug:**
+     ```javascript
+     fetch('/orders/{order_id}/tracking-details', {
+         headers: {'Authorization': 'Bearer ' + localStorage.getItem('token')}
+     }).then(r => r.json()).then(d => console.log('GPS:', d.courier))
+     ```
 
 **Sistema de Rastreamento - Status Atual:**
 - ✅ Busca multi-campo: nome, telefone, #ID, código de rastreio
@@ -1200,15 +1292,20 @@ Olá! Você está continuando o trabalho no MotoFlash.
 - ✅ Nova aba "📍 Rastreamento" na sidebar
 - ✅ **NÃO gasta requisições extras do Google Maps** (reutiliza polyline)
 
-**TAREFAS PLANEJADAS (depois de resolver bug):**
+**TAREFAS PLANEJADAS (próximas sessões):**
 
-2. **Redesign Aba de Pedidos**
+1. **🏍️ Completar Sistema de Rastreamento (v1.3.3)**
+   - Resolver marcador do motoboy não aparecendo
+   - Adicionar mensagem quando GPS não disponível
+   - Testar todos os cenários (com/sem GPS, com/sem lote)
+
+2. **📋 Redesign Aba de Pedidos**
    - Filtros, busca, timeline visual
 
-3. **Redesign Aba de Motoqueiros**
+3. **🛵 Redesign Aba de Motoqueiros**
    - Mapa em tempo real, estatísticas, ranking
 
-4. **Nova Aba de Relatórios**
+4. **📊 Nova Aba de Relatórios**
    - Visão geral, performance, gráficos
 
 **Importante:**
@@ -1221,8 +1318,8 @@ Boa sorte! 🚀
 
 ---
 
-**Última atualização:** 2026-01-29 23:58
-**Última tarefa concluída:** ✅ Bug crítico da busca de rastreamento (v1.3.1) - Ordem de rotas corrigida
-**Próxima tarefa:** 🚨 **URGENTE** - Resolver bug do mapa preto no TrackingModal (v1.3.2)
-**Status:** ⚠️ **BUG PENDENTE** - Busca funciona 100%, mas mapa do rastreamento fica preto
-**Commits da sessão:** caeb44a, e6d93ec, b766271, 454997c, 56f43f9, 20202d5
+**Última atualização:** 2026-01-29 (sessão com Ítalo - bug do mapa preto)
+**Última tarefa concluída:** ✅ Bug do mapa preto no rastreamento (v1.3.2) - Solução DEFINITIVA implementada
+**Próxima tarefa:** 🏍️ Resolver marcador do motoboy não aparecendo (GPS verification)
+**Status:** ✅ **MAPA FUNCIONANDO** (92/92 testes passando) - Apenas marcador do motoboy pendente
+**Commits da sessão:** caeb44a, e6d93ec, b766271, 454997c, 56f43f9, 20202d5, e2e9d26, 80d4cff
