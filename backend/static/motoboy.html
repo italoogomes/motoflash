@@ -1280,9 +1280,10 @@
 
                         // Envia GPS para o backend (throttle: a cada 10 segundos)
                         const now = Date.now();
-                        if (now - lastGPSSentRef.current > 10000 && courierId) {
+                        const motoboyId = localStorage.getItem('motoboy_id');
+                        if (now - lastGPSSentRef.current > 10000 && motoboyId) {
                             lastGPSSentRef.current = now;
-                            fetch(`${API_URL}/couriers/${courierId}/location?lat=${newPos.lat}&lng=${newPos.lng}`, {
+                            fetch(`${API_URL}/couriers/${motoboyId}/location?lat=${newPos.lat}&lng=${newPos.lng}`, {
                                 method: 'PUT',
                                 headers: { 'Authorization': `Bearer ${localStorage.getItem('courier_token')}` }
                             }).then(() => {
