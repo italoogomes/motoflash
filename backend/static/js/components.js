@@ -2952,8 +2952,10 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
     const [loading, setLoading] = React.useState(true);
     const mapRef = React.useRef(null);
     const mapInstanceRef = React.useRef(null);
+    const markersLayerRef = React.useRef(null);
+    const routeLayerRef = React.useRef(null);
     const courierMarkerRef = React.useRef(null);
-    const isFirstRenderRef = React.useRef(true);
+    const initialFitDoneRef = React.useRef(false);
 
     // Buscar detalhes do rastreamento
     const fetchTrackingDetails = React.useCallback(async () => {
@@ -2977,11 +2979,10 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
         return () => clearInterval(interval);
     }, [fetchTrackingDetails]);
 
-    // Inicializar mapa (apenas UMA VEZ)
+    // Inicializar mapa (apenas UMA VEZ) - SEM trackingDetails nas dependências
     React.useEffect(() => {
-        if (!mapRef.current || !trackingDetails || mapInstanceRef.current) return;
+        if (mapInstanceRef.current || !mapRef.current) return;
 
-        // Criar mapa
         const map = L.map(mapRef.current).setView(
             [restaurantData.lat || -23.5505, restaurantData.lng || -46.6333],
             13
@@ -2992,63 +2993,8 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
         }).addTo(map);
 
         mapInstanceRef.current = map;
-
-        // Se tem rota, desenhar no mapa
-        if (trackingDetails.route?.polyline) {
-            const points = decodePolyline(trackingDetails.route.polyline);
-            if (points.length > 0) {
-                L.polyline(points, {
-                    color: '#60A5FA',
-                    weight: 4,
-                    opacity: 0.7
-                }).addTo(map);
-            }
-        }
-
-        // Marcador do restaurante
-        const restaurantIcon = L.divIcon({
-            className: 'custom-marker',
-            html: `<div style="background: #FF6B00; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🏪</div>`,
-            iconSize: [36, 36],
-            iconAnchor: [18, 18]
-        });
-
-        L.marker([restaurantData.lat, restaurantData.lng], { icon: restaurantIcon })
-            .addTo(map)
-            .bindPopup('<b>Restaurante</b><br/>' + restaurantData.name);
-
-        // Marcadores dos pedidos do lote (numerados)
-        if (trackingDetails.batch?.orders) {
-            trackingDetails.batch.orders.forEach((o, index) => {
-                const isCurrentOrder = o.id === order.id;
-                const markerIcon = L.divIcon({
-                    className: 'custom-marker',
-                    html: `<div style="background: ${isCurrentOrder ? '#F59E0B' : '#8B5CF6'}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${index + 1}</div>`,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16]
-                });
-
-                L.marker([o.lat, o.lng], { icon: markerIcon })
-                    .addTo(map)
-                    .bindPopup(`<b>${index + 1}. ${o.customer_name}</b><br/>${o.address_text}${isCurrentOrder ? '<br/><span style="color: #F59E0B; font-weight: bold;">← VOCÊ ESTÁ AQUI</span>' : ''}`);
-            });
-        }
-
-        // Ajustar zoom inicial para mostrar todos os pontos (APENAS UMA VEZ)
-        const allPoints = [];
-        allPoints.push([restaurantData.lat, restaurantData.lng]);
-        if (trackingDetails.courier?.current_lat) {
-            allPoints.push([trackingDetails.courier.current_lat, trackingDetails.courier.current_lng]);
-        }
-        if (trackingDetails.batch?.orders) {
-            trackingDetails.batch.orders.forEach(o => allPoints.push([o.lat, o.lng]));
-        }
-        if (allPoints.length > 0) {
-            const bounds = L.latLngBounds(allPoints);
-            map.fitBounds(bounds, { padding: [50, 50] });
-        }
-
-        isFirstRenderRef.current = false;
+        markersLayerRef.current = L.layerGroup().addTo(map);
+        routeLayerRef.current = L.layerGroup().addTo(map);
 
         // Cleanup
         return () => {
@@ -3056,40 +3002,110 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
                 mapInstanceRef.current.remove();
                 mapInstanceRef.current = null;
             }
-            if (courierMarkerRef.current) {
-                courierMarkerRef.current = null;
-            }
         };
-    }, [trackingDetails, restaurantData, order.id]);
+    }, []);
 
-    // Atualizar marcador do motoboy (quando GPS muda, SEM resetar zoom)
+    // Atualizar marcador do motoboy (usa setLatLng, não recria)
     React.useEffect(() => {
         if (!mapInstanceRef.current || !trackingDetails) return;
 
-        const map = mapInstanceRef.current;
-
-        // Remover marcador antigo do motoboy se existir
-        if (courierMarkerRef.current) {
-            map.removeLayer(courierMarkerRef.current);
+        if (!trackingDetails.courier?.current_lat || !trackingDetails.courier?.current_lng) {
+            // Remove marcador se GPS não disponível
+            if (courierMarkerRef.current) {
+                mapInstanceRef.current.removeLayer(courierMarkerRef.current);
+                courierMarkerRef.current = null;
+            }
+            return;
         }
 
-        // Adicionar marcador atualizado do motoboy (se disponível)
-        if (trackingDetails.courier?.current_lat && trackingDetails.courier?.current_lng) {
+        const pos = [trackingDetails.courier.current_lat, trackingDetails.courier.current_lng];
+
+        if (courierMarkerRef.current) {
+            // Atualiza posição sem recriar (igual ao motoboy.html)
+            courierMarkerRef.current.setLatLng(pos);
+        } else {
+            // Cria marcador pela primeira vez
             const courierIcon = L.divIcon({
-                className: 'custom-marker',
                 html: `<div style="background: #3B82F6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(59,130,246,0.5); animation: pulse 2s infinite;">🏍️</div>`,
+                className: '',
                 iconSize: [40, 40],
                 iconAnchor: [20, 20]
             });
 
-            courierMarkerRef.current = L.marker(
-                [trackingDetails.courier.current_lat, trackingDetails.courier.current_lng],
-                { icon: courierIcon }
-            )
-                .addTo(map)
-                .bindPopup(`<b>Motoboy</b><br/>${trackingDetails.courier.name}`);
+            courierMarkerRef.current = L.marker(pos, {
+                icon: courierIcon,
+                zIndexOffset: 1000
+            }).addTo(mapInstanceRef.current);
+            courierMarkerRef.current.bindPopup(`<b>Motoboy</b><br/>${trackingDetails.courier.name}`);
         }
     }, [trackingDetails]);
+
+    // Atualizar marcadores e rotas (quando dados mudam)
+    React.useEffect(() => {
+        if (!mapInstanceRef.current || !trackingDetails) return;
+
+        // Limpa layers anteriores
+        markersLayerRef.current.clearLayers();
+        routeLayerRef.current.clearLayers();
+
+        // Marcador do restaurante
+        const restaurantIcon = L.divIcon({
+            html: `<div style="background: #FF6B00; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🏪</div>`,
+            className: '',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+        });
+
+        L.marker([restaurantData.lat, restaurantData.lng], { icon: restaurantIcon })
+            .addTo(markersLayerRef.current)
+            .bindPopup('<b>Restaurante</b><br/>' + restaurantData.name);
+
+        // Marcadores dos pedidos do lote (numerados)
+        if (trackingDetails.batch?.orders) {
+            trackingDetails.batch.orders.forEach((o, index) => {
+                const isCurrentOrder = o.id === order.id;
+                const markerIcon = L.divIcon({
+                    html: `<div style="background: ${isCurrentOrder ? '#F59E0B' : '#8B5CF6'}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${index + 1}</div>`,
+                    className: '',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                L.marker([o.lat, o.lng], { icon: markerIcon })
+                    .addTo(markersLayerRef.current)
+                    .bindPopup(`<b>${index + 1}. ${o.customer_name}</b><br/>${o.address_text}${isCurrentOrder ? '<br/><span style="color: #F59E0B; font-weight: bold;">← VOCÊ ESTÁ AQUI</span>' : ''}`);
+            });
+        }
+
+        // Desenhar rota (polyline)
+        if (trackingDetails.route?.polyline) {
+            const points = decodePolyline(trackingDetails.route.polyline);
+            if (points.length > 0) {
+                L.polyline(points, {
+                    color: '#60A5FA',
+                    weight: 4,
+                    opacity: 0.7
+                }).addTo(routeLayerRef.current);
+            }
+        }
+
+        // fitBounds APENAS na primeira vez (não reseta zoom do usuário)
+        if (!initialFitDoneRef.current) {
+            const allPoints = [];
+            allPoints.push([restaurantData.lat, restaurantData.lng]);
+            if (trackingDetails.courier?.current_lat) {
+                allPoints.push([trackingDetails.courier.current_lat, trackingDetails.courier.current_lng]);
+            }
+            if (trackingDetails.batch?.orders) {
+                trackingDetails.batch.orders.forEach(o => allPoints.push([o.lat, o.lng]));
+            }
+            if (allPoints.length > 0) {
+                const bounds = L.latLngBounds(allPoints);
+                mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+                initialFitDoneRef.current = true;
+            }
+        }
+    }, [trackingDetails, order.id]);
 
     // Função para enviar por WhatsApp
     const handleSendWhatsApp = () => {
