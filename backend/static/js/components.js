@@ -3059,9 +3059,21 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
 
     // Atualizar marcador do motoboy (usa setLatLng, não recria)
     React.useEffect(() => {
-        if (!mapReady || !mapInstanceRef.current || !trackingDetails) return;
+        console.log('🏍️ useEffect marcador motoboy - mapReady:', mapReady, 'trackingDetails:', !!trackingDetails);
+
+        if (!mapReady || !mapInstanceRef.current || !trackingDetails) {
+            console.log('⏳ Aguardando mapa e dados...');
+            return;
+        }
+
+        console.log('📍 Dados do courier:', trackingDetails.courier);
+        console.log('📍 GPS do motoboy:', {
+            lat: trackingDetails.courier?.current_lat,
+            lng: trackingDetails.courier?.current_lng
+        });
 
         if (!trackingDetails.courier?.current_lat || !trackingDetails.courier?.current_lng) {
+            console.warn('⚠️ GPS do motoboy não disponível - current_lat ou current_lng é null');
             // Remove marcador se GPS não disponível
             if (courierMarkerRef.current) {
                 mapInstanceRef.current.removeLayer(courierMarkerRef.current);
@@ -3075,6 +3087,7 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
         if (courierMarkerRef.current) {
             // Atualiza posição sem recriar (igual ao motoboy.html)
             courierMarkerRef.current.setLatLng(pos);
+            console.log('🔄 Posição do motoboy atualizada:', pos);
         } else {
             // Cria marcador pela primeira vez
             const courierIcon = L.divIcon({
@@ -3089,6 +3102,7 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
                 zIndexOffset: 1000
             }).addTo(mapInstanceRef.current);
             courierMarkerRef.current.bindPopup(`<b>Motoboy</b><br/>${trackingDetails.courier.name}`);
+            console.log('✅ Marcador do motoboy criado!', pos);
         }
     }, [mapReady, trackingDetails]);
 
