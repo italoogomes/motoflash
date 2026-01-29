@@ -551,6 +551,124 @@ Atendente: *busca por "Maria Silva"* → "Oi Maria! Seu pedido #1234 está em ro
 - Polyline cacheada pelo Google Maps
 - Mapa renderiza em < 1s
 
+---
+
+#### 🐛 BUG PENDENTE - Busca Não Encontra Pedidos ⚠️
+
+**Situação:**
+- Busca de rastreamento NÃO está encontrando pedidos existentes
+- Usuário tem pedido "Ítalo Gomes" (#1002 ou #1003) em status de entrega
+- Busca por nome ("Ítalo Gomes") e tracking code retorna "Nenhum pedido encontrado"
+- Sidebar mostra badge "1" na aba "Pedidos" (que nem está implementada) - comportamento estranho
+
+**Tentativa de Correção (backend/routers/orders.py:431-458):**
+- **Problema identificado**: Search endpoint só buscava em Customer table (via join)
+- **Consequência**: Orders criados digitando nome diretamente (sem Customer record) não apareciam
+- **Fix aplicado**: Modificado para buscar DIRETO em `Order.customer_name`
+- **Resultado**: ❌ **NÃO FUNCIONOU** - Busca continua retornando vazio
+
+**Commit Criado (NÃO DEPLOYED):**
+```
+Fix: Busca de rastreamento não encontrava pedidos sem Customer
+
+- Busca agora procura direto no campo Order.customer_name
+- Mantém busca secundária por telefone via Customer table
+- 1 file changed, 18 insertions(+), 8 deletions(-)
+```
+
+**Status Git:**
+- ✅ Commit criado localmente
+- ❌ Push falhou: "fatal: User canceled device code authentication"
+- ⚠️ **PRECISA FAZER GIT PUSH MANUALMENTE** para deployment no Railway
+
+**Possíveis Causas para Investigar Amanhã:**
+
+1. **Fix não foi deployed:**
+   - Código corrigido está apenas local
+   - Railway ainda rodando versão antiga
+   - **PRIMEIRO PASSO**: `git push` manual
+
+2. **Filtro de status muito restritivo:**
+   ```python
+   Order.status != OrderStatus.DELIVERED
+   ```
+   - Verificar qual é o status real do pedido no banco
+   - Talvez o pedido tenha status diferente do esperado
+
+3. **Filtro de restaurant_id:**
+   ```python
+   Order.restaurant_id == current_user.restaurant_id
+   ```
+   - Verificar se usuário logado tem mesmo restaurant_id do pedido
+   - Pode ser problema de multi-tenant incorreto
+
+4. **Normalização de texto:**
+   ```python
+   normalize_text("Ítalo Gomes")  # → "italo gomes"
+   ```
+   - Verificar se função normalize_text está funcionando corretamente
+   - Testar com acentos (Ítalo tem acento agudo)
+
+5. **Pedido realmente existe?:**
+   - Verificar diretamente no banco se existe Order com customer_name="Ítalo Gomes"
+   - Verificar short_id, tracking_code, restaurant_id, status
+
+6. **Badge "1" na aba Pedidos:**
+   - Investigar de onde vem esse badge
+   - Código não implementado mas está mostrando número
+   - Pode indicar problema de cache ou estado do React
+
+**Comandos para Debug Amanhã:**
+
+```bash
+# 1. PRIMEIRO: Push do código corrigido
+git push
+
+# 2. Verificar logs do Railway após deployment
+railway logs
+
+# 3. Testar endpoint diretamente (Postman/curl)
+curl -X GET "https://[railway-url]/orders/search?q=Ítalo" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4. Ver todos os pedidos do restaurante
+curl -X GET "https://[railway-url]/orders" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 5. Testar normalização de texto
+python3 -c "
+import unicodedata
+def normalize_text(text):
+    nfkd = unicodedata.normalize('NFKD', text)
+    text_without_accents = ''.join([c for c in nfkd if not unicodedata.combining(c)])
+    return text_without_accents.lower()
+print(normalize_text('Ítalo Gomes'))  # Deve retornar: 'italo gomes'
+"
+
+# 6. Consultar banco SQLite direto (se acessível)
+sqlite3 motoflash.db "SELECT id, customer_name, short_id, tracking_code, status, restaurant_id FROM orders WHERE customer_name LIKE '%Ítalo%';"
+```
+
+**Arquivos Envolvidos:**
+- `backend/routers/orders.py` (linhas 431-472) - Endpoint de busca
+- `backend/static/js/components.js` - TrackingPage component
+- `backend/static/js/app.js` - Sidebar badges
+
+**Próximos Passos Amanhã:**
+1. ✅ Fazer `git push` manual
+2. ✅ Aguardar deployment no Railway (~2-3 min)
+3. ✅ Testar busca novamente no frontend
+4. Se ainda não funcionar:
+   - Verificar logs do Railway
+   - Testar endpoint direto com curl/Postman
+   - Verificar dados reais no banco
+   - Adicionar logs de debug no endpoint
+   - Investigar badge "1" estranho na sidebar
+
+**Data do Bug:** 2026-01-28 23:XX
+**Reportado por:** Usuário (Ítalo)
+**Status:** 🔴 PENDENTE INVESTIGAÇÃO
+
 #### 🎨 UI/UX
 
 **Cores por Status:**
@@ -957,6 +1075,9 @@ Boa sorte! 🚀
 ---
 
 **Última atualização:** 2026-01-28
-**Próxima tarefa:** Redesign Aba de Pedidos (tarefa #2 - próxima prioridade)
-**Próxima sessão:** Implementar filtros, busca e timeline visual na aba de pedidos
-**Status:** ✅ ESTÁVEL - 92/92 testes passando - Sistema de Rastreamento completo implementado
+**Próxima tarefa:** 🐛 **URGENTE**: Investigar e corrigir bug da busca de rastreamento (ver seção "BUG PENDENTE" em v1.3.0)
+**Próxima sessão:**
+1. Fazer `git push` manual (commit já criado)
+2. Testar busca após deployment
+3. Se não funcionar, debugar com logs/banco direto
+**Status:** ⚠️ **BUG CRÍTICO** - Busca de rastreamento não funciona (pedidos não aparecem) - Commit criado mas não deployed

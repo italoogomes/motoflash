@@ -28,18 +28,78 @@
 - Rode os testes: `pytest` (deve passar 100%)
 - Liste os próximos passos claros
 
+### 5. Documentação Obrigatória (CRÍTICO 📝)
+
+**Toda criação ou modificação DEVE ser documentada seguindo o padrão da pasta `docs/`.**
+
+#### Quando criar/modificar código:
+| O que mudou | Onde documentar |
+|-------------|-----------------|
+| Novo endpoint | `docs/API_ENDPOINTS.md` |
+| Nova funcionalidade | `docs/ARQUITETURA.md` + `docs/FLUXOS.md` |
+| Novo teste | `docs/TESTES.md` |
+| Mudança no frontend | `docs/FRONTEND_BACKEND.md` |
+| Novo serviço/módulo | `docs/ARQUITETURA.md` |
+| Correção de bug | `docs/TESTES.md` (seção correções) |
+| Qualquer mudança | `PROGRESSO_SESSAO.md` + `CHANGELOG.md`|
+
+#### Padrão de Documentação MotoFlash:
+
+```markdown
+# 📚 Título do Documento
+
+**Versão:** x.x.x
+**Data:** YYYY-MM-DD
+**Status:** ✅ ou 🔄
+
+---
+
+## 📊 Seção Principal
+
+### Subseção
+- Item 1
+- Item 2
+
+#### Se for correção/mudança:
+- **Problema**: O que estava errado
+- **Solução**: O que foi feito
+- **Motivo/Aprendizado**: Por que essa solução
+
+---
+```
+
+#### Regras de Formatação:
+- ✅ Usar emojis nos títulos (📚 📊 🔧 ✅ 🔄 ⭐ 🎯)
+- ✅ Tabelas para resumos e comparações
+- ✅ Blocos de código com linguagem especificada
+- ✅ Separadores `---` entre seções
+- ✅ Estrutura Problema → Solução → Motivo para correções
+- ✅ Versão e data no cabeçalho
+- ❌ NUNCA deixar mudança sem documentar
+
 ---
 
 ## 📂 Documentação do Projeto
 
-| Arquivo | Propósito |
-|---------|-----------|
-| `PROGRESSO_SESSAO.md` | **CONTEXTO** - Onde paramos, próximos passos |
-| `docs/ARQUITETURA.md` | Estrutura do sistema |
-| `docs/TESTES.md` | Guia de testes + correções |
-| `docs/CI_CD.md` | Pipeline GitHub Actions |
-| `CHANGELOG.md` | Histórico de versões |
-| `README.md` | Documentação principal |
+| Arquivo | Propósito | Quando Atualizar |
+|---------|-----------|------------------|
+| `PROGRESSO_SESSAO.md` | **CONTEXTO** - Onde paramos | Sempre, ao final de cada tarefa |
+| `CHANGELOG.md` | Histórico de versões | A cada nova versão |
+| `README.md` | Documentação principal | Mudanças significativas |
+
+### Pasta `docs/` - Documentação Técnica
+
+| Arquivo | Propósito | Quando Atualizar |
+|---------|-----------|------------------|
+| `docs/README.md` | Índice da documentação | Novo documento criado |
+| `docs/API_ENDPOINTS.md` | Referência de endpoints | Novo/modificado endpoint |
+| `docs/ARQUITETURA.md` | Visão geral do sistema | Nova feature/módulo |
+| `docs/ARQUITETURA_MODULAR.md` | Estrutura do frontend | Mudança no frontend |
+| `docs/FLUXOS.md` | Fluxos de dados | Nova funcionalidade |
+| `docs/FRONTEND_BACKEND.md` | Integração front/back | Mudança em páginas |
+| `docs/TESTES.md` | Guia de testes | Novo teste/correção |
+| `docs/CI_CD.md` | Pipeline GitHub Actions | Mudança no CI/CD |
+| `docs/FIREBASE.md` | Push notifications | Mudança em notificações |
 
 ---
 
@@ -86,6 +146,22 @@ Quando a conversa estiver longa, Claude deve:
 - Frontend: React 18 (CDN) + Tailwind CSS
 - Testes: Pytest (deve passar 100%)
 - CI/CD: GitHub Actions
+- Deploy: Railway (produção)
+
+### 🚀 Ambiente de Produção (Railway)
+
+**O app NÃO roda local, está em produção no Railway:**
+
+| Recurso | URL |
+|---------|-----|
+| **Login** | https://motoflash-production.up.railway.app/login |
+| **App Motoboy** | https://motoflash-production.up.railway.app/motoboy |
+
+**Importante:**
+- ⚠️ **NÃO tente rodar `uvicorn` localmente** - use o Railway
+- ✅ Testes rodam local com `pytest` (usa SQLite em memória)
+- ✅ Para testar endpoints, use a URL de produção
+- ✅ Deploy automático via push para `main`
 
 ### Comandos Frequentes
 ```bash
@@ -95,8 +171,8 @@ cd backend && pytest
 # Rodar com detalhes
 pytest -v
 
-# Iniciar servidor
-uvicorn main:app --reload
+# Ver logs do Railway (se CLI instalado)
+railway logs
 ```
 
 ### Regras de Código
@@ -118,12 +194,24 @@ uvicorn main:app --reload
    ↓
 4. Rodar testes (pytest)
    ↓
-5. Atualizar documentação
+5. DOCUMENTAR (ver checklist abaixo)
    ↓
 6. Atualizar PROGRESSO_SESSAO.md
    ↓
 7. Sugerir próximos passos
 ```
+
+### ✅ Checklist de Documentação (OBRIGATÓRIO)
+
+Antes de finalizar qualquer tarefa, verificar:
+
+- [ ] `PROGRESSO_SESSAO.md` atualizado com o que foi feito
+- [ ] `CHANGELOG.md` atualizado (se nova versão)
+- [ ] Documento correto em `docs/` atualizado (ver tabela acima)
+- [ ] Versão e data atualizados nos arquivos modificados
+- [ ] Código documentado com comentários quando necessário
+
+**NUNCA encerrar sessão sem documentar!**
 
 ---
 
