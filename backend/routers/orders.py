@@ -428,25 +428,35 @@ def search_orders(
         if order:
             found_orders.add(order.id)
 
-    # 3. Buscar por nome ou telefone do cliente
-    # Primeiro, buscar clientes que correspondam à busca
+    # 3. Buscar por nome do cliente DIRETO no pedido (sem precisar de Customer cadastrado)
+    # Busca no campo customer_name do Order
+    orders_by_name = session.exec(
+        select(Order).where(
+            Order.restaurant_id == current_user.restaurant_id,
+            Order.status != OrderStatus.DELIVERED
+        )
+    ).all()
+
+    # Filtra localmente por nome normalizado
+    for order in orders_by_name:
+        if q_normalized in normalize_text(order.customer_name or ''):
+            found_orders.add(order.id)
+
+    # 4. Buscar TAMBÉM por telefone via Customer (se houver Customer cadastrado)
     customer_statement = select(Customer).where(
         Customer.restaurant_id == current_user.restaurant_id
     )
     customers = session.exec(customer_statement).all()
 
-    # Filtrar clientes por nome (ignora acentos) ou telefone
+    # Filtrar clientes por telefone
     matching_customer_names = []
     for customer in customers:
-        if q_normalized in normalize_text(customer.name or ''):
-            matching_customer_names.append(customer.name)
-        elif q in (customer.phone or ''):  # Telefone: busca exata
+        if q in (customer.phone or ''):  # Telefone: busca exata
             matching_customer_names.append(customer.name)
 
-    # Se encontrou clientes, buscar pedidos desses clientes
+    # Se encontrou clientes por telefone, buscar pedidos desses clientes
     if matching_customer_names:
         for customer_name in matching_customer_names:
-            # Buscar pedidos ativos com esse nome de cliente
             orders_statement = select(Order).where(
                 Order.restaurant_id == current_user.restaurant_id,
                 Order.customer_name == customer_name,
