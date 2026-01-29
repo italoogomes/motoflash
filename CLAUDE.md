@@ -9,6 +9,7 @@
 ### 1. Antes de Qualquer Coisa
 - **SEMPRE** leia `PROGRESSO_SESSAO.md` para entender onde paramos
 - **SEMPRE** consulte `docs/` antes de modificar código
+- **SEMPRE** consulte `docs/` antes de modificar código
 - **SEMPRE** pergunte qual tarefa o usuário quer continuar
 
 ### 2. Durante o Trabalho
