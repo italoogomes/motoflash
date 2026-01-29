@@ -2946,37 +2946,6 @@ const decodePolyline = (encoded) => {
     return points;
 };
 
-// Status badge
-const StatusBadge = ({ status }) => {
-    const statusConfig = {
-        created: { label: 'Criado', color: '#FCD34D', icon: '📋' },
-        preparing: { label: 'Preparando', color: '#FBBF24', icon: '👨‍🍳' },
-        ready: { label: 'Pronto', color: '#34D399', icon: '✅' },
-        assigned: { label: 'Atribuído', color: '#60A5FA', icon: '🏍️' },
-        picked_up: { label: 'Em Rota', color: '#3B82F6', icon: '🚀' },
-        delivered: { label: 'Entregue', color: '#10B981', icon: '✓' }
-    };
-
-    const config = statusConfig[status] || statusConfig.created;
-
-    return (
-        <span style={{
-            background: `${config.color}20`,
-            color: config.color,
-            padding: '4px 12px',
-            borderRadius: '12px',
-            fontSize: '13px',
-            fontWeight: '600',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-        }}>
-            <span>{config.icon}</span>
-            <span>{config.label}</span>
-        </span>
-    );
-};
-
 // Modal de Rastreamento com Mapa
 const TrackingModal = ({ order, onClose, restaurantData }) => {
     const [trackingDetails, setTrackingDetails] = React.useState(null);
