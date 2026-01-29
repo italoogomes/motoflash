@@ -554,3 +554,52 @@ body {
     box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     z-index: 9999;
 }
+
+/* ============ ANIMAÇÕES DO RASTREAMENTO ============ */
+
+/* Animação de pulso para o marcador do motoboy */
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+/* Estilos para marcadores customizados do Leaflet */
+.custom-marker {
+    background: none !important;
+    border: none !important;
+}
+
+/* Leaflet popup customizado */
+.leaflet-popup-content-wrapper {
+    background: rgba(25, 25, 35, 0.95);
+    color: white;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.leaflet-popup-tip {
+    background: rgba(25, 25, 35, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.leaflet-popup-content {
+    margin: 10px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.leaflet-popup-content b {
+    color: #FF6B00;
+}
+
+/* Ajustes para o container do mapa */
+.leaflet-container {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}

@@ -853,3 +853,60 @@ class PrevisaoHibrida(SQLModel):
     hora_atual: int = 0
     timestamp: datetime = Field(default_factory=datetime.now)
     dados_historicos_disponiveis: bool = False
+
+
+# ============ SCHEMAS DE RASTREAMENTO PARA ATENDENTE ============
+
+class Waypoint(SQLModel):
+    """Ponto de parada na rota"""
+    lat: float
+    lng: float
+    address: str
+    order_id: Optional[str] = None
+    customer_name: Optional[str] = None
+
+
+class RouteInfo(SQLModel):
+    """Informações da rota do lote"""
+    polyline: str  # Google encoded polyline
+    start: dict    # {lat, lng} do restaurante
+    waypoints: List[Waypoint]
+
+
+class CourierInfo(SQLModel):
+    """Informações do motoboy para rastreamento"""
+    id: str
+    name: str
+    phone: Optional[str]
+    current_lat: Optional[float]
+    current_lng: Optional[float]
+    status: CourierStatus
+
+
+class SimpleOrder(SQLModel):
+    """Informações simplificadas do pedido para lista do lote"""
+    id: str
+    short_id: Optional[int]
+    customer_name: str
+    address_text: str
+    lat: float
+    lng: float
+    status: OrderStatus
+    stop_order: Optional[int]
+
+
+class BatchInfo(SQLModel):
+    """Informações do lote para rastreamento"""
+    id: str
+    status: BatchStatus
+    position: int  # stop_order do pedido buscado
+    total: int     # total de pedidos no lote
+    orders: List[SimpleOrder]  # Lista de todos os pedidos do lote
+
+
+class OrderTrackingDetails(SQLModel):
+    """Schema de resposta completa para rastreamento de pedido"""
+    order: OrderResponse
+    batch: Optional[BatchInfo] = None
+    courier: Optional[CourierInfo] = None
+    route: Optional[RouteInfo] = None

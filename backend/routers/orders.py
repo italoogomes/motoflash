@@ -7,19 +7,33 @@ Rotas de Pedidos (Orders)
 """
 from datetime import datetime
 from typing import List, Optional
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import Session, select
 
 from database import get_session
 from models import (
-    Order, OrderCreate, OrderResponse, OrderTrackingResponse, OrderStatus, User, Restaurant
+    Order, OrderCreate, OrderResponse, OrderTrackingResponse, OrderStatus, User, Restaurant, Customer,
+    Batch, Courier, OrderTrackingDetails, BatchInfo, CourierInfo, RouteInfo, SimpleOrder, Waypoint
 )
 from services.qrcode_service import generate_qrcode_base64, generate_qrcode_bytes
 from services.geocoding_service import geocode_address
 from services.auth_service import get_current_user
 from services.order_service import generate_short_id, ensure_unique_tracking_code
+from services.dispatch_service import get_batch_route_polyline
 
 router = APIRouter(prefix="/orders", tags=["Pedidos"])
+
+
+def normalize_text(text: str) -> str:
+    """Remove acentos e converte para minúsculas para busca"""
+    if not text:
+        return ""
+    # NFD decompõe caracteres acentuados (é -> e + acento)
+    # Filtra apenas caracteres que não são "combining marks" (acentos)
+    normalized = unicodedata.normalize('NFD', text)
+    without_accents = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    return without_accents.lower()
 
 
 @router.post("", response_model=OrderResponse)
@@ -355,4 +369,240 @@ def track_order(tracking_code: str, session: Session = Depends(get_session)):
         delivered_at=order.delivered_at,
         customer_name=order.customer_name,
         address_text=order.address_text
+    )
+
+
+@router.get("/search", response_model=List[OrderResponse])
+def search_orders(
+    q: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🔍 Busca pedidos para rastreamento (atendente)
+
+    Busca por:
+    - Nome do cliente (ignora acentos e case)
+    - Telefone do cliente (busca exata)
+    - Short ID (ex: "1234" ou "#1234")
+    - Tracking code (ex: "MF-ABC123")
+
+    Filtra:
+    - Por restaurant_id (multi-tenant seguro)
+    - Apenas pedidos ATIVOS (exclui delivered)
+    - Limita a 10 resultados
+
+    🔒 PROTEÇÃO: Retorna apenas pedidos do restaurante do usuário logado
+    """
+    if not current_user.restaurant_id:
+        return []
+
+    # Normalizar query para busca
+    q_normalized = normalize_text(q)
+    q_clean = q.strip().upper()
+
+    # Lista para armazenar pedidos encontrados (usaremos set para evitar duplicatas)
+    found_orders = set()
+
+    # 1. Buscar por short_id (se for número)
+    # Aceita "1234" ou "#1234"
+    if q.replace("#", "").isdigit():
+        short_id_search = int(q.replace("#", ""))
+        statement = select(Order).where(
+            Order.restaurant_id == current_user.restaurant_id,
+            Order.short_id == short_id_search,
+            Order.status != OrderStatus.DELIVERED
+        )
+        order = session.exec(statement).first()
+        if order:
+            found_orders.add(order.id)
+
+    # 2. Buscar por tracking_code (se começar com "MF-")
+    if q_clean.startswith("MF-"):
+        statement = select(Order).where(
+            Order.restaurant_id == current_user.restaurant_id,
+            Order.tracking_code == q_clean,
+            Order.status != OrderStatus.DELIVERED
+        )
+        order = session.exec(statement).first()
+        if order:
+            found_orders.add(order.id)
+
+    # 3. Buscar por nome ou telefone do cliente
+    # Primeiro, buscar clientes que correspondam à busca
+    customer_statement = select(Customer).where(
+        Customer.restaurant_id == current_user.restaurant_id
+    )
+    customers = session.exec(customer_statement).all()
+
+    # Filtrar clientes por nome (ignora acentos) ou telefone
+    matching_customer_names = []
+    for customer in customers:
+        if q_normalized in normalize_text(customer.name or ''):
+            matching_customer_names.append(customer.name)
+        elif q in (customer.phone or ''):  # Telefone: busca exata
+            matching_customer_names.append(customer.name)
+
+    # Se encontrou clientes, buscar pedidos desses clientes
+    if matching_customer_names:
+        for customer_name in matching_customer_names:
+            # Buscar pedidos ativos com esse nome de cliente
+            orders_statement = select(Order).where(
+                Order.restaurant_id == current_user.restaurant_id,
+                Order.customer_name == customer_name,
+                Order.status != OrderStatus.DELIVERED
+            ).order_by(Order.created_at.desc())
+
+            orders = session.exec(orders_statement).all()
+            for order in orders:
+                found_orders.add(order.id)
+
+    # Buscar os objetos Order completos dos IDs encontrados
+    if not found_orders:
+        return []
+
+    result_orders = []
+    for order_id in found_orders:
+        order = session.get(Order, order_id)
+        if order:
+            result_orders.append(order)
+
+    # Ordenar por data de criação (mais recente primeiro) e limitar a 10
+    result_orders.sort(key=lambda o: o.created_at, reverse=True)
+    return result_orders[:10]
+
+
+@router.get("/{order_id}/tracking-details", response_model=OrderTrackingDetails)
+def get_order_tracking_details(
+    order_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🗺️ Retorna detalhes completos de rastreamento do pedido
+
+    Inclui:
+    - Dados completos do pedido
+    - Informações do lote (se atribuído)
+    - Posição na fila (ex: 2º de 3 entregas)
+    - Dados do motoboy (nome, GPS)
+    - Polyline da rota completa
+
+    🔒 PROTEÇÃO: Retorna apenas pedidos do restaurante do usuário logado
+    """
+    # Buscar pedido
+    order = session.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+    # 🔒 PROTEÇÃO: verifica se pedido é do restaurante do usuário
+    if order.restaurant_id != current_user.restaurant_id:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+    # Dados básicos do pedido
+    order_response = OrderResponse(
+        id=order.id,
+        short_id=order.short_id,
+        tracking_code=order.tracking_code,
+        customer_name=order.customer_name,
+        address_text=order.address_text,
+        lat=order.lat,
+        lng=order.lng,
+        prep_type=order.prep_type,
+        status=order.status,
+        created_at=order.created_at,
+        ready_at=order.ready_at,
+        batch_id=order.batch_id,
+        stop_order=order.stop_order
+    )
+
+    # Inicializar objetos opcionais
+    batch_info = None
+    courier_info = None
+    route_info = None
+
+    # Se pedido tem lote, buscar informações do lote
+    if order.batch_id:
+        batch = session.get(Batch, order.batch_id)
+
+        if batch:
+            # Buscar todos os pedidos do lote ordenados
+            batch_orders_statement = select(Order).where(
+                Order.batch_id == order.batch_id
+            ).order_by(Order.stop_order)
+            batch_orders = session.exec(batch_orders_statement).all()
+
+            # Criar lista de SimpleOrder
+            simple_orders = [
+                SimpleOrder(
+                    id=o.id,
+                    short_id=o.short_id,
+                    customer_name=o.customer_name,
+                    address_text=o.address_text,
+                    lat=o.lat,
+                    lng=o.lng,
+                    status=o.status,
+                    stop_order=o.stop_order
+                )
+                for o in batch_orders
+            ]
+
+            # Criar BatchInfo
+            batch_info = BatchInfo(
+                id=batch.id,
+                status=batch.status,
+                position=order.stop_order if order.stop_order else 0,
+                total=len(batch_orders),
+                orders=simple_orders
+            )
+
+            # Buscar informações do motoboy
+            if batch.courier_id:
+                courier = session.get(Courier, batch.courier_id)
+                if courier:
+                    courier_info = CourierInfo(
+                        id=courier.id,
+                        name=courier.name if not courier.last_name else f"{courier.name} {courier.last_name}",
+                        phone=courier.phone,
+                        current_lat=courier.last_lat,
+                        current_lng=courier.last_lng,
+                        status=courier.status
+                    )
+
+            # Buscar rota do lote
+            route_data = get_batch_route_polyline(session, order.batch_id)
+            if route_data:
+                # Converter waypoints para o schema Waypoint
+                waypoints = []
+                if "orders" in route_data:
+                    for i, waypoint_data in enumerate(route_data["orders"]):
+                        # Buscar o pedido correspondente para obter mais informações
+                        if i < len(batch_orders):
+                            corresponding_order = batch_orders[i]
+                            waypoints.append(Waypoint(
+                                lat=waypoint_data["lat"],
+                                lng=waypoint_data["lng"],
+                                address=waypoint_data.get("address", ""),
+                                order_id=corresponding_order.id,
+                                customer_name=corresponding_order.customer_name
+                            ))
+                        else:
+                            waypoints.append(Waypoint(
+                                lat=waypoint_data["lat"],
+                                lng=waypoint_data["lng"],
+                                address=waypoint_data.get("address", "")
+                            ))
+
+                route_info = RouteInfo(
+                    polyline=route_data.get("polyline", ""),
+                    start=route_data.get("start", {}),
+                    waypoints=waypoints
+                )
+
+    # Retornar resposta completa
+    return OrderTrackingDetails(
+        order=order_response,
+        batch=batch_info,
+        courier=courier_info,
+        route=route_info
     )

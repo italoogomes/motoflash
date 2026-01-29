@@ -29,14 +29,18 @@ const Timer = ({ startTime }) => {
     
     const minutes = Math.floor(elapsed / 60);
     const seconds = elapsed % 60;
-    
+
+    // Limita a 99:59 para evitar mostrar tempos absurdos com datas simuladas
+    const displayMinutes = Math.min(minutes, 99);
+    const isOverLimit = minutes >= 100;
+
     let colorClass = 'badge-success';
     if (minutes >= 15) colorClass = 'badge-warning';
     if (minutes >= 25) colorClass = 'badge-danger';
-    
+
     return (
         <span className={`badge ${colorClass} font-mono`}>
-            ⏱️ {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            ⏱️ {String(displayMinutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}{isOverLimit ? '+' : ''}
         </span>
     );
 };
@@ -1445,6 +1449,7 @@ const Sidebar = ({ currentPage, setCurrentPage, restaurantName, onLogout, stats,
         { id: 'inicio', icon: '🏠', label: 'Início' },
         { id: 'pedidos', icon: '📦', label: 'Pedidos', badge: stats?.orders?.ready },
         { id: 'motoboys', icon: '🏍️', label: 'Motoqueiros' },
+        { id: 'rastreamento', icon: '📍', label: 'Rastreamento' },
     ];
     
     const manageItems = [
@@ -2901,6 +2906,618 @@ const CardapioPage = () => {
                         />
                     </div>
                 </div>
+            )}
+        </>
+    );
+};
+
+// ============ RASTREAMENTO DE PEDIDOS ============
+
+// Helper: Decodifica polyline do Google Maps
+const decodePolyline = (encoded) => {
+    if (!encoded) return [];
+    const points = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0, lng = 0;
+
+    while (index < len) {
+        let b, shift = 0, result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        points.push([lat / 1e5, lng / 1e5]);
+    }
+    return points;
+};
+
+// Status badge
+const StatusBadge = ({ status }) => {
+    const statusConfig = {
+        created: { label: 'Criado', color: '#FCD34D', icon: '📋' },
+        preparing: { label: 'Preparando', color: '#FBBF24', icon: '👨‍🍳' },
+        ready: { label: 'Pronto', color: '#34D399', icon: '✅' },
+        assigned: { label: 'Atribuído', color: '#60A5FA', icon: '🏍️' },
+        picked_up: { label: 'Em Rota', color: '#3B82F6', icon: '🚀' },
+        delivered: { label: 'Entregue', color: '#10B981', icon: '✓' }
+    };
+
+    const config = statusConfig[status] || statusConfig.created;
+
+    return (
+        <span style={{
+            background: `${config.color}20`,
+            color: config.color,
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontSize: '13px',
+            fontWeight: '600',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+        }}>
+            <span>{config.icon}</span>
+            <span>{config.label}</span>
+        </span>
+    );
+};
+
+// Modal de Rastreamento com Mapa
+const TrackingModal = ({ order, onClose, restaurantData }) => {
+    const [trackingDetails, setTrackingDetails] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
+    const mapRef = React.useRef(null);
+    const mapInstanceRef = React.useRef(null);
+
+    // Buscar detalhes do rastreamento
+    const fetchTrackingDetails = React.useCallback(async () => {
+        try {
+            const res = await authFetch(`${API_URL}/orders/${order.id}/tracking-details`);
+            if (res.ok) {
+                const data = await res.json();
+                setTrackingDetails(data);
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error('Erro ao buscar detalhes:', error);
+            setLoading(false);
+        }
+    }, [order.id]);
+
+    // Polling para atualização em tempo real (10 segundos)
+    React.useEffect(() => {
+        fetchTrackingDetails();
+        const interval = setInterval(fetchTrackingDetails, 10000);
+        return () => clearInterval(interval);
+    }, [fetchTrackingDetails]);
+
+    // Inicializar mapa
+    React.useEffect(() => {
+        if (!mapRef.current || !trackingDetails || mapInstanceRef.current) return;
+
+        // Criar mapa
+        const map = L.map(mapRef.current).setView(
+            [restaurantData.lat || -23.5505, restaurantData.lng || -46.6333],
+            13
+        );
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        mapInstanceRef.current = map;
+
+        // Se tem rota, desenhar no mapa
+        if (trackingDetails.route?.polyline) {
+            const points = decodePolyline(trackingDetails.route.polyline);
+            if (points.length > 0) {
+                L.polyline(points, {
+                    color: '#60A5FA',
+                    weight: 4,
+                    opacity: 0.7
+                }).addTo(map);
+            }
+        }
+
+        // Marcador do restaurante
+        const restaurantIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background: #FF6B00; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🏪</div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+        });
+
+        L.marker([restaurantData.lat, restaurantData.lng], { icon: restaurantIcon })
+            .addTo(map)
+            .bindPopup('<b>Restaurante</b><br/>' + restaurantData.name);
+
+        // Marcador do motoboy (se disponível)
+        if (trackingDetails.courier?.current_lat && trackingDetails.courier?.current_lng) {
+            const courierIcon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="background: #3B82F6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(59,130,246,0.5); animation: pulse 2s infinite;">🏍️</div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            L.marker([trackingDetails.courier.current_lat, trackingDetails.courier.current_lng], { icon: courierIcon })
+                .addTo(map)
+                .bindPopup(`<b>Motoboy</b><br/>${trackingDetails.courier.name}`);
+        }
+
+        // Marcadores dos pedidos do lote (numerados)
+        if (trackingDetails.batch?.orders) {
+            trackingDetails.batch.orders.forEach((o, index) => {
+                const isCurrentOrder = o.id === order.id;
+                const markerIcon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background: ${isCurrentOrder ? '#F59E0B' : '#8B5CF6'}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${index + 1}</div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                L.marker([o.lat, o.lng], { icon: markerIcon })
+                    .addTo(map)
+                    .bindPopup(`<b>${index + 1}. ${o.customer_name}</b><br/>${o.address_text}${isCurrentOrder ? '<br/><span style="color: #F59E0B; font-weight: bold;">← VOCÊ ESTÁ AQUI</span>' : ''}`);
+            });
+        }
+
+        // Ajustar zoom para mostrar todos os pontos
+        const allPoints = [];
+        allPoints.push([restaurantData.lat, restaurantData.lng]);
+        if (trackingDetails.courier?.current_lat) {
+            allPoints.push([trackingDetails.courier.current_lat, trackingDetails.courier.current_lng]);
+        }
+        if (trackingDetails.batch?.orders) {
+            trackingDetails.batch.orders.forEach(o => allPoints.push([o.lat, o.lng]));
+        }
+        if (allPoints.length > 0) {
+            const bounds = L.latLngBounds(allPoints);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        // Cleanup
+        return () => {
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current.remove();
+                mapInstanceRef.current = null;
+            }
+        };
+    }, [trackingDetails, restaurantData, order.id]);
+
+    // Função para enviar por WhatsApp
+    const handleSendWhatsApp = () => {
+        if (!trackingDetails) return;
+
+        const statusText = {
+            'created': 'Pedido recebido',
+            'preparing': 'Em preparo',
+            'ready': 'Pronto',
+            'assigned': 'Saiu para entrega',
+            'picked_up': 'Saiu para entrega',
+            'delivered': 'Entregue'
+        }[trackingDetails.order.status] || 'Em processamento';
+
+        const trackingUrl = `${window.location.origin}/track/${trackingDetails.order.tracking_code}`;
+        const message = `Olá! Seu pedido #${trackingDetails.order.short_id} está ${statusText}. Acompanhe em tempo real: ${trackingUrl}`;
+
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    };
+
+    if (loading) {
+        return (
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-content" style={{ maxWidth: '900px', height: '80vh' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                        <div style={{ color: 'white', fontSize: '18px' }}>Carregando detalhes...</div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!trackingDetails) {
+        return (
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-content" style={{ maxWidth: '900px' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ color: 'white', textAlign: 'center', padding: '40px' }}>
+                        Erro ao carregar detalhes do pedido.
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" style={{ maxWidth: '900px', height: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'white', fontFamily: 'Outfit, sans-serif' }}>
+                        Pedido #{trackingDetails.order.short_id}
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        style={{ fontSize: '28px', color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                        ×
+                    </button>
+                </div>
+
+                {/* Mapa */}
+                <div ref={mapRef} style={{
+                    height: '350px',
+                    borderRadius: '12px',
+                    marginBottom: '24px',
+                    border: '2px solid rgba(255,255,255,0.1)'
+                }}></div>
+
+                {/* Detalhes do Pedido */}
+                <div style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '20px',
+                    borderRadius: '12px',
+                    marginBottom: '16px'
+                }}>
+                    <h4 style={{ color: 'white', fontSize: '16px', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>📦</span>
+                        <span>Detalhes do Pedido</span>
+                    </h4>
+                    <div style={{ display: 'grid', gap: '8px', color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>
+                        <div><strong>Cliente:</strong> {trackingDetails.order.customer_name}</div>
+                        <div><strong>Endereço:</strong> {trackingDetails.order.address_text}</div>
+                        <div><strong>Status:</strong> <StatusBadge status={trackingDetails.order.status} /></div>
+                        <div><strong>Código de Rastreio:</strong> {trackingDetails.order.tracking_code}</div>
+                    </div>
+                </div>
+
+                {/* Informações do Motoboy */}
+                {trackingDetails.courier && (
+                    <div style={{
+                        background: 'rgba(59,130,246,0.1)',
+                        padding: '20px',
+                        borderRadius: '12px',
+                        marginBottom: '16px'
+                    }}>
+                        <h4 style={{ color: 'white', fontSize: '16px', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>🏍️</span>
+                            <span>Motoboy</span>
+                        </h4>
+                        <div style={{ display: 'grid', gap: '8px', color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>
+                            <div><strong>Nome:</strong> {trackingDetails.courier.name}</div>
+                            {trackingDetails.courier.phone && <div><strong>Telefone:</strong> {trackingDetails.courier.phone}</div>}
+                            {trackingDetails.batch && (
+                                <div><strong>Posição na rota:</strong> {trackingDetails.batch.position}ª parada de {trackingDetails.batch.total}</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Lista de Entregas do Lote */}
+                {trackingDetails.batch?.orders && trackingDetails.batch.orders.length > 0 && (
+                    <div style={{
+                        background: 'rgba(139,92,246,0.1)',
+                        padding: '20px',
+                        borderRadius: '12px',
+                        marginBottom: '16px'
+                    }}>
+                        <h4 style={{ color: 'white', fontSize: '16px', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>📍</span>
+                            <span>Entregas do Lote</span>
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {trackingDetails.batch.orders.map((o, index) => {
+                                const isCurrentOrder = o.id === order.id;
+                                const isDelivered = o.status === 'delivered';
+                                return (
+                                    <div key={o.id} style={{
+                                        padding: '12px',
+                                        background: isCurrentOrder ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.05)',
+                                        borderRadius: '8px',
+                                        borderLeft: isCurrentOrder ? '4px solid #F59E0B' : '4px solid transparent',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{
+                                            width: '28px',
+                                            height: '28px',
+                                            borderRadius: '50%',
+                                            background: isDelivered ? '#10B981' : isCurrentOrder ? '#F59E0B' : '#8B5CF6',
+                                            color: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '13px',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {isDelivered ? '✓' : index + 1}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>
+                                                {o.customer_name}
+                                                {isCurrentOrder && <span style={{ color: '#F59E0B', marginLeft: '8px', fontSize: '12px' }}>← VOCÊ ESTÁ AQUI</span>}
+                                            </div>
+                                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>
+                                                {o.address_text}
+                                            </div>
+                                        </div>
+                                        <StatusBadge status={o.status} />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Botão WhatsApp */}
+                <button
+                    onClick={handleSendWhatsApp}
+                    style={{
+                        width: '100%',
+                        padding: '14px 20px',
+                        background: '#25D366',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = '#20BA5A'}
+                    onMouseOut={e => e.currentTarget.style.background = '#25D366'}
+                >
+                    <span style={{ fontSize: '20px' }}>📱</span>
+                    <span>Enviar Link de Rastreamento por WhatsApp</span>
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// Página de Rastreamento Principal
+const TrackingPage = ({ restaurantData }) => {
+    const [query, setQuery] = React.useState('');
+    const [searching, setSearching] = React.useState(false);
+    const [results, setResults] = React.useState([]);
+    const [selectedOrder, setSelectedOrder] = React.useState(null);
+    const [showModal, setShowModal] = React.useState(false);
+    const searchTimeoutRef = React.useRef(null);
+
+    // Buscar pedidos (com debounce)
+    const handleSearch = async (value) => {
+        setQuery(value);
+
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        if (value.trim().length < 2) {
+            setResults([]);
+            return;
+        }
+
+        searchTimeoutRef.current = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const res = await authFetch(`${API_URL}/orders/search?q=${encodeURIComponent(value)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setResults(data);
+                } else {
+                    setResults([]);
+                }
+            } catch (error) {
+                console.error('Erro na busca:', error);
+                setResults([]);
+            }
+            setSearching(false);
+        }, 300);
+    };
+
+    // Selecionar pedido para ver detalhes
+    const handleSelectOrder = (order) => {
+        setSelectedOrder(order);
+        setShowModal(true);
+    };
+
+    return (
+        <>
+            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                {/* Header */}
+                <div style={{ marginBottom: '32px' }}>
+                    <h1 style={{
+                        fontSize: '32px',
+                        fontWeight: '700',
+                        color: 'white',
+                        marginBottom: '8px',
+                        fontFamily: 'Outfit, sans-serif'
+                    }}>
+                        📍 Rastreamento de Pedidos
+                    </h1>
+                    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '15px' }}>
+                        Busque pedidos por nome, telefone, #ID ou código de rastreio
+                    </p>
+                </div>
+
+                {/* Campo de Busca */}
+                <div className="glass-card" style={{ marginBottom: '24px', padding: '24px' }}>
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type="text"
+                            placeholder="Digite o nome do cliente, telefone, #1234 ou MF-ABC123..."
+                            value={query}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '16px 50px 16px 20px',
+                                background: 'rgba(255,255,255,0.1)',
+                                border: '2px solid rgba(255,255,255,0.2)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                fontSize: '16px',
+                                outline: 'none',
+                                transition: 'all 0.2s'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.4)'}
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.2)'}
+                        />
+                        <div style={{
+                            position: 'absolute',
+                            right: '20px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: '20px'
+                        }}>
+                            {searching ? '⏳' : '🔍'}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Resultados da Busca */}
+                {results.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {results.map(order => (
+                            <div
+                                key={order.id}
+                                className="glass-card"
+                                style={{
+                                    padding: '20px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => handleSelectOrder(order)}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                    e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{
+                                            fontSize: '18px',
+                                            fontWeight: '600',
+                                            color: 'white',
+                                            marginBottom: '8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px'
+                                        }}>
+                                            <span style={{
+                                                color: '#FF6B00',
+                                                fontSize: '16px',
+                                                fontWeight: '700'
+                                            }}>
+                                                #{order.short_id}
+                                            </span>
+                                            <span>{order.customer_name}</span>
+                                        </div>
+                                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginBottom: '12px' }}>
+                                            {order.address_text}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <StatusBadge status={order.status} />
+                                            {order.batch_id && order.stop_order && (
+                                                <span style={{
+                                                    color: 'rgba(255,255,255,0.7)',
+                                                    fontSize: '13px',
+                                                    background: 'rgba(59,130,246,0.2)',
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px'
+                                                }}>
+                                                    📍 {order.stop_order}ª parada
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div style={{
+                                        color: '#FF6B00',
+                                        fontSize: '24px',
+                                        marginLeft: '16px'
+                                    }}>
+                                        →
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Mensagem quando não há resultados */}
+                {query.length >= 2 && !searching && results.length === 0 && (
+                    <div className="glass-card" style={{ padding: '40px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+                        <div style={{ color: 'white', fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
+                            Nenhum pedido encontrado
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+                            Tente buscar por nome do cliente, telefone, #ID ou código MF-
+                        </div>
+                    </div>
+                )}
+
+                {/* Mensagem inicial */}
+                {query.length === 0 && (
+                    <div className="glass-card" style={{ padding: '40px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+                        <div style={{ color: 'white', fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
+                            Comece digitando para buscar
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+                            Você pode buscar por:
+                        </div>
+                        <div style={{
+                            color: 'rgba(255,255,255,0.7)',
+                            fontSize: '14px',
+                            marginTop: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            alignItems: 'center'
+                        }}>
+                            <div>• Nome do cliente (ex: "Maria Silva")</div>
+                            <div>• Telefone (ex: "11999999999")</div>
+                            <div>• ID do pedido (ex: "#1234")</div>
+                            <div>• Código de rastreio (ex: "MF-ABC123")</div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Modal de Detalhes */}
+            {showModal && selectedOrder && (
+                <TrackingModal
+                    order={selectedOrder}
+                    restaurantData={restaurantData}
+                    onClose={() => {
+                        setShowModal(false);
+                        setSelectedOrder(null);
+                    }}
+                />
             )}
         </>
     );

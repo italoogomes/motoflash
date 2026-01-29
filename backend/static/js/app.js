@@ -66,11 +66,23 @@ function MotoFlashApp() {
         return () => clearInterval(interval);
     }, [fetchAll]);
     
+    // Dados do restaurante (para mapa)
+    const [restaurantData, setRestaurantData] = useState(() => {
+        const data = sessionStorage.getItem('motoflash_restaurant');
+        if (data) {
+            try {
+                return JSON.parse(data);
+            } catch { return {}; }
+        }
+        return {};
+    });
+
     const getPageTitle = () => {
         const titles = {
             inicio: 'Dashboard',
             pedidos: 'Pedidos',
             motoboys: 'Motoqueiros',
+            rastreamento: 'Rastreamento',
             cardapio: 'Cardápio',
             clientes: 'Clientes',
             relatorios: 'Relatórios',
@@ -99,6 +111,8 @@ function MotoFlashApp() {
                 return <PlaceholderPage title="Pedidos" icon="📦" />;
             case 'motoboys':
                 return <PlaceholderPage title="Motoqueiros" icon="🏍️" />;
+            case 'rastreamento':
+                return <TrackingPage restaurantData={restaurantData} />;
             case 'cardapio':
                 return <CardapioPage />;
             case 'clientes':
