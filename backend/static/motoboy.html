@@ -1189,6 +1189,7 @@
             const watchIdRef = useRef(null);
             const lastBatchIdRef = useRef(null); // Guarda o ID do último lote para detectar novo
             const audioInitializedRef = useRef(false); // Se o áudio já foi inicializado
+            const lastGPSSentRef = useRef(0); // Timestamp do último envio de GPS para o backend
             
             // Inicializa o áudio no primeiro toque (necessário em mobile)
             const handleFirstInteraction = () => {
@@ -1273,9 +1274,23 @@
                             lng: position.coords.longitude
                         };
                         setCurrentPosition(newPos);
-                        
+
                         // Verifica se chegou no destino
                         checkArrival(newPos);
+
+                        // Envia GPS para o backend (throttle: a cada 10 segundos)
+                        const now = Date.now();
+                        if (now - lastGPSSentRef.current > 10000 && courierId) {
+                            lastGPSSentRef.current = now;
+                            fetch(`${API_URL}/couriers/${courierId}/location?lat=${newPos.lat}&lng=${newPos.lng}`, {
+                                method: 'PUT',
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('courier_token')}` }
+                            }).then(() => {
+                                console.log('📍 GPS enviado para backend:', newPos.lat, newPos.lng);
+                            }).catch(err => {
+                                console.error('❌ Erro ao enviar GPS:', err);
+                            });
+                        }
                     },
                     (error) => {
                         console.error('Erro GPS:', error);
