@@ -17,7 +17,8 @@
       "Bash(cd:*)",
       "Bash(/c/Users/italo.gomes/AppData/Local/anaconda3/python.exe -m pytest:*)",
       "Bash(python -m pytest:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(python -c:*)"
     ]
   }
 }

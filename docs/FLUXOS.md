@@ -1,7 +1,7 @@
 # 🔄 Fluxos de Dados - MotoFlash
 
-**Versão:** 0.9.0
-**Última atualização:** 2026-01-25
+**Versão:** 1.3.0
+**Última atualização:** 2026-01-28
 
 Este documento detalha todos os fluxos de dados do sistema, mostrando como frontend e backend se comunicam em cada operação.
 
@@ -19,6 +19,7 @@ Este documento detalha todos os fluxos de dados do sistema, mostrando como front
 8. [Motoboy Entrega Pedido](#8-motoboy-entrega-pedido)
 9. [Criar Motoboy via Convite](#9-criar-motoboy-via-convite)
 10. [Upload de Imagem](#10-upload-de-imagem)
+11. [Rastrear Pedido (Atendente)](#11-rastrear-pedido-atendente) ⭐ NOVO (v1.3.0)
 
 ---
 
@@ -885,6 +886,345 @@ async function handleImageUpload(file) {
 
 ---
 
+## 11. Rastrear Pedido (Atendente)
+
+### 📍 Página: `/dashboard` (index.html) - Aba Rastreamento
+
+### Fluxo Completo:
+
+```
+┌─────────────────────────────┐
+│   CLIENTE                   │
+│ liga para o restaurante     │
+│ "Onde está meu pedido?"     │
+└──────────┬──────────────────┘
+           │
+           ▼
+┌──────────────────────────────────────┐
+│   ATENDENTE                          │
+│ acessa aba "Rastreamento"            │
+│ digita nome do cliente: "Maria"      │
+└──────────┬───────────────────────────┘
+           │
+           ▼
+┌────────────────────────────────────────────────┐
+│  FRONTEND (index.html - TrackingPage)          │
+│                                                │
+│  1. Captura input (debounce 300ms)             │
+│  2. Valida query (mínimo 2 caracteres)         │
+│  3. GET /orders/search?q=Maria                 │
+└────────┬───────────────────────────────────────┘
+         │
+         ▼ HTTP GET (com JWT)
+┌──────────────────────────────────────────────────────┐
+│  BACKEND (routers/orders.py)                         │
+│                                                      │
+│  1. Normaliza texto (remove acentos)                │
+│     "María" → "maria"                               │
+│  2. Busca em múltiplos campos:                      │
+│     - Customer.name (LIKE %maria%)                  │
+│     - Customer.phone                                │
+│     - Order.short_id (se número)                    │
+│     - Order.tracking_code (se MF-)                  │
+│  3. Filtra:                                         │
+│     - restaurant_id = do token                      │
+│     - status != DELIVERED                           │
+│  4. Ordena por created_at DESC                      │
+│  5. Limita a 10 resultados                          │
+│  6. Retorna lista de pedidos                        │
+└────────┬─────────────────────────────────────────────┘
+         │
+         ▼ HTTP 200 Response
+┌──────────────────────────────────────────────┐
+│  FRONTEND (SearchResults)                    │
+│                                              │
+│  Exibe cards:                                │
+│  ┌──────────────────────────────────────┐   │
+│  │ #1234 Maria Silva                    │   │
+│  │ Status: 🔵 Em Rota                   │   │
+│  │ Motoboy: João Santos                 │   │
+│  │ Posição: 2º de 3 entregas            │   │
+│  │ [Ver Detalhes no Mapa] →             │   │
+│  └──────────────────────────────────────┘   │
+└────────┬─────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────┐
+│   ATENDENTE              │
+│ clica "Ver Detalhes"     │
+└────────┬─────────────────┘
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│  FRONTEND (TrackingModal)                      │
+│                                                │
+│  1. Abre modal fullscreen                      │
+│  2. GET /orders/{id}/tracking-details          │
+│  3. Renderiza mapa (Leaflet.js)                │
+│  4. Inicia polling (10 segundos)               │
+└────────┬───────────────────────────────────────┘
+         │
+         ▼ HTTP GET (com JWT)
+┌──────────────────────────────────────────────────────────┐
+│  BACKEND (routers/orders.py)                             │
+│                                                          │
+│  get_order_tracking_details(order_id, user)             │
+│                                                          │
+│  1. Busca Order por ID                                   │
+│  2. Valida restaurant_id (multi-tenant)                  │
+│  3. Se pedido tem batch_id:                              │
+│     a) Busca Batch                                       │
+│     b) Busca todos Orders do lote (ORDER BY stop_order) │
+│     c) Calcula position (2 de 3)                         │
+│     d) Busca Courier                                     │
+│     e) Busca GPS atual (last_lat, last_lng)             │
+│     f) Busca polyline da rota                            │
+│  4. Monta resposta:                                      │
+│     {                                                    │
+│       order: {...},                                      │
+│       batch: {id, status, position, total, orders[]},   │
+│       courier: {name, phone, current_lat, current_lng}, │
+│       route: {polyline, waypoints[]}                    │
+│     }                                                    │
+└────────┬─────────────────────────────────────────────────┘
+         │
+         ▼ HTTP 200 Response
+┌────────────────────────────────────────────────────────┐
+│  FRONTEND (TrackingModal + TrackingMap)                │
+│                                                        │
+│  ┌──────────────────────────────────────────────┐     │
+│  │  ❌ Fechar         Pedido #1234              │     │
+│  ├──────────────────────────────────────────────┤     │
+│  │                                              │     │
+│  │  [MAPA INTERATIVO - Leaflet.js]             │     │
+│  │                                              │     │
+│  │  🏪 Restaurante (laranja)                    │     │
+│  │  🏍️ Motoboy (azul pulsante) ← GPS atual     │     │
+│  │  ① Rua A, 100 (✅ Entregue)                 │     │
+│  │  ② Rua das Flores, 123 (📍 VOCÊ ESTÁ AQUI)  │     │
+│  │  ③ Rua B, 200 (⏳ Próximo)                   │     │
+│  │                                              │     │
+│  │  Polyline azul conectando tudo              │     │
+│  │                                              │     │
+│  ├──────────────────────────────────────────────┤     │
+│  │  📦 Detalhes do Pedido                      │     │
+│  │  Cliente: Maria Silva                       │     │
+│  │  Endereço: Rua das Flores, 123             │     │
+│  │  Status: Em Rota 🔵                         │     │
+│  │                                              │     │
+│  │  🏍️ Motoboy: João Santos                    │     │
+│  │  Telefone: (11) 99999-9999                  │     │
+│  │  Posição: 2ª parada de 3                    │     │
+│  │                                              │     │
+│  │  📍 Próximas Entregas:                      │     │
+│  │  1. ✅ Rua A, 100 (Entregue)                │     │
+│  │  2. 📍 Rua das Flores, 123 ← VOCÊ           │     │
+│  │  3. ⏳ Rua B, 200 (Aguardando)              │     │
+│  │                                              │     │
+│  │  [📱 Enviar por WhatsApp]                   │     │
+│  └──────────────────────────────────────────────┘     │
+└────────────────────────────────────────────────────────┘
+```
+
+### Atualização em Tempo Real (Polling):
+
+```javascript
+// Frontend - Polling a cada 10 segundos
+useEffect(() => {
+  const interval = setInterval(() => {
+    fetch(`/orders/${orderId}/tracking-details`)
+      .then(res => res.json())
+      .then(data => {
+        // Atualiza estado
+        setTrackingDetails(data);
+        // Mapa re-renderiza automaticamente
+        // Marcador do motoboy atualiza posição GPS
+      });
+  }, 10000);
+
+  return () => clearInterval(interval);
+}, [orderId]);
+```
+
+### Envio por WhatsApp:
+
+```
+┌──────────────────────────────────┐
+│   ATENDENTE                      │
+│ clica "Enviar por WhatsApp"      │
+└────────┬─────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────┐
+│  FRONTEND (handleSendWhatsApp)              │
+│                                             │
+│  1. Lê tracking_code: "MF-ABC123"           │
+│  2. Monta mensagem:                         │
+│     "Olá! Seu pedido #1234 está Em Rota.   │
+│      Acompanhe em tempo real:              │
+│      https://.../track/MF-ABC123"          │
+│  3. Abre WhatsApp:                          │
+│     window.open(                            │
+│       'https://wa.me/?text=...',            │
+│       '_blank'                              │
+│     )                                       │
+└────────┬────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────┐
+│  WHATSAPP WEB/APP               │
+│                                 │
+│  Abre com mensagem pré-pronta   │
+│  Atendente escolhe contato      │
+│  Envia para cliente             │
+└────────┬────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────┐
+│  CLIENTE                        │
+│                                 │
+│  Recebe link de rastreio        │
+│  Clica no link                  │
+│  GET /orders/track/{code}       │
+│  Vê status do pedido            │
+└─────────────────────────────────┘
+```
+
+### Código Frontend (Simplificado):
+
+```javascript
+// TrackingPage - components.js
+function TrackingPage() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Busca com debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.length >= 2) {
+        fetch(`/orders/search?q=${query}`)
+          .then(res => res.json())
+          .then(data => setResults(data));
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  return (
+    <div>
+      <h1>📍 Rastreamento de Pedidos</h1>
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Buscar por nome, telefone ou #ID"
+      />
+      {results.map(order => (
+        <div key={order.id} onClick={() => {
+          setSelectedOrder(order);
+          setShowModal(true);
+        }}>
+          #{order.short_id} {order.customer_name}
+        </div>
+      ))}
+      {showModal && (
+        <TrackingModal
+          order={selectedOrder}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### Código Backend (Simplificado):
+
+```python
+# routers/orders.py
+from unicodedata import normalize
+
+def normalize_text(text: str) -> str:
+    """Remove acentos para busca"""
+    nfkd = normalize('NFKD', text)
+    return ''.join([c for c in nfkd if not combining(c)]).lower()
+
+@router.get("/search")
+def search_orders(q: str, user: User = Depends(get_current_user)):
+    normalized = normalize_text(q)
+
+    # Busca multi-critério
+    orders = session.exec(
+        select(Order)
+        .join(Customer)
+        .where(
+            Order.restaurant_id == user.restaurant_id,
+            Order.status != OrderStatus.DELIVERED,
+            or_(
+                func.lower(func.unaccent(Customer.name)).like(f'%{normalized}%'),
+                Customer.phone.like(f'%{q}%'),
+                Order.short_id == int(q.replace('#', '')) if q.isdigit() else None
+            )
+        )
+        .order_by(Order.created_at.desc())
+        .limit(10)
+    ).all()
+
+    return orders
+
+@router.get("/{order_id}/tracking-details")
+def get_tracking_details(order_id: str, user: User = Depends(get_current_user)):
+    order = session.get(Order, order_id)
+
+    # Valida multi-tenant
+    if not order or order.restaurant_id != user.restaurant_id:
+        raise HTTPException(404)
+
+    # Monta resposta completa
+    response = {
+        "order": order,
+        "batch": None,
+        "courier": None,
+        "route": None
+    }
+
+    if order.batch_id:
+        batch = session.get(Batch, order.batch_id)
+        batch_orders = get_batch_orders(batch.id)
+        courier = session.get(Courier, batch.courier_id)
+        polyline = get_batch_route_polyline(batch.id)
+
+        response.update({
+            "batch": {
+                "id": batch.id,
+                "position": order.stop_order,
+                "total": len(batch_orders),
+                "orders": batch_orders
+            },
+            "courier": {
+                "name": f"{courier.name} {courier.last_name}",
+                "phone": courier.phone,
+                "current_lat": courier.last_lat,
+                "current_lng": courier.last_lng
+            },
+            "route": polyline
+        })
+
+    return response
+```
+
+**Notas:**
+- Busca normalizada (sem acentos) para melhor UX
+- Multi-tenant seguro (sempre filtra por `restaurant_id`)
+- Polling a cada 10 segundos para atualização em tempo real
+- Mapa interativo com Leaflet.js
+- Compartilhamento via WhatsApp Web/App
+
+**Para mais detalhes:** Ver [RASTREAMENTO.md](./RASTREAMENTO.md)
+
+---
+
 ## 📊 Resumo dos Fluxos
 
 | Operação | Frontend | Backend | Serviços Externos |
@@ -900,6 +1240,7 @@ async function handleImageUpload(file) {
 | Criar Convite | index.html | invites.py | - |
 | Usar Convite | convite.html | invites.py | - |
 | Upload | cardapio.html | main.py | - |
+| Rastrear Pedido ⭐ | index.html (TrackingPage) | orders.py (search + tracking-details) | Leaflet.js (OpenStreetMap) |
 
 ---
 

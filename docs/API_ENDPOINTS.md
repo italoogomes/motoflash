@@ -10,12 +10,13 @@
 
 1. [Autenticação](#autenticação)
 2. [Pedidos](#pedidos)
-3. [Motoboys](#motoboys)
-4. [Dispatch](#dispatch)
-5. [Cardápio](#cardápio)
-6. [Clientes](#clientes)
-7. [Convites](#convites)
-8. [Utilidades](#utilidades)
+3. [Rastreamento](#rastreamento-v130) ⭐ NOVO
+4. [Motoboys](#motoboys)
+5. [Dispatch](#dispatch)
+6. [Cardápio](#cardápio)
+7. [Clientes](#clientes)
+8. [Convites](#convites)
+9. [Utilidades](#utilidades)
 
 ---
 
@@ -334,6 +335,199 @@ Download direto da imagem PNG do QR Code.
 **Response 200:**
 - Content-Type: `image/png`
 - Imagem binária
+
+---
+
+## 📍 Rastreamento (v1.3.0)
+
+Sistema de rastreamento para atendentes do restaurante. Permite buscar e acompanhar pedidos em tempo real através de mapa interativo.
+
+**Ver documentação completa:** [RASTREAMENTO.md](./RASTREAMENTO.md)
+
+---
+
+### GET /orders/search ⭐ NOVO (v1.3.0)
+
+Busca pedidos por múltiplos critérios - usado pelo Sistema de Rastreamento.
+
+**Headers:** Requer `Authorization`
+
+**Query Params:**
+- `q` (obrigatório): Query de busca
+
+**Critérios de Busca:**
+- Nome do cliente (accent-insensitive, case-insensitive)
+- Telefone do cliente (busca via join com Customer)
+- Short ID (ex: "1234" ou "#1234")
+- Tracking code (ex: "MF-ABC123")
+
+**Filtros Automáticos:**
+- Apenas pedidos do restaurante (`restaurant_id`)
+- Apenas pedidos ATIVOS (exclui status DELIVERED)
+- Limitado a 10 resultados
+
+**Response 200:**
+```json
+[
+  {
+    "id": "uuid-v4",
+    "short_id": 1234,
+    "tracking_code": "MF-ABC123",
+    "customer_name": "Maria Silva",
+    "customer_phone": "16999887766",
+    "address_text": "Rua das Flores, 123",
+    "status": "PICKED_UP",
+    "batch_id": "uuid-v4",
+    "stop_order": 2,
+    "courier_id": "uuid-v4",
+    "total": 45.0,
+    "created_at": "2026-01-28T18:30:00"
+  }
+]
+```
+
+**Notas:**
+- Normalização de texto para busca sem acentos (`unicodedata.normalize('NFKD')`)
+- Busca case-insensitive com SQL LIKE
+- Multi-tenant seguro (filtro automático por `restaurant_id`)
+
+---
+
+### GET /orders/{order_id}/tracking-details ⭐ NOVO (v1.3.0)
+
+Retorna detalhes completos para rastreamento - usado pelo modal de rastreamento.
+
+**Headers:** Requer `Authorization`
+
+**Response 200:**
+```json
+{
+  "order": {
+    "id": "uuid-v4",
+    "short_id": 1234,
+    "tracking_code": "MF-ABC123",
+    "customer_name": "Maria Silva",
+    "customer_phone": "16999887766",
+    "address_text": "Rua das Flores, 123",
+    "address_complement": "Apto 201",
+    "address_reference": "Próximo ao mercado",
+    "lat": -21.1775,
+    "lng": -47.8102,
+    "status": "PICKED_UP",
+    "total": 45.0,
+    "items": [...],
+    "created_at": "2026-01-28T18:30:00"
+  },
+  "batch": {
+    "id": "uuid-v4",
+    "status": "IN_PROGRESS",
+    "position": 2,
+    "total": 3,
+    "orders": [
+      {
+        "id": "uuid-v4",
+        "short_id": 1233,
+        "customer_name": "João Santos",
+        "address_text": "Rua A, 100",
+        "lat": -21.1780,
+        "lng": -47.8110,
+        "status": "DELIVERED",
+        "stop_order": 1
+      },
+      {
+        "id": "uuid-v4",
+        "short_id": 1234,
+        "customer_name": "Maria Silva",
+        "address_text": "Rua das Flores, 123",
+        "lat": -21.1775,
+        "lng": -47.8102,
+        "status": "PICKED_UP",
+        "stop_order": 2
+      },
+      {
+        "id": "uuid-v4",
+        "short_id": 1235,
+        "customer_name": "Pedro Lima",
+        "address_text": "Rua B, 200",
+        "lat": -21.1770,
+        "lng": -47.8095,
+        "status": "ASSIGNED",
+        "stop_order": 3
+      }
+    ]
+  },
+  "courier": {
+    "id": "uuid-v4",
+    "name": "João",
+    "last_name": "Santos",
+    "phone": "16999887766",
+    "current_lat": -21.1778,
+    "current_lng": -47.8105
+  },
+  "route": {
+    "polyline": "encoded-google-polyline-string",
+    "waypoints": [
+      {
+        "lat": -21.2020,
+        "lng": -47.8130,
+        "address": "Restaurante",
+        "order": 0
+      },
+      {
+        "lat": -21.1780,
+        "lng": -47.8110,
+        "address": "Rua A, 100",
+        "order": 1
+      },
+      {
+        "lat": -21.1775,
+        "lng": -47.8102,
+        "address": "Rua das Flores, 123",
+        "order": 2
+      },
+      {
+        "lat": -21.1770,
+        "lng": -47.8095,
+        "address": "Rua B, 200",
+        "order": 3
+      }
+    ]
+  }
+}
+```
+
+**Casos Especiais:**
+- Se pedido não tem `batch_id`: `batch`, `courier` e `route` são `null`
+- Se motoboy não enviou GPS recente: `current_lat` e `current_lng` são `null`
+- Se rota não foi calculada: `route` é `null`
+
+**Notas:**
+- `position`: Indica qual parada é o pedido atual (ex: 2 de 3)
+- `route.polyline`: Encoded polyline do Google Maps (decodificar com Leaflet)
+- Usado para atualização em tempo real (polling a cada 10 segundos)
+
+---
+
+### GET /orders/track/{tracking_code}
+
+Rastreamento público de pedido (sem autenticação) - usado pelo cliente final.
+
+**Response 200:**
+```json
+{
+  "tracking_code": "MF-ABC123",
+  "customer_name": "Maria Silva",
+  "status": "PICKED_UP",
+  "status_label": "Em Rota",
+  "created_at": "2026-01-28T18:30:00",
+  "estimated_delivery": "19:00"
+}
+```
+
+**Notas:**
+- Endpoint PÚBLICO (não requer autenticação)
+- Retorna apenas informações básicas (sem endereço completo)
+- Usado para compartilhar com cliente via WhatsApp
 
 ---
 

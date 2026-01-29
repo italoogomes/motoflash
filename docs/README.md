@@ -108,6 +108,23 @@ Bem-vindo à documentação completa do MotoFlash! Esta pasta contém toda a doc
 
 ---
 
+### 6. [RASTREAMENTO.md](./RASTREAMENTO.md) ⭐ NOVO (v1.3.0)
+**O que é:** Sistema de Rastreamento para Atendentes
+
+**Você vai encontrar:**
+- Busca multi-critério (nome, telefone, #ID, código)
+- Visualização em mapa interativo (Leaflet.js)
+- Posição em tempo real do motoboy
+- Compartilhamento via WhatsApp
+- Fluxos completos (frontend ↔ backend)
+- Polling e atualização em tempo real
+- Multi-tenant e segurança
+- Troubleshooting
+
+**Leia quando:** Precisar entender ou modificar o sistema de rastreamento de pedidos.
+
+---
+
 ## 🎯 Guia Rápido - Por Tarefa
 
 ### Quero adicionar um novo endpoint
@@ -137,6 +154,12 @@ Bem-vindo à documentação completa do MotoFlash! Esta pasta contém toda a doc
 3. Push para repositório
 4. Monitore logs
 
+### Quero entender o sistema de rastreamento
+1. Leia: [RASTREAMENTO.md](./RASTREAMENTO.md) (visão completa)
+2. Veja endpoints: [API_ENDPOINTS.md](./API_ENDPOINTS.md) (seção Rastreamento)
+3. Código frontend: `backend/static/js/components.js` (TrackingPage)
+4. Código backend: `backend/routers/orders.py` (search_orders)
+
 ---
 
 ## 🔍 Índice Geral
@@ -148,6 +171,8 @@ Bem-vindo à documentação completa do MotoFlash! Esta pasta contém toda a doc
 - **PWA:** App mobile progressivo para motoboys
 - **Geocoding:** Conversão automática de endereços em coordenadas
 - **QR Codes:** Gerados automaticamente para cada pedido
+- **Rastreamento (v1.3.0):** Sistema de busca e visualização em mapa para atendentes
+- **Busca Normalizada:** Busca sem acentos (unicodedata) para melhor UX
 
 ### Tecnologias
 - **Backend:** Python 3.11 + FastAPI + SQLModel + SQLite
@@ -217,7 +242,10 @@ function ComponentName() {
 ## 🚀 Roadmap
 
 Ver issues no GitHub para features planejadas:
-- [x] Firebase Push Notifications (implementado!)
+- [x] Firebase Push Notifications (v1.1.0)
+- [x] Sistema de Previsão Híbrida de Motoboys (v1.2.0)
+- [x] Sistema de Rastreamento para Atendentes (v1.3.0)
+- [ ] WebSocket para rastreamento real-time (futuro)
 - [ ] Sistema de métricas e analytics
 - [ ] Alertas automáticos
 - [ ] Testes automatizados
@@ -234,5 +262,5 @@ Para dúvidas técnicas:
 
 ---
 
-**Última atualização:** 2026-01-25
-**Versão do Sistema:** 0.9.0
+**Última atualização:** 2026-01-28
+**Versão do Sistema:** 1.3.0
