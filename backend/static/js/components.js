@@ -2950,6 +2950,7 @@ const decodePolyline = (encoded) => {
 const TrackingModal = ({ order, onClose, restaurantData }) => {
     const [trackingDetails, setTrackingDetails] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
+    const [mapReady, setMapReady] = React.useState(false);
     const mapRef = React.useRef(null);
     const mapInstanceRef = React.useRef(null);
     const markersLayerRef = React.useRef(null);
@@ -2983,39 +2984,73 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
     React.useEffect(() => {
         if (mapInstanceRef.current) return; // Já foi criado
 
-        const createMapWhenReady = () => {
-            // Verifica se o container tem altura real (está visível)
-            if (!mapRef.current || mapRef.current.offsetHeight === 0) {
-                // Container ainda hidden/sem dimensões, aguarda próximo frame
-                requestAnimationFrame(createMapWhenReady);
-                return;
-            }
+        console.log('🗺️ TrackingModal: Iniciando criação do mapa...');
 
-            // Container está VISÍVEL! Agora sim cria o mapa
-            console.log('✅ Container visível! Criando mapa. Altura:', mapRef.current.offsetHeight);
+        // Aguarda 300ms para animação CSS do modal terminar
+        const timeoutId = setTimeout(() => {
+            let attempts = 0;
+            const maxAttempts = 50; // Máximo 50 tentativas (2.5 segundos)
 
-            const map = L.map(mapRef.current).setView(
-                [restaurantData.lat || -23.5505, restaurantData.lng || -46.6333],
-                13
-            );
+            const createMapWhenReady = () => {
+                attempts++;
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
+                if (!mapRef.current) {
+                    console.warn('⚠️ mapRef.current é null (tentativa ' + attempts + ')');
+                    if (attempts < maxAttempts) {
+                        requestAnimationFrame(createMapWhenReady);
+                    }
+                    return;
+                }
 
-            mapInstanceRef.current = map;
-            markersLayerRef.current = L.layerGroup().addTo(map);
-            routeLayerRef.current = L.layerGroup().addTo(map);
+                const height = mapRef.current.offsetHeight;
+                console.log('🔍 Verificando container (tentativa ' + attempts + '): height=' + height);
 
-            console.log('✅ Mapa criado com sucesso!');
-        };
+                // Verifica se o container tem altura real (está visível)
+                if (height === 0) {
+                    // Container ainda hidden/sem dimensões
+                    if (attempts < maxAttempts) {
+                        requestAnimationFrame(createMapWhenReady);
+                    } else {
+                        console.error('❌ Container nunca ficou visível após ' + maxAttempts + ' tentativas');
+                    }
+                    return;
+                }
 
-        // Inicia a verificação recursiva
-        requestAnimationFrame(createMapWhenReady);
+                // Container está VISÍVEL! Agora sim cria o mapa
+                console.log('✅ Container visível! Criando mapa Leaflet. Altura:', height);
+
+                try {
+                    const map = L.map(mapRef.current).setView(
+                        [restaurantData.lat || -23.5505, restaurantData.lng || -46.6333],
+                        13
+                    );
+
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(map);
+
+                    mapInstanceRef.current = map;
+                    markersLayerRef.current = L.layerGroup().addTo(map);
+                    routeLayerRef.current = L.layerGroup().addTo(map);
+
+                    // Sinaliza que mapa está pronto
+                    setMapReady(true);
+
+                    console.log('✅ Mapa criado com sucesso!');
+                } catch (error) {
+                    console.error('❌ Erro ao criar mapa:', error);
+                }
+            };
+
+            // Inicia a verificação recursiva
+            requestAnimationFrame(createMapWhenReady);
+        }, 300); // Aguarda animação CSS do modal
 
         // Cleanup
         return () => {
+            clearTimeout(timeoutId);
             if (mapInstanceRef.current) {
+                console.log('🧹 Removendo mapa Leaflet');
                 mapInstanceRef.current.remove();
                 mapInstanceRef.current = null;
             }
@@ -3024,7 +3059,7 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
 
     // Atualizar marcador do motoboy (usa setLatLng, não recria)
     React.useEffect(() => {
-        if (!mapInstanceRef.current || !trackingDetails) return;
+        if (!mapReady || !mapInstanceRef.current || !trackingDetails) return;
 
         if (!trackingDetails.courier?.current_lat || !trackingDetails.courier?.current_lng) {
             // Remove marcador se GPS não disponível
@@ -3055,11 +3090,11 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
             }).addTo(mapInstanceRef.current);
             courierMarkerRef.current.bindPopup(`<b>Motoboy</b><br/>${trackingDetails.courier.name}`);
         }
-    }, [trackingDetails]);
+    }, [mapReady, trackingDetails]);
 
     // Atualizar marcadores e rotas (quando dados mudam)
     React.useEffect(() => {
-        if (!mapInstanceRef.current || !trackingDetails) return;
+        if (!mapReady || !mapInstanceRef.current || !trackingDetails) return;
 
         // Limpa layers anteriores
         markersLayerRef.current.clearLayers();
@@ -3122,7 +3157,7 @@ const TrackingModal = ({ order, onClose, restaurantData }) => {
                 initialFitDoneRef.current = true;
             }
         }
-    }, [trackingDetails, order.id]);
+    }, [mapReady, trackingDetails, order.id]);
 
     // Função para enviar por WhatsApp
     const handleSendWhatsApp = () => {
