@@ -108,7 +108,7 @@ function MotoFlashApp() {
                     />
                 );
             case 'pedidos':
-                return <PlaceholderPage title="Pedidos" icon="📦" />;
+                return <OrdersPage orders={orders} fetchAll={fetchAll} />;
             case 'motoboys':
                 return <PlaceholderPage title="Motoqueiros" icon="🏍️" />;
             case 'rastreamento':

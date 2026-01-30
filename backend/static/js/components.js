@@ -3596,6 +3596,245 @@ const TrackingPage = ({ restaurantData }) => {
     );
 };
 
+// ============ PÁGINA DE PEDIDOS ============
+
+const OrdersPage = ({ orders = [], fetchAll }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState('all');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
+
+    // Debounce da busca (300ms)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Filtros de status
+    const statusFilters = [
+        { key: 'all', label: 'Todos', emoji: '📦', color: '#60a5fa' },
+        { key: 'created', label: 'Criado', emoji: '🟡', color: '#fbbf24' },
+        { key: 'preparing', label: 'Preparando', emoji: '👨‍🍳', color: '#fb923c' },
+        { key: 'ready', label: 'Pronto', emoji: '✅', color: '#34d399' },
+        { key: 'assigned', label: 'Em Rota', emoji: '🏍️', color: '#60a5fa' },
+        { key: 'delivered', label: 'Entregue', emoji: '✓', color: '#10b981' },
+    ];
+
+    // Normaliza texto (remove acentos, lowercase)
+    const normalizeText = (text) => {
+        if (!text) return '';
+        return text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    };
+
+    // Filtra pedidos
+    const filteredOrders = orders.filter(order => {
+        // Filtro por status
+        if (selectedStatus !== 'all' && order.status !== selectedStatus) {
+            return false;
+        }
+
+        // Filtro por busca
+        if (debouncedQuery.trim()) {
+            const query = normalizeText(debouncedQuery);
+            const customerName = normalizeText(order.customer_name || '');
+            const phone = normalizeText(order.customer_phone || '');
+            const shortId = order.short_id ? `#${order.short_id}` : '';
+            const trackingCode = order.tracking_code || '';
+
+            return (
+                customerName.includes(query) ||
+                phone.includes(query) ||
+                shortId.includes(query) ||
+                trackingCode.toLowerCase().includes(query.toLowerCase())
+            );
+        }
+
+        return true;
+    });
+
+    // Conta pedidos por status
+    const statusCounts = statusFilters.reduce((acc, filter) => {
+        if (filter.key === 'all') {
+            acc[filter.key] = orders.length;
+        } else {
+            acc[filter.key] = orders.filter(o => o.status === filter.key).length;
+        }
+        return acc;
+    }, {});
+
+    // Ações rápidas
+    const markAsReady = async (orderId) => {
+        try {
+            const res = await authFetch(`${API_URL}/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'ready' })
+            });
+            if (res.ok) {
+                fetchAll();
+            }
+        } catch (err) {
+            console.error('Erro ao marcar pedido como pronto:', err);
+        }
+    };
+
+    const downloadQRCode = (orderId) => {
+        window.open(`${API_URL}/orders/${orderId}/qrcode`, '_blank');
+    };
+
+    return (
+        <div>
+            {/* Campo de Busca */}
+            <div className="glass-card p-4 mb-4">
+                <div className="relative">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="🔍 Buscar por nome, telefone, #1234 ou MF-ABC123..."
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Filtros de Status */}
+            <div className="flex flex-wrap gap-2 mb-6">
+                {statusFilters.map(filter => (
+                    <button
+                        key={filter.key}
+                        onClick={() => setSelectedStatus(filter.key)}
+                        className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                            selectedStatus === filter.key
+                                ? 'bg-orange-500 text-white shadow-lg'
+                                : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                        style={{
+                            border: selectedStatus === filter.key ? 'none' : '1px solid rgba(255,255,255,0.1)'
+                        }}
+                    >
+                        {filter.emoji} {filter.label} ({statusCounts[filter.key] || 0})
+                    </button>
+                ))}
+            </div>
+
+            {/* Contador e Data */}
+            <div className="flex items-center justify-between mb-4">
+                <div className="text-white/70">
+                    📅 Hoje • {filteredOrders.length} {filteredOrders.length === 1 ? 'pedido' : 'pedidos'}
+                </div>
+                <button
+                    onClick={fetchAll}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 text-sm transition-all"
+                >
+                    🔄 Atualizar
+                </button>
+            </div>
+
+            {/* Lista de Pedidos */}
+            <div className="space-y-3">
+                {filteredOrders.length === 0 ? (
+                    <div className="glass-card p-8 text-center">
+                        <div className="text-4xl mb-3">🔍</div>
+                        <div className="text-white/70">
+                            {debouncedQuery ? 'Nenhum pedido encontrado' : 'Nenhum pedido ainda'}
+                        </div>
+                    </div>
+                ) : (
+                    filteredOrders.map(order => (
+                        <div key={order.id} className="glass-card p-4 hover:bg-white/5 transition-all">
+                            <div className="flex items-start gap-4">
+                                {/* Badge com short_id */}
+                                <div
+                                    className="flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center font-bold text-white text-lg"
+                                    style={{
+                                        background: order.status === 'delivered'
+                                            ? '#9ca3af'
+                                            : 'linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%)'
+                                    }}
+                                >
+                                    #{order.short_id}
+                                </div>
+
+                                {/* Informações do Pedido */}
+                                <div className="flex-1 min-w-0">
+                                    {/* Linha 1: Nome + Status */}
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                        <span className="font-semibold text-white text-lg">
+                                            {order.customer_name}
+                                        </span>
+                                        <StatusBadge status={order.status} />
+                                    </div>
+
+                                    {/* Linha 2: Endereço */}
+                                    <div className="text-white/60 text-sm mb-1">
+                                        📍 {order.address_text}
+                                    </div>
+
+                                    {/* Linha 3: Telefone + Horário */}
+                                    <div className="flex items-center gap-4 text-white/50 text-sm mb-3">
+                                        {order.customer_phone && (
+                                            <span>📱 {order.customer_phone}</span>
+                                        )}
+                                        <span>
+                                            🕐 {new Date(order.created_at).toLocaleTimeString('pt-BR', {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </span>
+                                        {order.tracking_code && (
+                                            <span className="font-mono">{order.tracking_code}</span>
+                                        )}
+                                    </div>
+
+                                    {/* Ações Rápidas */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {order.status === 'preparing' && (
+                                            <button
+                                                onClick={() => markAsReady(order.id)}
+                                                className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-sm font-medium transition-all"
+                                            >
+                                                ✅ Marcar Pronto
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => downloadQRCode(order.id)}
+                                            className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-sm font-medium transition-all"
+                                        >
+                                            🖨️ QR Code
+                                        </button>
+                                        {order.customer_phone && (
+                                            <a
+                                                href={`https://wa.me/${order.customer_phone.replace(/\D/g, '')}?text=Olá! Seu pedido #${order.short_id} está ${order.status === 'ready' ? 'pronto' : 'em preparo'}!`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg text-sm font-medium transition-all"
+                                            >
+                                                💬 WhatsApp
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+};
+
 // ============ PÁGINAS PLACEHOLDER ============
 
 const PlaceholderPage = ({ title, icon }) => (
