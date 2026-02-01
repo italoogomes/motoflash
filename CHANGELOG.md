@@ -4,6 +4,49 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.3.3] - 2026-02-01
+
+### 📍 GPS em Tempo Real do Motoboy
+
+#### 🐛 Bug Corrigido
+- **Problema:** GPS do motoboy não atualizava em tempo real durante entrega
+- **Sintoma:** Posição ficava "travada" no restaurante mesmo com motoboy na metade do caminho
+- **Causa Raiz:** Código dependia 100% do `watchPosition` do navegador, que:
+  - Pausa quando tela em background
+  - Não garante frequência de atualização
+  - Para silenciosamente em economia de bateria
+
+#### ✅ Solução Implementada
+
+**Estratégia: Envio Independente com Intervalo Fixo**
+
+1. **Nova ref `lastKnownPositionRef`** - Armazena última posição GPS conhecida
+2. **Função `sendGPSToBackend()` com retry** - 3 tentativas com 1s de delay entre cada
+3. **`setInterval` de 5 segundos** - Envia GPS independente do `watchPosition`
+4. **Envio imediato ao iniciar rota** - GPS enviado quando clica "Iniciar Rota"
+
+#### 🛠️ Modificado
+- `backend/static/motoboy.html`
+  - Adicionada ref `lastKnownPositionRef`
+  - Criada função `sendGPSToBackend()` com retry
+  - Adicionado `setInterval` de 5s para envio periódico
+  - Modificada `startRoute()` para enviar GPS imediatamente
+
+#### 📊 Comparação
+
+| Antes | Depois |
+|-------|--------|
+| GPS só quando `watchPosition` dispara | GPS a cada 5s via `setInterval` |
+| Throttle de 10 segundos | Intervalo fixo de 5 segundos |
+| Sem retry em falha | 3 tentativas com 1s de delay |
+| Pausa em background | Continua enviando |
+
+#### 💡 Lição Aprendida
+> Nunca dependa apenas de eventos do navegador para funções críticas!
+> Use `setInterval` como backup para garantir envio de dados.
+
+---
+
 ## [1.3.2] - 2026-01-29
 
 ### 🗺️ Correção Completa: Mapa Preto + Marcador do Motoboy

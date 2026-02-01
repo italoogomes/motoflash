@@ -1221,7 +1221,39 @@
             const lastBatchIdRef = useRef(null); // Guarda o ID do último lote para detectar novo
             const audioInitializedRef = useRef(false); // Se o áudio já foi inicializado
             const lastGPSSentRef = useRef(0); // Timestamp do último envio de GPS para o backend
-            
+            const lastKnownPositionRef = useRef(null); // Última posição GPS conhecida (para envio periódico)
+
+            // Função de envio de GPS para o backend com retry
+            const sendGPSToBackend = async (position, retries = 3) => {
+                const motoboyId = localStorage.getItem('motoboy_id');
+                const token = localStorage.getItem('courier_token');
+
+                if (!motoboyId || !position) return false;
+
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const res = await fetch(
+                            `${API_URL}/couriers/${motoboyId}/location?lat=${position.lat}&lng=${position.lng}`,
+                            {
+                                method: 'PUT',
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            }
+                        );
+                        if (res.ok) {
+                            console.log('📍 GPS enviado:', position.lat.toFixed(6), position.lng.toFixed(6));
+                            return true;
+                        }
+                    } catch (err) {
+                        console.warn(`⚠️ Tentativa ${i + 1}/${retries} falhou:`, err.message);
+                        if (i < retries - 1) {
+                            await new Promise(r => setTimeout(r, 1000)); // Aguarda 1s antes de retry
+                        }
+                    }
+                }
+                console.error('❌ Falha ao enviar GPS após', retries, 'tentativas');
+                return false;
+            };
+
             // Inicializa o áudio no primeiro toque (necessário em mobile)
             const handleFirstInteraction = () => {
                 if (!audioInitializedRef.current) {
@@ -1305,24 +1337,12 @@
                             lng: position.coords.longitude
                         };
                         setCurrentPosition(newPos);
+                        lastKnownPositionRef.current = newPos; // Salva para envio periódico
 
                         // Verifica se chegou no destino
                         checkArrival(newPos);
 
-                        // Envia GPS para o backend (throttle: a cada 10 segundos)
-                        const now = Date.now();
-                        const motoboyId = localStorage.getItem('motoboy_id');
-                        if (now - lastGPSSentRef.current > 10000 && motoboyId) {
-                            lastGPSSentRef.current = now;
-                            fetch(`${API_URL}/couriers/${motoboyId}/location?lat=${newPos.lat}&lng=${newPos.lng}`, {
-                                method: 'PUT',
-                                headers: { 'Authorization': `Bearer ${localStorage.getItem('courier_token')}` }
-                            }).then(() => {
-                                console.log('📍 GPS enviado para backend:', newPos.lat, newPos.lng);
-                            }).catch(err => {
-                                console.error('❌ Erro ao enviar GPS:', err);
-                            });
-                        }
+                        // GPS é enviado pelo setInterval a cada 5s (não mais aqui)
                     },
                     (error) => {
                         console.error('Erro GPS:', error);
@@ -1364,7 +1384,18 @@
                 startGPSTracking();
                 return () => stopGPSTracking();
             }, []);
-            
+
+            // Envio periódico de GPS para o backend (a cada 5 segundos)
+            useEffect(() => {
+                const gpsInterval = setInterval(() => {
+                    if (lastKnownPositionRef.current) {
+                        sendGPSToBackend(lastKnownPositionRef.current);
+                    }
+                }, 5000); // 5 segundos
+
+                return () => clearInterval(gpsInterval);
+            }, []);
+
             // Re-verifica quando batch muda
             useEffect(() => {
                 if (currentPosition) {
@@ -1375,6 +1406,12 @@
             const startRoute = () => {
                 stopContinuousAlert(); // Para o alerta quando aceitar os pedidos
                 setRouteStarted(true);
+
+                // Envia GPS imediatamente ao iniciar rota
+                if (lastKnownPositionRef.current) {
+                    sendGPSToBackend(lastKnownPositionRef.current);
+                    console.log('🚀 Rota iniciada! GPS enviado imediatamente.');
+                }
             };
             
             const getDistanceToRestaurant = () => {

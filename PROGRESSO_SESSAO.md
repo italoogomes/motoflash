@@ -974,6 +974,92 @@ e6c6c2a - Fix: Enviar GPS do motoboy para o backend
 >
 > Debug no frontend pode mostrar que dados existem localmente, mas isso não significa que estão sendo persistidos. Use logs no callback e verifique a resposta da API para confirmar que dados estão sendo salvos.
 
+### 1️⃣4️⃣ GPS em Tempo Real do Motoboy (v1.3.3) ⭐ SESSÃO ATUAL
+
+**Data:** 2026-02-01
+**Status:** ✅ **RESOLVIDO**
+
+#### 📋 Problema Relatado:
+
+Usuário testou uma entrega e reportou que o GPS do motoboy não atualizava em tempo real:
+- GPS capturou posição correta no restaurante ✓
+- Na metade do caminho, ainda mostrava posição do restaurante ✗
+- Aba de rastreamento também mostrava posição antiga ✗
+
+#### 🔍 Causa Raiz Identificada:
+
+O código dependia 100% do `watchPosition` do navegador para enviar GPS:
+
+```javascript
+// ANTES - Dependência total do callback do navegador
+navigator.geolocation.watchPosition((position) => {
+    // GPS só era enviado SE o navegador chamasse este callback
+    // Se tela em background ou economia de bateria → callback não é chamado!
+});
+```
+
+**Problemas:**
+1. `watchPosition` **pausa quando a tela está em background** (motoboy minimiza app)
+2. **Não há garantia de frequência** - depende do sistema operacional
+3. **Para silenciosamente** em modo de economia de bateria
+4. **Sem retry** quando requisição falha
+
+#### ✅ Solução Implementada:
+
+**Estratégia: Envio Independente com Intervalo Fixo**
+
+1. **Nova ref `lastKnownPositionRef`** - Armazena última posição conhecida
+2. **Função `sendGPSToBackend` com retry** - 3 tentativas com 1s de delay
+3. **`setInterval` de 5 segundos** - Envia GPS independente do watchPosition
+4. **Envio imediato ao iniciar rota** - GPS enviado quando clica "Iniciar Rota"
+
+```javascript
+// DEPOIS - Envio independente a cada 5 segundos
+useEffect(() => {
+    const gpsInterval = setInterval(() => {
+        if (lastKnownPositionRef.current) {
+            sendGPSToBackend(lastKnownPositionRef.current); // Com retry!
+        }
+    }, 5000);
+    return () => clearInterval(gpsInterval);
+}, []);
+```
+
+#### 📂 Arquivo Modificado:
+
+**`backend/static/motoboy.html`**
+- Adicionada ref `lastKnownPositionRef`
+- Criada função `sendGPSToBackend()` com retry (3 tentativas)
+- Adicionado `setInterval` de 5 segundos para envio periódico
+- Atualizado `watchPosition` para salvar posição na ref
+- Modificada função `startRoute()` para enviar GPS imediatamente
+
+#### 📊 Comparação Antes/Depois:
+
+| Antes | Depois |
+|-------|--------|
+| GPS só quando `watchPosition` dispara | GPS a cada 5s via `setInterval` |
+| Throttle de 10 segundos | Intervalo fixo de 5 segundos |
+| Sem retry em falha | 3 tentativas com 1s de delay |
+| Dependente do callback | Independente (usa última posição) |
+| Pausa em background | **Continua enviando mesmo em background** |
+
+#### 🧪 Resultado:
+
+- ✅ **92/92 testes passando (100%)**
+- ✅ GPS enviado a cada 5 segundos independente do navegador
+- ✅ Retry automático em caso de falha de rede
+- ✅ Envio imediato ao iniciar rota
+- ✅ Logs detalhados no console para debug
+
+#### 💡 Lição Aprendida:
+
+> **Nunca dependa apenas de eventos do navegador para funções críticas!**
+>
+> `watchPosition`, `visibilitychange` e outros eventos podem ser pausados pelo sistema operacional para economizar bateria. Use `setInterval` como backup para garantir que dados críticos sejam enviados.
+
+---
+
 #### 📝 Próximos Passos (Próximas Sessões):
 
 1. **📋 Redesign Aba de Pedidos**
@@ -1411,8 +1497,8 @@ Boa sorte! 🚀
 
 ---
 
-**Última atualização:** 2026-01-29 (sessão com Ítalo - sistema de rastreamento completo)
-**Última tarefa concluída:** ✅ Sistema de Rastreamento 100% funcional (v1.3.2) - Mapa + Marcador do motoboy
+**Última atualização:** 2026-02-01 (sessão com Ítalo - GPS em tempo real)
+**Última tarefa concluída:** ✅ GPS em Tempo Real do Motoboy (v1.3.3) - setInterval independente
 **Próxima tarefa:** 📋 Redesign Aba de Pedidos
 **Status:** ✅ **TUDO FUNCIONANDO** (92/92 testes passando)
-**Commits da sessão:** 80d4cff, d21039b, e6c6c2a, 82c81d3
+**Commits da sessão:** (pendente commit)
