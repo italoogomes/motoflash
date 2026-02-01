@@ -4,6 +4,63 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.4.1] - 2026-02-01
+
+### 📋 Simplificação do Fluxo de Pedidos
+
+#### ✅ Mudanças
+- Pedidos agora iniciam direto em **PREPARING** (removido status CREATED)
+- Removido filtro "Criado" da aba de pedidos
+- "Atribuído" renomeado para **"Em Rota"** (mais intuitivo)
+
+#### 📊 Fluxo Simplificado
+
+**Antes (6 status):**
+```
+Criado → Preparando → Pronto → Atribuído → Coletado → Entregue
+```
+
+**Depois (5 status):**
+```
+Preparando → Pronto → Em Rota → Coletado → Entregue
+```
+
+#### 🛠️ Arquivos Modificados
+- `backend/routers/orders.py` - Status inicial = PREPARING
+- `backend/static/js/components.js` - Removido filtro "Criado", renomeado "Atribuído"
+- `backend/tests/*.py` - Testes ajustados para novo fluxo
+
+#### 💡 Benefícios
+- Menos cliques para o atendente
+- Interface mais limpa
+- Fluxo mais parecido com apps de delivery (iFood, etc.)
+
+---
+
+## [1.4.0] - 2026-02-01
+
+### 🐘 Migração para PostgreSQL
+
+#### ✅ Mudanças
+- Migrado de SQLite para PostgreSQL (Railway)
+- `database.py` detecta automaticamente qual banco usar
+- Adicionado `psycopg2-binary` ao requirements.txt
+- Testes continuam usando SQLite em memória
+
+#### 📈 Escalabilidade
+
+| Antes (SQLite) | Depois (PostgreSQL) |
+|----------------|---------------------|
+| ~10-15 restaurantes | 500+ restaurantes |
+| ~50 motoboys | 2000+ motoboys |
+| Lock único de escrita | Escritas paralelas |
+
+#### 🛠️ Arquivos Modificados
+- `backend/database.py` - Detecção automática de banco
+- `backend/requirements.txt` - Driver PostgreSQL
+
+---
+
 ## [1.3.3] - 2026-02-01
 
 ### 📍 GPS em Tempo Real do Motoboy

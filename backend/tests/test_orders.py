@@ -28,7 +28,7 @@ def test_criar_pedido_com_coordenadas(client: TestClient, auth_headers: dict):
     assert data["address_text"] == "Av. Paulista, 1000"
     assert data["lat"] == -23.561684
     assert data["lng"] == -46.655981
-    assert data["status"] == "created"
+    assert data["status"] == "preparing"  # Pedido já inicia em preparo (simplificado)
     assert "id" in data
 
 
@@ -265,14 +265,13 @@ def test_gerar_qrcode(client: TestClient, auth_headers: dict, test_order: Order)
     assert len(data["qrcode"]) > 0
 
 
-def test_marcar_pedido_como_preparing(client: TestClient, auth_headers: dict, test_order: Order):
+def test_pedido_ja_inicia_em_preparing(client: TestClient, auth_headers: dict, test_order: Order):
     """
-    Testa marcar pedido como EM PREPARO
+    Testa que pedido já inicia em status PREPARING (fluxo simplificado)
+    Nota: Endpoint /preparing não é mais necessário, pedido já inicia em preparo
     """
-    response = client.post(
-        f"/orders/{test_order.id}/preparing",
-        headers=auth_headers
-    )
+    # Verifica que o pedido da fixture já está em PREPARING
+    response = client.get(f"/orders/{test_order.id}", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "preparing"
@@ -294,14 +293,11 @@ def test_marcar_pedido_como_ready(client: TestClient, auth_headers: dict, test_o
 
 def test_transicao_status_sequencial(client: TestClient, auth_headers: dict, test_order: Order):
     """
-    Testa transição sequencial de status (CREATED → PREPARING → READY)
+    Testa transição de status (PREPARING → READY)
+    Nota: Pedidos já iniciam em PREPARING (fluxo simplificado)
     """
-    # 1. CREATED → PREPARING
-    response = client.post(f"/orders/{test_order.id}/preparing", headers=auth_headers)
-    assert response.status_code == 200
-    assert response.json()["status"] == "preparing"
-
-    # 2. PREPARING → READY
+    # Pedido já está em PREPARING (test_order fixture)
+    # Transição: PREPARING → READY
     response = client.post(f"/orders/{test_order.id}/scan", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
@@ -313,14 +309,14 @@ def test_transicao_status_invalida(client: TestClient, auth_headers: dict, sessi
     """
     from models import Order, OrderStatus, PrepType
 
-    # Cria pedido em status CREATED
+    # Cria pedido em status PREPARING (fluxo simplificado)
     order = Order(
         customer_name="Teste",
         address_text="Rua T, 1",
         lat=-23.5,
         lng=-46.6,
         prep_type=PrepType.SHORT,
-        status=OrderStatus.CREATED,
+        status=OrderStatus.PREPARING,
         restaurant_id=test_restaurant.id,
         short_id=3001,
         tracking_code="MF-TST001"
@@ -504,7 +500,7 @@ def test_endpoint_rastreio_publico(client: TestClient, auth_headers: dict):
 
     track_data = track_response.json()
     assert track_data["tracking_code"] == tracking_code
-    assert track_data["status"] == "created"
+    assert track_data["status"] == "preparing"  # Pedido já inicia em preparo
     assert track_data["customer_name"] == "Cliente Rastreio"
     assert "short_id" in track_data
 

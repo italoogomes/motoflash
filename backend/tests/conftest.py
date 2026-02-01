@@ -141,7 +141,7 @@ def test_order_fixture(session: Session, test_restaurant: Restaurant):
         lat=-23.550520,
         lng=-46.633308,
         prep_type=PrepType.SHORT,
-        status=OrderStatus.CREATED,
+        status=OrderStatus.PREPARING,  # Pedido já inicia em preparo (fluxo simplificado)
         restaurant_id=test_restaurant.id,
         short_id=1001,
         tracking_code="MF-TESTFIX"

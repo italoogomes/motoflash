@@ -1497,8 +1497,8 @@ Boa sorte! 🚀
 
 ---
 
-**Última atualização:** 2026-02-01 (sessão com Ítalo - GPS em tempo real)
-**Última tarefa concluída:** ✅ GPS em Tempo Real do Motoboy (v1.3.3) - setInterval independente
-**Próxima tarefa:** 📋 Redesign Aba de Pedidos
-**Status:** ✅ **TUDO FUNCIONANDO** (92/92 testes passando)
-**Commits da sessão:** (pendente commit)
+**Última atualização:** 2026-02-01 (sessão com Ítalo - GPS + PostgreSQL + Simplificação)
+**Última tarefa concluída:** ✅ Simplificação do Fluxo de Pedidos (v1.4.1)
+**Próxima tarefa:** 🛵 Redesign Aba de Motoqueiros
+**Status:** ✅ **TUDO FUNCIONANDO** (92/92 testes passando + PostgreSQL)
+**Commits da sessão:** 41f12e4 (GPS), 1906939 (PostgreSQL), (pendente: simplificação)

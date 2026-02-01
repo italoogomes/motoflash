@@ -90,7 +90,7 @@ def create_order(
         lat=lat,
         lng=lng,
         prep_type=order_data.prep_type,
-        status=OrderStatus.CREATED,
+        status=OrderStatus.PREPARING,  # Pedido já inicia em preparo (simplificado)
         created_at=created_at,
         restaurant_id=current_user.restaurant_id,  # 🔒 PROTEÇÃO: vincula ao restaurante
         short_id=short_id,

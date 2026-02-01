@@ -48,10 +48,10 @@ const Timer = ({ startTime }) => {
 // Badge de Status
 const StatusBadge = ({ status }) => {
     const config = {
-        created: { class: 'badge-gray', label: 'Criado' },
+        created: { class: 'badge-gray', label: 'Criado' },  // Mantido para compatibilidade
         preparing: { class: 'badge-warning', label: 'Preparando' },
         ready: { class: 'badge-success', label: 'Pronto' },
-        assigned: { class: 'badge-info', label: 'Atribuído' },
+        assigned: { class: 'badge-info', label: 'Em Rota' },  // Renomeado de "Atribuído"
         picked_up: { class: 'badge-purple', label: 'Coletado' },
         delivered: { class: 'badge-success', label: 'Entregue' },
         available: { class: 'badge-success', label: 'Disponível' },
@@ -3611,10 +3611,9 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Filtros de status
+    // Filtros de status (simplificado - sem "Criado")
     const statusFilters = [
         { key: 'all', label: 'Todos', emoji: '📦', color: '#60a5fa' },
-        { key: 'created', label: 'Criado', emoji: '🟡', color: '#fbbf24' },
         { key: 'preparing', label: 'Preparando', emoji: '👨‍🍳', color: '#fb923c' },
         { key: 'ready', label: 'Pronto', emoji: '✅', color: '#34d399' },
         { key: 'assigned', label: 'Em Rota', emoji: '🏍️', color: '#60a5fa' },

@@ -439,7 +439,7 @@ def test_variacao_demanda_acima_normal(
             lat=-23.550520,
             lng=-46.633308,
             prep_type=PrepType.SHORT,
-            status=OrderStatus.CREATED,
+            status=OrderStatus.PREPARING,  # Fluxo simplificado
             created_at=datetime.now() - timedelta(minutes=30),
             restaurant_id=test_restaurant.id
         )
@@ -488,7 +488,7 @@ def test_variacao_demanda_abaixo_normal(
             lat=-23.550520,
             lng=-46.633308,
             prep_type=PrepType.SHORT,
-            status=OrderStatus.CREATED,
+            status=OrderStatus.PREPARING,  # Fluxo simplificado
             created_at=datetime.now() - timedelta(minutes=30),
             restaurant_id=test_restaurant.id
         )
