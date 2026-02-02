@@ -9,7 +9,6 @@
 ### 1. Antes de Qualquer Coisa
 - **SEMPRE** leia `PROGRESSO_SESSAO.md` para entender onde paramos
 - **SEMPRE** consulte `docs/` antes de modificar código
-- **SEMPRE** consulte `docs/` antes de modificar código
 - **SEMPRE** pergunte qual tarefa o usuário quer continuar
 
 ### 2. Durante o Trabalho
@@ -101,6 +100,7 @@
 | `docs/TESTES.md` | Guia de testes | Novo teste/correção |
 | `docs/CI_CD.md` | Pipeline GitHub Actions | Mudança no CI/CD |
 | `docs/FIREBASE.md` | Push notifications | Mudança em notificações |
+| `docs/RASTREAMENTO.md` | Sistema de rastreamento | Mudança no tracking |
 
 ---
 
@@ -143,8 +143,8 @@ Quando a conversa estiver longa, Claude deve:
 ## 🔧 Padrões do Projeto
 
 ### Tecnologias
-- Backend: Python FastAPI + SQLite + SQLModel
-- Frontend: React 18 (CDN) + Tailwind CSS
+- Backend: Python FastAPI + PostgreSQL + SQLModel
+- Frontend: React 18 (CDN) + Tailwind CSS + Leaflet.js
 - Testes: Pytest (deve passar 100%)
 - CI/CD: GitHub Actions
 - Deploy: Railway (produção)
@@ -216,5 +216,5 @@ Antes de finalizar qualquer tarefa, verificar:
 
 ---
 
-**Última atualização:** 2026-01-28
-**Versão do projeto:** v1.1.0
+**Última atualização:** 2026-02-01
+**Versão do projeto:** v1.4.3
