@@ -1,4 +1,4 @@
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 // ============ CONFIGURAÇÃO ============
 const API_URL = window.location.origin;
