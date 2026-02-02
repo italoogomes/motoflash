@@ -1,6 +1,7 @@
 # 📡 API Endpoints - MotoFlash
 
-**Versão da API:** 1.1.0
+**Versão da API:** 1.4.2
+**Data:** 2026-02-01
 **Base URL:** `https://motoflash-production.up.railway.app` (produção)
 **Documentação Interativa:** `/docs` (Swagger UI)
 

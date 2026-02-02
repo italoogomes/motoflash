@@ -1,7 +1,7 @@
 # 🔄 Fluxos de Dados - MotoFlash
 
-**Versão:** 1.3.0
-**Última atualização:** 2026-01-28
+**Versão:** 1.4.2
+**Última atualização:** 2026-02-01
 
 Este documento detalha todos os fluxos de dados do sistema, mostrando como frontend e backend se comunicam em cada operação.
 
@@ -19,7 +19,29 @@ Este documento detalha todos os fluxos de dados do sistema, mostrando como front
 8. [Motoboy Entrega Pedido](#8-motoboy-entrega-pedido)
 9. [Criar Motoboy via Convite](#9-criar-motoboy-via-convite)
 10. [Upload de Imagem](#10-upload-de-imagem)
-11. [Rastrear Pedido (Atendente)](#11-rastrear-pedido-atendente) ⭐ NOVO (v1.3.0)
+11. [Rastrear Pedido (Atendente)](#11-rastrear-pedido-atendente)
+12. [Cancelar Pedido](#12-cancelar-pedido) ⭐ NOVO (v1.4.2)
+
+---
+
+## 📊 Status do Pedido (v1.4.2)
+
+```
+┌───────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐    ┌───────────┐
+│ PREPARING │───▶│  READY  │───▶│ ASSIGNED │───▶│ PICKED_UP │───▶│ DELIVERED │
+└───────────┘    └─────────┘    └──────────┘    └───────────┘    └───────────┘
+      │               │               │
+      │               │               │
+      ▼               ▼               ▼
+┌───────────────────────────────────────┐
+│            CANCELLED                   │
+└───────────────────────────────────────┘
+```
+
+**Notas:**
+- Pedidos iniciam direto em PREPARING (fluxo simplificado v1.4.1)
+- Cancelamento só é permitido antes do PICKED_UP
+- Ao cancelar, o motoboy é liberado automaticamente
 
 ---
 
@@ -314,7 +336,7 @@ def create_order(
 │  BACKEND (routers/orders.py)             │
 │                                          │
 │  1. Busca Order por ID                   │
-│  2. Valida que status = CREATED/PREPARING│
+│  2. Valida que status = PREPARING        │
 │  3. Atualiza:                            │
 │     status = READY                       │
 │     ready_at = now()                     │
@@ -1270,6 +1292,90 @@ setInterval(async () => {
     showBatchDetails(data.batch, data.orders);
   }
 }, 30000);
+```
+
+---
+
+## 12. Cancelar Pedido
+
+### 📍 Página: `/dashboard` (index.html) - Aba Pedidos
+
+### Fluxo Completo:
+
+```
+┌─────────────────────────┐
+│    ATENDENTE            │
+│                         │
+│  1. Clica no botão ✕    │
+│  2. Confirma cancelar   │
+└────────┬────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────┐
+│  FRONTEND (components.js)            │
+│                                      │
+│  1. Exibe confirm() de confirmação   │
+│  2. POST /orders/{id}/cancel         │
+└────────┬─────────────────────────────┘
+         │
+         ▼ HTTP POST
+┌──────────────────────────────────────────────────────┐
+│  BACKEND (routers/orders.py)                         │
+│                                                      │
+│  1. Busca Order por ID                               │
+│  2. Valida restaurant_id (multi-tenant)             │
+│  3. Valida status não é PICKED_UP/DELIVERED/CANCELLED│
+│  4. Se estava em batch:                              │
+│     → Verifica outros pedidos do motoboy             │
+│     → Libera motoboy se não tem mais pedidos         │
+│  5. Atualiza:                                        │
+│     status = CANCELLED                               │
+│     cancelled_at = now()                             │
+│     batch_id = NULL                                  │
+│  6. Retorna pedido atualizado                        │
+└────────┬─────────────────────────────────────────────┘
+         │
+         ▼ HTTP 200 Response
+┌─────────────────────────────────┐
+│  FRONTEND (components.js)       │
+│                                 │
+│  1. Chama fetchAll()            │
+│  2. Atualiza lista de pedidos   │
+│  3. Pedido some da coluna ativa │
+└─────────────────────────────────┘
+```
+
+### Código Frontend:
+```javascript
+// components.js - OrdersPage
+const handleCancel = async (order) => {
+    if (!confirm(`Cancelar pedido #${order.short_id}?`)) return;
+    try {
+        await authFetch(`${API_URL}/orders/${order.id}/cancel`, { method: 'POST' });
+        fetchAll(); // Atualiza lista
+    } catch (err) {
+        alert('Erro ao cancelar: ' + err.message);
+    }
+};
+```
+
+### Código Backend:
+```python
+# routers/orders.py
+@router.post("/{order_id}/cancel")
+def cancel_order(order_id: str, ...):
+    # Valida status
+    if order.status in [OrderStatus.PICKED_UP, OrderStatus.DELIVERED, OrderStatus.CANCELLED]:
+        raise HTTPException(400, "Pedido não pode ser cancelado")
+
+    # Libera motoboy se necessário
+    if order.batch_id:
+        # ... verifica outros pedidos
+
+    order.status = OrderStatus.CANCELLED
+    order.cancelled_at = datetime.now()
+    order.batch_id = None
+    return order
 ```
 
 ---

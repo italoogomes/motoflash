@@ -175,10 +175,10 @@ Bem-vindo à documentação completa do MotoFlash! Esta pasta contém toda a doc
 - **Busca Normalizada:** Busca sem acentos (unicodedata) para melhor UX
 
 ### Tecnologias
-- **Backend:** Python 3.11 + FastAPI + SQLModel + SQLite
+- **Backend:** Python 3.11 + FastAPI + SQLModel + PostgreSQL
 - **Frontend:** React 18 (CDN) + Tailwind CSS + Leaflet.js
 - **APIs Externas:** Google Maps (Geocoding + Directions)
-- **Deploy:** Railway com volume persistente
+- **Deploy:** Railway com PostgreSQL
 
 ---
 
@@ -245,11 +245,16 @@ Ver issues no GitHub para features planejadas:
 - [x] Firebase Push Notifications (v1.1.0)
 - [x] Sistema de Previsão Híbrida de Motoboys (v1.2.0)
 - [x] Sistema de Rastreamento para Atendentes (v1.3.0)
+- [x] Migração para PostgreSQL (v1.4.0)
+- [x] Testes automatizados - 94 testes (v1.4.2)
+- [x] Melhorias na Aba de Pedidos (v1.4.2)
+  - Cancelar pedido
+  - Notificação sonora
+  - Filtro de histórico
+  - Visualização Kanban
 - [ ] WebSocket para rastreamento real-time (futuro)
 - [ ] Sistema de métricas e analytics
 - [ ] Alertas automáticos
-- [ ] Testes automatizados
-- [ ] Migração para PostgreSQL
 
 ---
 
@@ -262,5 +267,5 @@ Para dúvidas técnicas:
 
 ---
 
-**Última atualização:** 2026-01-28
-**Versão do Sistema:** 1.3.0
+**Última atualização:** 2026-02-01
+**Versão do Sistema:** 1.4.2

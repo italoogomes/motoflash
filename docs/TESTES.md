@@ -1,8 +1,8 @@
 # 🧪 Testes Automatizados - MotoFlash
 
-**Versão:** 1.1.0
-**Data:** 2026-01-28
-**Status:** ✅ 100% dos testes passando (85/85)
+**Versão:** 1.4.2
+**Data:** 2026-02-01
+**Status:** ✅ 100% dos testes passando (94/94)
 
 ---
 
@@ -15,18 +15,20 @@ O MotoFlash utiliza **pytest** como framework de testes automatizados. Os testes
 | Módulo | Status | Testes | Aprovação |
 |--------|--------|--------|-----------|
 | **Autenticação** | ✅ Implementado | 8 testes | 8/8 (100%) |
-| **Pedidos** | ✅ Implementado | 15 testes | 15/15 (100%) |
+| **Pedidos** | ✅ Implementado | 26 testes | 26/26 (100%) |
 | **Dispatch** | ✅ Implementado | 14 testes | 14/14 (100%) |
 | **Motoboys** | ✅ Implementado | 33 testes | 33/33 (100%) |
-| **Previsão** | ✅ Implementado | 15 testes | 15/15 (100%) | ⭐ **NOVO** |
+| **Previsão** | ✅ Implementado | 15 testes | 15/15 (100%) |
 | **Cardápio** | 🔄 Planejado | - | - |
-| **TOTAL** | ✅ **Estável** | **85 testes** | **85/85 (100%)** |
+| **TOTAL** | ✅ **Estável** | **94 testes** | **94/94 (100%)** |
 
 ### 📈 Histórico de Estabilidade
 
 - **v1.0.4** (2026-01-26): 61/70 testes passando (87%)
 - **v1.0.5** (2026-01-26): 70/70 testes passando (100%)
-- **v1.1.0** (2026-01-28): 85/85 testes passando (100%) ⭐
+- **v1.1.0** (2026-01-28): 85/85 testes passando (100%)
+- **v1.2.0** (2026-01-29): 92/92 testes passando (100%)
+- **v1.4.2** (2026-02-01): 94/94 testes passando (100%) ⭐
 
 ---
 
