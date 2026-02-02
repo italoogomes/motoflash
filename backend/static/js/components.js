@@ -3626,8 +3626,9 @@ const TrackingPage = ({ restaurantData }) => {
 // ============ PÁGINA DE MOTOQUEIROS ============
 
 // Card individual do motoboy
-const CourierCard = ({ courier, onClick }) => {
+const CourierCard = ({ courier, onClick, ordersInBatch = 0 }) => {
     const [elapsedTime, setElapsedTime] = React.useState('');
+    const [gpsElapsed, setGpsElapsed] = React.useState('');
 
     // Formata telefone: (XX) XXXXX-XXXX
     const formatPhone = (phone) => {
@@ -3677,6 +3678,35 @@ const CourierCard = ({ courier, onClick }) => {
         return () => clearInterval(interval);
     }, [courier.status, courier.available_since]);
 
+    // Calcula tempo desde última atualização GPS
+    React.useEffect(() => {
+        if (courier.status === 'offline' || !courier.updated_at || !courier.last_lat) {
+            setGpsElapsed('');
+            return;
+        }
+
+        const updateGpsElapsed = () => {
+            const dateStr = courier.updated_at.endsWith('Z') ? courier.updated_at : courier.updated_at + 'Z';
+            const lastUpdate = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - lastUpdate;
+            const diffMins = Math.floor(diffMs / 60000);
+
+            if (diffMins < 1) {
+                setGpsElapsed('agora');
+            } else if (diffMins < 60) {
+                setGpsElapsed(`${diffMins}min`);
+            } else {
+                const hours = Math.floor(diffMins / 60);
+                setGpsElapsed(`${hours}h`);
+            }
+        };
+
+        updateGpsElapsed();
+        const interval = setInterval(updateGpsElapsed, 60000);
+        return () => clearInterval(interval);
+    }, [courier.status, courier.updated_at, courier.last_lat]);
+
     const config = statusConfig[courier.status] || statusConfig.offline;
     const fullName = `${courier.name} ${courier.last_name || ''}`.trim();
 
@@ -3710,6 +3740,16 @@ const CourierCard = ({ courier, onClick }) => {
                     {courier.status === 'available' && elapsedTime && (
                         <div style={{ color: '#22C55E', fontSize: '12px', marginTop: '4px' }}>
                             ⏱️ Disponível há {elapsedTime}
+                        </div>
+                    )}
+                    {courier.status === 'busy' && ordersInBatch > 0 && (
+                        <div style={{ color: '#3B82F6', fontSize: '12px', marginTop: '4px' }}>
+                            📦 {ordersInBatch} {ordersInBatch === 1 ? 'pedido' : 'pedidos'} no lote
+                        </div>
+                    )}
+                    {courier.status === 'busy' && gpsElapsed && (
+                        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '2px' }}>
+                            📡 GPS há {gpsElapsed}
                         </div>
                     )}
                 </div>
@@ -4032,7 +4072,7 @@ const CourierMapModal = ({ courier, onClose, restaurantData = {} }) => {
 };
 
 // Página principal de motoqueiros
-const MotoqueiroPage = ({ couriers = [], fetchAll, restaurantData = {} }) => {
+const MotoqueiroPage = ({ couriers = [], batches = [], fetchAll, restaurantData = {} }) => {
     const [query, setQuery] = useState('');
     const [searching, setSearching] = useState(false);
     const [selectedCourier, setSelectedCourier] = useState(null);
@@ -4184,13 +4224,19 @@ const MotoqueiroPage = ({ couriers = [], fetchAll, restaurantData = {} }) => {
                             </span>
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {grouped.busy.map(courier => (
-                                <CourierCard
-                                    key={courier.id}
-                                    courier={courier}
-                                    onClick={() => handleSelectCourier(courier)}
-                                />
-                            ))}
+                            {grouped.busy.map(courier => {
+                                // Encontra o batch do motoboy e conta os pedidos
+                                const courierBatch = batches.find(b => b.courier_id === courier.id && b.status === 'active');
+                                const ordersCount = courierBatch?.orders?.length || 0;
+                                return (
+                                    <CourierCard
+                                        key={courier.id}
+                                        courier={courier}
+                                        ordersInBatch={ordersCount}
+                                        onClick={() => handleSelectCourier(courier)}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
                 )}

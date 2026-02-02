@@ -468,6 +468,7 @@ class CourierResponse(SQLModel):
     restaurant_id: Optional[str] = None
     last_lat: Optional[float] = None  # Última latitude conhecida
     last_lng: Optional[float] = None  # Última longitude conhecida
+    updated_at: Optional[datetime] = None  # Última atualização (usado para GPS)
 
 
 class CourierLoginRequest(SQLModel):

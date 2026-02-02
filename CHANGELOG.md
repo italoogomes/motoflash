@@ -54,6 +54,16 @@ Mesma lógica do TrackingPage/TrackingModal:
 4. **Tempo Disponível** - Motoboys "Disponível" agora mostram há quanto tempo estão aguardando
    - Ex: "⏱️ Disponível há 15min"
 
+5. **Telefone Formatado** - Telefone exibido no formato brasileiro
+   - Ex: "(16) 99999-9999"
+
+6. **Info do Batch** - Motoboys "Em Entrega" mostram quantos pedidos têm no lote
+   - Ex: "📦 3 pedidos no lote"
+
+7. **GPS Timestamp** - Mostra há quanto tempo o GPS foi atualizado
+   - Ex: "📡 GPS há 5min"
+   - Adicionado `updated_at` ao `CourierResponse`
+
 ---
 
 ## [1.4.2] - 2026-02-01
