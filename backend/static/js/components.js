@@ -3629,6 +3629,18 @@ const TrackingPage = ({ restaurantData }) => {
 const CourierCard = ({ courier, onClick }) => {
     const [elapsedTime, setElapsedTime] = React.useState('');
 
+    // Formata telefone: (XX) XXXXX-XXXX
+    const formatPhone = (phone) => {
+        if (!phone) return '';
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length === 11) {
+            return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+        } else if (digits.length === 10) {
+            return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
+        }
+        return phone;
+    };
+
     const statusConfig = {
         busy: { bg: 'rgba(59,130,246,0.15)', border: '#3B82F6', label: 'Em Entrega', emoji: '🏍️' },
         available: { bg: 'rgba(34,197,94,0.15)', border: '#22C55E', label: 'Disponível', emoji: '✅' },
@@ -3693,7 +3705,7 @@ const CourierCard = ({ courier, onClick }) => {
                         {fullName}
                     </div>
                     <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
-                        📱 {courier.phone}
+                        📱 {formatPhone(courier.phone)}
                     </div>
                     {courier.status === 'available' && elapsedTime && (
                         <div style={{ color: '#22C55E', fontSize: '12px', marginTop: '4px' }}>
