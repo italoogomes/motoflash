@@ -1604,26 +1604,34 @@ motoboy-app/
 
 - `backend/static/motoboy.html` - Adicionada detecção do Capacitor e funções para Foreground Service
 
-#### 🔜 Próximos Passos (para completar)
+#### ✅ Já feito nesta sessão
 
-1. **Instalar Android Studio** (se não tiver)
-   - Download: https://developer.android.com/studio
+1. ✅ **Instalou Android Studio**
+2. ✅ **Abriu projeto no Android Studio**
+3. ✅ **Criou emulador** (Pixel 6, API 36)
+4. ✅ **Ajustou versões do Gradle** (AGP 8.13→8.2.2, SDK 36→34, Java 21→17)
 
-2. **Abrir o projeto no Android Studio**
-   ```bash
-   cd motoboy-app
-   npx cap open android
-   # Ou abrir manualmente: motoboy-app/android/
-   ```
+#### ⚠️ Problema encontrado
 
+O Gradle não funciona bem em pastas do **OneDrive** (erro "operação de nuvem inválida").
+
+**Solução para continuar em casa:**
+```bash
+# Copiar para pasta local (FORA do OneDrive)
+xcopy "C:\Users\SEU_USUARIO\...\motoflash\motoboy-app" "C:\dev\motoboy-app\" /E /I /H
+
+# Abrir a nova pasta no Android Studio
+# C:\dev\motoboy-app\android
+```
+
+#### 🔜 Próximos Passos
+
+1. **Mover motoboy-app para fora do OneDrive** (ex: C:\dev\motoboy-app)
+2. **Abrir no Android Studio** e fazer Sync
 3. **Conectar celular Android via USB**
    - Ativar "Modo desenvolvedor" no celular
    - Ativar "Depuração USB"
-
-4. **Rodar o app**
-   - No Android Studio: Run > Run 'app'
-   - Ou via terminal: `npx cap run android`
-
+4. **Rodar o app** (Run > Run 'app')
 5. **Testar GPS em background**
    - Logar como motoboy
    - Aceitar pedidos
@@ -1664,7 +1672,11 @@ Boa sorte! 🚀
 ---
 
 **Última atualização:** 2026-02-02 (sessão com Ítalo - App Capacitor GPS Background)
-**Última tarefa concluída:** 🔄 App Nativo Capacitor (estrutura criada, pronto para teste)
-**Próxima tarefa:** Testar app no dispositivo Android + Publicar Play Store
-**Status:** ✅ **BACKEND FUNCIONANDO** (94/94 testes) | 🔄 **APP NATIVO** (pronto para build)
+**Última tarefa concluída:** 🔄 App Nativo Capacitor (Android Studio instalado, emulador criado, aguardando build)
+**Próxima tarefa:** Mover pasta para fora do OneDrive → Build → Testar no dispositivo
+**Status:** ✅ **BACKEND FUNCIONANDO** (94/94 testes) | 🔄 **APP NATIVO** (aguardando build fora do OneDrive)
 **Nova pasta:** `motoboy-app/` (projeto Capacitor Android)
+
+**Mensagem para próxima sessão:**
+> O projeto está pronto, só precisa ser movido para fora do OneDrive (ex: C:\dev\motoboy-app)
+> e abrir a pasta android no Android Studio. O Gradle deve sincronizar e o app vai compilar.
