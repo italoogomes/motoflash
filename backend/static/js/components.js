@@ -3627,11 +3627,43 @@ const TrackingPage = ({ restaurantData }) => {
 
 // Card individual do motoboy
 const CourierCard = ({ courier, onClick }) => {
+    const [elapsedTime, setElapsedTime] = React.useState('');
+
     const statusConfig = {
         busy: { bg: 'rgba(59,130,246,0.15)', border: '#3B82F6', label: 'Em Entrega', emoji: '🏍️' },
         available: { bg: 'rgba(34,197,94,0.15)', border: '#22C55E', label: 'Disponível', emoji: '✅' },
         offline: { bg: 'rgba(107,114,128,0.15)', border: '#6B7280', label: 'Offline', emoji: '⏸️' }
     };
+
+    // Calcula tempo disponível
+    React.useEffect(() => {
+        if (courier.status !== 'available' || !courier.available_since) {
+            setElapsedTime('');
+            return;
+        }
+
+        const updateElapsed = () => {
+            const dateStr = courier.available_since.endsWith('Z') ? courier.available_since : courier.available_since + 'Z';
+            const start = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - start;
+            const diffMins = Math.floor(diffMs / 60000);
+
+            if (diffMins < 1) {
+                setElapsedTime('agora');
+            } else if (diffMins < 60) {
+                setElapsedTime(`${diffMins}min`);
+            } else {
+                const hours = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                setElapsedTime(`${hours}h${mins > 0 ? ` ${mins}min` : ''}`);
+            }
+        };
+
+        updateElapsed();
+        const interval = setInterval(updateElapsed, 60000); // Atualiza a cada minuto
+        return () => clearInterval(interval);
+    }, [courier.status, courier.available_since]);
 
     const config = statusConfig[courier.status] || statusConfig.offline;
     const fullName = `${courier.name} ${courier.last_name || ''}`.trim();
@@ -3663,6 +3695,11 @@ const CourierCard = ({ courier, onClick }) => {
                     <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
                         📱 {courier.phone}
                     </div>
+                    {courier.status === 'available' && elapsedTime && (
+                        <div style={{ color: '#22C55E', fontSize: '12px', marginTop: '4px' }}>
+                            ⏱️ Disponível há {elapsedTime}
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{
@@ -3683,12 +3720,13 @@ const CourierCard = ({ courier, onClick }) => {
 };
 
 // Modal com mapa do motoboy (seguindo TrackingModal)
-const CourierMapModal = ({ courier, onClose }) => {
+const CourierMapModal = ({ courier, onClose, restaurantData = {} }) => {
     const [courierData, setCourierData] = React.useState(courier);
     const [mapReady, setMapReady] = React.useState(false);
     const mapRef = React.useRef(null);
     const mapInstanceRef = React.useRef(null);
     const courierMarkerRef = React.useRef(null);
+    const restaurantMarkerRef = React.useRef(null);
 
     // Buscar dados atualizados do motoboy
     const fetchCourierData = React.useCallback(async () => {
@@ -3808,6 +3846,25 @@ const CourierMapModal = ({ courier, onClose }) => {
 
         mapInstanceRef.current.panTo(pos);
     }, [mapReady, courierData]);
+
+    // Marcador do restaurante (igual TrackingModal)
+    React.useEffect(() => {
+        if (!mapReady || !mapInstanceRef.current) return;
+        if (!restaurantData.lat || !restaurantData.lng) return;
+        if (restaurantMarkerRef.current) return; // Já existe
+
+        const restaurantIcon = L.divIcon({
+            html: `<div style="background: #FF6B00; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🏪</div>`,
+            className: '',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+        });
+
+        restaurantMarkerRef.current = L.marker([restaurantData.lat, restaurantData.lng], { icon: restaurantIcon })
+            .addTo(mapInstanceRef.current)
+            .bindPopup('<b>Restaurante</b><br/>' + (restaurantData.name || ''));
+        console.log('✅ Marcador do restaurante criado');
+    }, [mapReady, restaurantData]);
 
     const fullName = `${courier.name} ${courier.last_name || ''}`.trim();
 
@@ -3963,7 +4020,7 @@ const CourierMapModal = ({ courier, onClose }) => {
 };
 
 // Página principal de motoqueiros
-const MotoqueiroPage = ({ couriers = [], fetchAll }) => {
+const MotoqueiroPage = ({ couriers = [], fetchAll, restaurantData = {} }) => {
     const [query, setQuery] = useState('');
     const [searching, setSearching] = useState(false);
     const [selectedCourier, setSelectedCourier] = useState(null);
@@ -4212,6 +4269,7 @@ const MotoqueiroPage = ({ couriers = [], fetchAll }) => {
             {showModal && selectedCourier && (
                 <CourierMapModal
                     courier={selectedCourier}
+                    restaurantData={restaurantData}
                     onClose={() => {
                         setShowModal(false);
                         setSelectedCourier(null);
@@ -4471,10 +4529,13 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
                                         <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 font-mono">#{order.short_id}</span>
                                         <span className="text-white font-medium text-sm truncate">{order.customer_name}</span>
                                     </div>
-                                    <div className="text-xs text-white/50 truncate mb-2">{order.address_text?.split(' - ')[0]}</div>
+                                    <div className="text-xs text-white/50 truncate">{order.address_text?.split(' - ')[0]}</div>
+                                    {order.created_at && (
+                                        <Timer startTime={order.created_at} />
+                                    )}
                                     <button
                                         onClick={() => markAsReady(order.id)}
-                                        className="w-full px-2 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-xs font-medium"
+                                        className="w-full px-2 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-xs font-medium mt-2"
                                     >
                                         ✅ Pronto
                                     </button>
@@ -4554,7 +4615,7 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
                                         <span className="text-white font-medium text-sm truncate">{order.customer_name}</span>
                                     </div>
                                     <div className="text-xs text-white/40">
-                                        {order.delivered_at ? new Date(order.delivered_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                        {order.delivered_at ? new Date(order.delivered_at.endsWith('Z') ? order.delivered_at : order.delivered_at + 'Z').toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
                                     </div>
                                 </div>
                             ))}
@@ -4613,7 +4674,7 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
                                                 <span>📱 {order.customer_phone}</span>
                                             )}
                                             <span>
-                                                🕐 {new Date(order.created_at).toLocaleTimeString('pt-BR', {
+                                                🕐 {new Date(order.created_at.endsWith('Z') ? order.created_at : order.created_at + 'Z').toLocaleTimeString('pt-BR', {
                                                     hour: '2-digit',
                                                     minute: '2-digit'
                                                 })}

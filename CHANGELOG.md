@@ -41,6 +41,19 @@ Mesma lógica do TrackingPage/TrackingModal:
 - State `mapReady` para sincronização
 - setLatLng para atualizar marcador (não recria)
 
+#### 🐛 Correções e Melhorias Adicionais
+
+1. **Timezone dos Pedidos** - Corrigido horário +3h na aba de Pedidos
+   - Adicionado sufixo 'Z' (UTC) em `created_at` e `delivered_at`
+
+2. **Timer no Kanban** - Adicionado contador de tempo nos cards "Preparando"
+
+3. **Marcador do Restaurante** - Adicionado 🏪 no mapa do CourierMapModal
+   - Mostra localização do restaurante junto com o motoboy
+
+4. **Tempo Disponível** - Motoboys "Disponível" agora mostram há quanto tempo estão aguardando
+   - Ex: "⏱️ Disponível há 15min"
+
 ---
 
 ## [1.4.2] - 2026-02-01

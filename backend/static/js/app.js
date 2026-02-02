@@ -144,7 +144,7 @@ function MotoFlashApp() {
             case 'pedidos':
                 return <OrdersPage orders={orders} fetchAll={fetchAll} />;
             case 'motoboys':
-                return <MotoqueiroPage couriers={couriers} fetchAll={fetchAll} />;
+                return <MotoqueiroPage couriers={couriers} fetchAll={fetchAll} restaurantData={restaurantData} />;
             case 'rastreamento':
                 return <TrackingPage restaurantData={restaurantData} />;
             case 'cardapio':
