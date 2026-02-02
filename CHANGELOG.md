@@ -4,6 +4,45 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.4.3] - 2026-02-01
+
+### 🏍️ Aba de Motoqueiros com Mapa em Tempo Real
+
+#### ✨ Novas Funcionalidades
+
+1. **MotoqueiroPage** - Página principal
+   - Busca por nome/telefone com debounce 300ms
+   - Agrupamento por status (Em Entrega, Disponível, Offline)
+   - Cards de stats com contadores
+
+2. **CourierCard** - Card individual
+   - Nome completo + telefone
+   - Badge de status colorido
+   - Hover effect + navegação intuitiva
+
+3. **CourierMapModal** - Modal com mapa Leaflet
+   - GPS em tempo real (polling 10s)
+   - Marcador 🏍️ azul pulsante
+   - Botões WhatsApp e Ligar
+   - Padrões do TrackingModal (300ms delay + requestAnimationFrame)
+
+#### 🛠️ Arquivos Modificados
+- `backend/static/js/components.js` - +600 linhas (3 componentes novos)
+- `backend/static/js/app.js` - Alterado case 'motoboys'
+- `backend/models.py` - Adicionado last_lat/last_lng ao CourierResponse
+
+#### 📊 Testes
+- **94/94 passando** (100%)
+
+#### 💡 Padrões Seguidos
+Mesma lógica do TrackingPage/TrackingModal:
+- Debounce 300ms na busca
+- requestAnimationFrame para visibilidade do mapa
+- State `mapReady` para sincronização
+- setLatLng para atualizar marcador (não recria)
+
+---
+
 ## [1.4.2] - 2026-02-01
 
 ### 📋 Melhorias na Aba de Pedidos

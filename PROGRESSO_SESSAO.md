@@ -1060,20 +1060,99 @@ useEffect(() => {
 
 ---
 
+### 1️⃣5️⃣ Aba de Motoqueiros com Mapa em Tempo Real (v1.4.3) ⭐ SESSÃO ATUAL
+
+**Data:** 2026-02-01
+**Status:** ✅ **IMPLEMENTADO**
+
+#### 📋 Funcionalidades Implementadas
+
+Sistema completo de gerenciamento de motoboys com visualização em tempo real.
+
+**1. MotoqueiroPage - Página Principal**
+- Campo de busca por nome/telefone com debounce 300ms
+- Agrupamento por status: Em Entrega 🏍️, Disponível ✅, Offline ⏸️
+- Cards de stats com contadores por status
+- Mensagem amigável quando não há motoboys
+
+**2. CourierCard - Card Individual**
+- Nome completo + telefone do motoboy
+- Badge de status colorido (azul/verde/cinza)
+- Hover effect e navegação intuitiva
+- Seta indicando ação (→)
+
+**3. CourierMapModal - Modal com Mapa**
+- Mapa Leaflet com GPS em tempo real
+- Marcador 🏍️ azul pulsante (animação)
+- Polling a cada 10 segundos
+- Botões WhatsApp e Ligar
+- Exibe coordenadas GPS quando disponível
+- Mensagem de aviso quando GPS não disponível
+
+#### 🧩 Padrões Seguidos (TrackingPage)
+
+Conforme solicitado, a implementação seguiu **exatamente** os padrões do TrackingPage:
+
+| Padrão | Implementação |
+|--------|---------------|
+| Debounce de busca | 300ms com `setTimeout` |
+| Inicialização do mapa | 300ms delay + `requestAnimationFrame` recursivo |
+| Verificação de visibilidade | `offsetHeight > 0` antes de criar mapa |
+| State de sincronização | `mapReady` para coordenar mapa e marcadores |
+| Atualização de marcador | `setLatLng()` em vez de recriar |
+| Polling | 10 segundos com `setInterval` + `useCallback` |
+| Cleanup | Remove mapa no `return` do `useEffect` |
+
+#### 📂 Arquivos Criados/Modificados
+
+**Frontend:**
+1. `backend/static/js/components.js` - +600 linhas
+   - `CourierCard` - Card individual do motoboy
+   - `CourierMapModal` - Modal com mapa Leaflet
+   - `MotoqueiroPage` - Página principal com busca e filtros
+
+2. `backend/static/js/app.js` - 1 linha alterada
+   - `case 'motoboys': return <MotoqueiroPage ... />`
+
+**Backend:**
+3. `backend/models.py` - 2 linhas adicionadas
+   - `last_lat: Optional[float]` no `CourierResponse`
+   - `last_lng: Optional[float]` no `CourierResponse`
+
+#### 🐛 Bug Corrigido Durante Implementação
+
+**Problema:** GPS do motoboy não aparecia no modal (mostrava "GPS não disponível")
+
+**Causa:** O `CourierResponse` não incluía os campos `last_lat` e `last_lng`
+
+**Solução:** Adicionados os campos ao schema de resposta
+
+#### 📊 Commits da Sessão
+
+```bash
+9828234 - Feat: Implementar aba de Motoqueiros com mapa em tempo real
+d1454af - Fix: Adicionar last_lat/last_lng ao CourierResponse
+```
+
+#### 🧪 Resultado
+
+- ✅ **94/94 testes passando (100%)**
+- ✅ Busca por nome/telefone funciona
+- ✅ Agrupamento por status funciona
+- ✅ Modal abre com mapa
+- ✅ GPS atualiza em tempo real (10s)
+- ✅ Botões WhatsApp/Ligar funcionam
+
+---
+
 #### 📝 Próximos Passos (Próximas Sessões):
 
-1. **📋 Redesign Aba de Pedidos**
-   - Filtros rápidos por status
-   - Busca por nome/telefone/ID
-   - Timeline visual (Kanban ou lista)
-
-2. **🛵 Redesign Aba de Motoqueiros**
-   - Mapa em tempo real com posição de cada motoboy
-   - Estatísticas individuais (entregas hoje, tempo médio)
-
-3. **📊 Nova Aba de Relatórios**
+1. **📊 Nova Aba de Relatórios**
    - Visão geral (pedidos, receita, ticket médio)
    - Performance por motoboy (ranking, tempo médio)
+
+2. **⚙️ Configurações do Restaurante**
+   - Dados da conta, horários, preferências
 
 ---
 
@@ -1126,13 +1205,14 @@ useEffect(() => {
 - [ ] Modal de detalhes expandido
 - [ ] Histórico de dias anteriores
 
-### 🛵 Aba de Motoqueiros (Redesign)
-- [ ] Mapa em tempo real com posição de cada motoboy
-- [ ] Estatísticas individuais (entregas hoje, tempo médio)
-- [ ] Histórico de entregas do dia/semana
-- [ ] Gestão de status (ativar/pausar)
-- [ ] Chat/Notificação para motoboy
-- [ ] Ranking de performance
+### 🛵 Aba de Motoqueiros (Redesign) ✅ IMPLEMENTADO (v1.4.3)
+- [x] Mapa em tempo real com posição de cada motoboy
+- [x] Busca por nome/telefone
+- [x] Agrupamento por status (Em Entrega, Disponível, Offline)
+- [x] Modal com GPS em tempo real (polling 10s)
+- [x] Botões WhatsApp e Ligar
+- [ ] Estatísticas individuais (entregas hoje, tempo médio) - futuro
+- [ ] Ranking de performance - futuro
 
 ### 📊 Aba de Relatórios (Nova)
 - [ ] Visão geral (pedidos, receita, ticket médio)
@@ -1365,10 +1445,10 @@ FASE 4: Melhorias de UI/UX
 ├── ✅ v1.2.0: IDs Amigáveis para Pedidos (92/92 passando)
 ├── ✅ v1.3.0: Sistema de Rastreamento para Atendente (92/92 passando)
 ├── ✅ v1.3.1: Correção Ordem de Rotas FastAPI (92/92 passando)
-├── ✅ v1.3.2: Correção Mapa Preto + Marcador Motoboy (92/92 passando) ⭐ ATUAL
-├── 🔄 Redesign Aba de Pedidos (próximo)
-├── 🔄 Redesign Aba de Motoqueiros
-└── 🔄 Nova Aba de Relatórios
+├── ✅ v1.3.2: Correção Mapa Preto + Marcador Motoboy (92/92 passando)
+├── ✅ v1.4.0-1.4.2: Melhorias na Aba de Pedidos (94/94 passando)
+├── ✅ v1.4.3: Aba de Motoqueiros com Mapa em Tempo Real (94/94 passando) ⭐ ATUAL
+└── 🔄 Nova Aba de Relatórios (próximo)
 ```
 
 ---
@@ -1446,48 +1526,36 @@ Olá! Você está continuando o trabalho no MotoFlash.
 - ✅ Mapa preto + Marcador do motoboy corrigidos (v1.3.2)
 - ✅ **GPS em tempo real do motoboy corrigido (v1.3.3)**
 - ✅ **Migração SQLite → PostgreSQL (v1.3.4)**
-- ✅ **Melhorias na Aba de Pedidos (v1.4.0)** ⭐ NOVO
+- ✅ **Melhorias na Aba de Pedidos (v1.4.2)**
+- ✅ **Aba de Motoqueiros com Mapa em Tempo Real (v1.4.3)** ⭐ NOVO
 - ✅ Documentação completa e atualizada
 
 **Contexto da última sessão (2026-02-01 - Sessão com Ítalo):**
 
-**PARTE 1: GPS em Tempo Real do Motoboy (v1.3.3) - RESOLVIDO ✅**
-- 🔍 Problema: GPS ficava parado na posição do restaurante durante a entrega
-- 🎯 Causa Raiz: Dependência total do `watchPosition` que pausa em background
-- ✅ Solução: `setInterval` de 5s independente + retry logic (3 tentativas)
-
-**PARTE 2: Migração SQLite → PostgreSQL (v1.3.4) - RESOLVIDO ✅**
-- 🔍 Problema: SQLite não suporta múltiplas escritas simultâneas (limite ~10-15 restaurantes)
-- ✅ Solução: Auto-detecção de DATABASE_URL no `database.py`
-- ✅ Adicionado `psycopg2-binary` no requirements.txt
-- ✅ PostgreSQL configurado no Railway
-
-**PARTE 3: Melhorias na Aba de Pedidos (v1.4.0) - CONCLUÍDO ✅**
-- ✅ **Tempo decorrido:** Já implementado (componente Timer com cores)
-- ✅ **Botão Cancelar pedido:** Endpoint + lógica + UI implementados
-- ✅ **Notificação sonora:** Som de beep quando novo pedido chega
-- ✅ **Filtro de histórico:** Hoje/Ontem/7 dias/Tudo
-- ✅ **Visualização Kanban:** Toggle entre Lista e Kanban
+**Aba de Motoqueiros (v1.4.3) - IMPLEMENTADO ✅**
+- ✅ **MotoqueiroPage:** Busca, filtros por status, cards de stats
+- ✅ **CourierCard:** Card com nome, telefone, badge de status
+- ✅ **CourierMapModal:** Mapa Leaflet com GPS em tempo real (polling 10s)
+- ✅ **Fix:** Adicionado `last_lat/last_lng` ao `CourierResponse`
+- ✅ Seguiu padrões do TrackingPage (debounce, requestAnimationFrame, mapReady)
 
 **Arquivos modificados nesta sessão:**
-- `backend/models.py` - Status CANCELLED + campo cancelled_at
-- `backend/routers/orders.py` - Endpoint /cancel + filtro por data
-- `backend/database.py` - Auto-detecção PostgreSQL/SQLite
-- `backend/requirements.txt` - psycopg2-binary adicionado
-- `backend/static/js/components.js` - Cancelar, Filtro data, Kanban
-- `backend/static/js/app.js` - Som de notificação
-- `backend/static/motoboy.html` - GPS com setInterval independente
-- `backend/tests/test_orders.py` - Testes de cancelamento
+- `backend/static/js/components.js` - +600 linhas (3 componentes novos)
+- `backend/static/js/app.js` - Alterado case 'motoboys'
+- `backend/models.py` - Adicionado last_lat/last_lng ao CourierResponse
+
+**Commits da sessão:**
+```bash
+9828234 - Feat: Implementar aba de Motoqueiros com mapa em tempo real
+d1454af - Fix: Adicionar last_lat/last_lng ao CourierResponse
+```
 
 **TAREFAS PLANEJADAS (próximas sessões):**
 
-1. **🛵 Redesign Aba de Motoqueiros**
-   - Mapa em tempo real, estatísticas, ranking
-
-2. **📊 Nova Aba de Relatórios**
+1. **📊 Nova Aba de Relatórios**
    - Visão geral, performance, gráficos
 
-3. **⚙️ Configurações do Restaurante**
+2. **⚙️ Configurações do Restaurante**
    - Dados da conta, horários, preferências
 
 **Importante:**
@@ -1500,8 +1568,8 @@ Boa sorte! 🚀
 
 ---
 
-**Última atualização:** 2026-02-01 (sessão com Ítalo - GPS + PostgreSQL + Simplificação)
-**Última tarefa concluída:** ✅ Melhorias na Aba de Pedidos (v1.4.2)
-**Próxima tarefa:** 🛵 Redesign Aba de Motoqueiros
+**Última atualização:** 2026-02-01 (sessão com Ítalo - Aba de Motoqueiros)
+**Última tarefa concluída:** ✅ Aba de Motoqueiros com Mapa em Tempo Real (v1.4.3)
+**Próxima tarefa:** 📊 Nova Aba de Relatórios
 **Status:** ✅ **TUDO FUNCIONANDO** (94/94 testes passando + PostgreSQL)
-**Commits da sessão:** 41f12e4 (GPS), 1906939 (PostgreSQL), (pendente: simplificação)
+**Commits da sessão:** 9828234 (Motoqueiros), d1454af (Fix GPS CourierResponse)

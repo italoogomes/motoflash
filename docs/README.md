@@ -252,9 +252,14 @@ Ver issues no GitHub para features planejadas:
   - Notificação sonora
   - Filtro de histórico
   - Visualização Kanban
+- [x] Aba de Motoqueiros com Mapa em Tempo Real (v1.4.3)
+  - Busca por nome/telefone
+  - Agrupamento por status
+  - Modal com GPS em tempo real
+  - Botões WhatsApp/Ligar
+- [ ] Nova Aba de Relatórios (futuro)
 - [ ] WebSocket para rastreamento real-time (futuro)
 - [ ] Sistema de métricas e analytics
-- [ ] Alertas automáticos
 
 ---
 
@@ -268,4 +273,4 @@ Para dúvidas técnicas:
 ---
 
 **Última atualização:** 2026-02-01
-**Versão do Sistema:** 1.4.2
+**Versão do Sistema:** 1.4.3
