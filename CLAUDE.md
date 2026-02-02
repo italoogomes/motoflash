@@ -216,5 +216,5 @@ Antes de finalizar qualquer tarefa, verificar:
 
 ---
 
-**Última atualização:** 2026-02-01
-**Versão do projeto:** v1.4.3
+**Última atualização:** 2026-02-02
+**Versão do projeto:** v1.5.0

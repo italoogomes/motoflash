@@ -1,7 +1,7 @@
 # 🏗️ Arquitetura do MotoFlash
 
-**Versão:** 0.9.0
-**Última atualização:** 2026-01-25
+**Versão:** 1.5.0
+**Última atualização:** 2026-02-02
 
 ---
 
@@ -13,7 +13,8 @@ O MotoFlash é um **sistema SaaS multi-tenant** de gerenciamento de entregas par
 - **Monolito Full-Stack** com API REST
 - **Frontend:** HTML + React (CDN) + Tailwind CSS
 - **Backend:** Python FastAPI
-- **Banco:** SQLite (com suporte para migração para PostgreSQL)
+- **Banco:** PostgreSQL (produção no Railway)
+- **App Nativo:** Capacitor (Android) com GPS em background
 
 ---
 
@@ -399,10 +400,87 @@ Ver: [RAILWAY_SETUP.md](../RAILWAY_SETUP.md)
 
 ---
 
+## 📱 App Nativo Android (Capacitor)
+
+**Localização:** `motoboy-app/`
+**Versão:** 1.5.0
+
+### Por que App Nativo?
+
+PWAs têm uma limitação: quando o app é minimizado (motoboy abre Waze/Maps), o navegador **pausa o JavaScript** para economizar bateria. Isso faz o GPS parar de atualizar.
+
+**Solução:** Usar Capacitor para converter o app em **nativo Android** com Foreground Service.
+
+### Stack
+
+| Tecnologia | Versão | Finalidade |
+|------------|--------|-----------|
+| **Capacitor** | 5+ | Bridge web → nativo |
+| **@capacitor/geolocation** | 8.x | GPS (plugin oficial) |
+| **@capawesome/foreground-service** | 8.x | GPS em background (gratuito!) |
+| **@capacitor-community/http** | 1.x | HTTP nativo |
+
+### Estrutura
+
+```
+motoboy-app/
+├── package.json
+├── capacitor.config.json
+├── build/
+│   └── index.html (cópia do motoboy.html)
+└── android/
+    ├── app/
+    │   └── src/main/
+    │       ├── AndroidManifest.xml (permissões)
+    │       └── res/values/strings.xml
+    └── build.gradle
+```
+
+### Permissões Android
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+### Código Único
+
+O `motoboy.html` detecta se está rodando no Capacitor:
+
+```javascript
+if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+    window.isCapacitorNative = true;
+    // Usa Foreground Service para GPS em background
+} else {
+    // Usa watchPosition normal (PWA)
+}
+```
+
+### Build e Deploy
+
+```bash
+cd motoboy-app
+npm install
+npx cap sync android
+npx cap open android  # Abre no Android Studio
+```
+
+---
+
 ## 🔄 Versionamento
 
 | Versão | Data | Mudanças |
 |--------|------|----------|
+| 1.5.0 | 2026-02-02 | **App Nativo Capacitor** (GPS em background) |
+| 1.4.3 | 2026-02-01 | **Aba de Motoqueiros** (mapa em tempo real) |
+| 1.4.2 | 2026-02-01 | **Melhorias na Aba de Pedidos** (cancelar, filtros) |
+| 1.3.0 | 2026-01-28 | **Sistema de Rastreamento** (busca + mapa) |
+| 1.2.0 | 2026-01-28 | **IDs Amigáveis** (short_id + tracking_code) |
+| 1.1.0 | 2026-01-27 | **Previsão Híbrida** (motoboys recomendados) |
+| 1.0.5 | 2026-01-27 | **CI/CD + 70 testes** (GitHub Actions) |
 | 1.0.4 | 2026-01-26 | **Testes de Motoboys** (33 testes + 70 total) |
 | 1.0.3 | 2026-01-26 | **Testes de Dispatch** (14 testes + 38 total) |
 | 1.0.2 | 2026-01-26 | **Testes de Pedidos** (15 testes + 24 total) |

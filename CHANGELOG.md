@@ -4,6 +4,70 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.5.0] - 2026-02-02
+
+### 📱 App Nativo Android com GPS em Background (Capacitor)
+
+#### 📋 Problema Resolvido
+Quando motoboy minimiza o app MotoFlash para usar Waze/Google Maps, o GPS parava de atualizar porque navegadores pausam JavaScript em background.
+
+#### ✨ Solução Implementada
+
+1. **Projeto Capacitor criado** (`motoboy-app/`)
+   - Capacitor 5+ configurado
+   - Plataforma Android adicionada
+   - Build pronto para Android Studio
+
+2. **Plugins gratuitos**
+   - `@capacitor/geolocation` - GPS
+   - `@capawesome-team/capacitor-android-foreground-service` - GPS em background
+   - `@capacitor-community/http` - HTTP nativo
+
+3. **Permissões Android** (`AndroidManifest.xml`)
+   - `ACCESS_FINE_LOCATION` - GPS
+   - `ACCESS_BACKGROUND_LOCATION` - GPS em background
+   - `FOREGROUND_SERVICE` - Serviço em primeiro plano
+   - `FOREGROUND_SERVICE_LOCATION` - Serviço com localização
+   - `POST_NOTIFICATIONS` - Notificação persistente
+
+4. **Código único** (`motoboy.html`)
+   - Detecta se está rodando no Capacitor (`window.isCapacitorNative`)
+   - Se app nativo: inicia Foreground Service ao iniciar rota
+   - Se navegador: usa comportamento normal (watchPosition)
+   - Mesmo código funciona em ambos os ambientes!
+
+#### 📂 Arquivos Criados
+
+```
+motoboy-app/
+├── package.json
+├── capacitor.config.json
+├── .gitignore
+├── build/
+│   └── index.html
+└── android/
+    ├── app/
+    │   └── src/main/
+    │       ├── AndroidManifest.xml
+    │       └── res/values/strings.xml
+    └── build.gradle
+```
+
+#### 📂 Arquivos Modificados
+- `backend/static/motoboy.html` - Detecção do Capacitor + Foreground Service
+
+#### 🔜 Próximos Passos
+1. Instalar Android Studio
+2. Abrir `motoboy-app/android/` no Android Studio
+3. Conectar celular Android via USB
+4. Build e testar
+5. Publicar na Play Store (R$ 130)
+
+#### 📊 Testes
+- **94/94 passando** (100%) - Backend não afetado
+
+---
+
 ## [1.4.3] - 2026-02-01
 
 ### 🏍️ Aba de Motoqueiros com Mapa em Tempo Real
