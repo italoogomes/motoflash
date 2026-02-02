@@ -119,13 +119,13 @@ const authFetch = async (url, options = {}) => {
 
 ---
 
-### 4. **js/components.js** (2907 linhas)
+### 4. **js/components.js** (~4700 linhas)
 **O que é:** Todos os componentes React do sistema
 **Responsabilidade:**
 - Componentes auxiliares (Timer, StatusBadge)
 - Painéis (StatsPanel, AlertsPanel, CouriersPanel)
 - Formulários (NewOrderForm, CategoryForm, ItemForm)
-- Páginas (DashboardPage, CardapioPage, ClientesPage)
+- Páginas (DashboardPage, OrdersPage, MotoqueiroPage, TrackingPage, CardapioPage, ClientesPage)
 - Listas (OrdersList, ActiveBatches)
 - Sidebar e navegação
 
@@ -141,6 +141,9 @@ const AlertsPanel = ({ alerts }) => { ... };
 
 // Páginas
 const DashboardPage = ({ orders, couriers, ... }) => { ... };
+const OrdersPage = ({ orders, fetchAll }) => { ... };
+const MotoqueiroPage = ({ couriers, batches, ... }) => { ... };  // v1.4.3
+const TrackingPage = ({ restaurantData }) => { ... };
 const CardapioPage = () => { ... };
 const ClientesPage = () => { ... };
 

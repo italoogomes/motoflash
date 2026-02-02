@@ -638,26 +638,35 @@ Lista motoboys do restaurante.
 
 **Response 200:**
 ```json
-{
-  "couriers": [
-    {
-      "id": "uuid-v4",
-      "name": "João",
-      "last_name": "Silva",
-      "phone": "16999887766",
-      "status": "AVAILABLE"
-    }
-  ]
-}
+[
+  {
+    "id": "uuid-v4",
+    "name": "João",
+    "last_name": "Silva",
+    "phone": "16999887766",
+    "status": "available",
+    "available_since": "2026-02-01T14:30:00",
+    "restaurant_id": "uuid-v4",
+    "last_lat": -21.1767,
+    "last_lng": -47.8208,
+    "updated_at": "2026-02-01T15:45:00"
+  }
+]
 ```
+
+**Campos:**
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `last_lat` | float | Última latitude GPS conhecida |
+| `last_lng` | float | Última longitude GPS conhecida |
+| `available_since` | datetime | Quando ficou disponível |
+| `updated_at` | datetime | Última atualização (usado para GPS) |
 
 ---
 
 ### GET /couriers/{courier_id}
 
 Retorna detalhes de um motoboy específico.
-
-**⚠️ ATENÇÃO:** Endpoint sem filtro de `restaurant_id` (bug de segurança conhecido).
 
 **Response 200:**
 ```json
@@ -666,8 +675,12 @@ Retorna detalhes de um motoboy específico.
   "name": "João",
   "last_name": "Silva",
   "phone": "16999887766",
-  "status": "BUSY",
-  "restaurant_id": "uuid-v4"
+  "status": "busy",
+  "available_since": null,
+  "restaurant_id": "uuid-v4",
+  "last_lat": -21.2145,
+  "last_lng": -47.8350,
+  "updated_at": "2026-02-01T15:50:00"
 }
 ```
 
