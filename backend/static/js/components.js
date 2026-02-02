@@ -3623,6 +3623,605 @@ const TrackingPage = ({ restaurantData }) => {
     );
 };
 
+// ============ PÁGINA DE MOTOQUEIROS ============
+
+// Card individual do motoboy
+const CourierCard = ({ courier, onClick }) => {
+    const statusConfig = {
+        busy: { bg: 'rgba(59,130,246,0.15)', border: '#3B82F6', label: 'Em Entrega', emoji: '🏍️' },
+        available: { bg: 'rgba(34,197,94,0.15)', border: '#22C55E', label: 'Disponível', emoji: '✅' },
+        offline: { bg: 'rgba(107,114,128,0.15)', border: '#6B7280', label: 'Offline', emoji: '⏸️' }
+    };
+
+    const config = statusConfig[courier.status] || statusConfig.offline;
+    const fullName = `${courier.name} ${courier.last_name || ''}`.trim();
+
+    return (
+        <div
+            className="glass-card"
+            style={{
+                padding: '20px',
+                borderLeft: `4px solid ${config.border}`,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+            }}
+            onClick={onClick}
+            onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+            }}
+            onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+            }}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', color: 'white', marginBottom: '4px' }}>
+                        {fullName}
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+                        📱 {courier.phone}
+                    </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{
+                        background: config.bg,
+                        color: config.border,
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                    }}>
+                        {config.emoji} {config.label}
+                    </span>
+                    <span style={{ color: '#FF6B00', fontSize: '24px' }}>→</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Modal com mapa do motoboy (seguindo TrackingModal)
+const CourierMapModal = ({ courier, onClose }) => {
+    const [courierData, setCourierData] = React.useState(courier);
+    const [mapReady, setMapReady] = React.useState(false);
+    const mapRef = React.useRef(null);
+    const mapInstanceRef = React.useRef(null);
+    const courierMarkerRef = React.useRef(null);
+
+    // Buscar dados atualizados do motoboy
+    const fetchCourierData = React.useCallback(async () => {
+        try {
+            const res = await authFetch(`${API_URL}/couriers/${courier.id}`);
+            if (res.ok) {
+                setCourierData(await res.json());
+            }
+        } catch (err) {
+            console.error('Erro ao buscar motoboy:', err);
+        }
+    }, [courier.id]);
+
+    // Polling 10s (igual TrackingModal)
+    React.useEffect(() => {
+        fetchCourierData();
+        const interval = setInterval(fetchCourierData, 10000);
+        return () => clearInterval(interval);
+    }, [fetchCourierData]);
+
+    // Inicializar mapa (EXATAMENTE igual TrackingModal)
+    React.useEffect(() => {
+        if (mapInstanceRef.current) return;
+
+        console.log('🗺️ CourierMapModal: Iniciando criação do mapa...');
+
+        const timeoutId = setTimeout(() => {
+            let attempts = 0;
+            const maxAttempts = 50;
+
+            const createMapWhenReady = () => {
+                attempts++;
+
+                if (!mapRef.current) {
+                    if (attempts < maxAttempts) {
+                        requestAnimationFrame(createMapWhenReady);
+                    }
+                    return;
+                }
+
+                const height = mapRef.current.offsetHeight;
+
+                if (height === 0) {
+                    if (attempts < maxAttempts) {
+                        requestAnimationFrame(createMapWhenReady);
+                    }
+                    return;
+                }
+
+                console.log('✅ Container visível! Criando mapa. Altura:', height);
+
+                try {
+                    // Default: Ribeirão Preto
+                    const lat = courierData.last_lat || -21.1767;
+                    const lng = courierData.last_lng || -47.8208;
+
+                    const map = L.map(mapRef.current).setView([lat, lng], 15);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+
+                    mapInstanceRef.current = map;
+                    setMapReady(true);
+                    console.log('✅ Mapa criado com sucesso!');
+                } catch (error) {
+                    console.error('❌ Erro ao criar mapa:', error);
+                }
+            };
+
+            requestAnimationFrame(createMapWhenReady);
+        }, 300);
+
+        return () => {
+            clearTimeout(timeoutId);
+            if (mapInstanceRef.current) {
+                console.log('🧹 Removendo mapa Leaflet');
+                mapInstanceRef.current.remove();
+                mapInstanceRef.current = null;
+            }
+        };
+    }, []);
+
+    // Atualizar marcador do motoboy (igual TrackingModal)
+    React.useEffect(() => {
+        if (!mapReady || !mapInstanceRef.current) return;
+
+        const lat = courierData.last_lat;
+        const lng = courierData.last_lng;
+
+        if (!lat || !lng) {
+            console.warn('⚠️ GPS do motoboy não disponível');
+            if (courierMarkerRef.current) {
+                mapInstanceRef.current.removeLayer(courierMarkerRef.current);
+                courierMarkerRef.current = null;
+            }
+            return;
+        }
+
+        const pos = [lat, lng];
+
+        if (courierMarkerRef.current) {
+            courierMarkerRef.current.setLatLng(pos);
+            console.log('🔄 Posição atualizada:', pos);
+        } else {
+            const icon = L.divIcon({
+                html: `<div style="background: #3B82F6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(59,130,246,0.5); animation: pulse 2s infinite;">🏍️</div>`,
+                className: '',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            courierMarkerRef.current = L.marker(pos, { icon, zIndexOffset: 1000 })
+                .addTo(mapInstanceRef.current);
+            courierMarkerRef.current.bindPopup(`<b>${courier.name} ${courier.last_name || ''}</b>`);
+            console.log('✅ Marcador criado:', pos);
+        }
+
+        mapInstanceRef.current.panTo(pos);
+    }, [mapReady, courierData]);
+
+    const fullName = `${courier.name} ${courier.last_name || ''}`.trim();
+
+    return (
+        <div
+            style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.8)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+                padding: '20px'
+            }}
+            onClick={onClose}
+        >
+            <div
+                style={{
+                    background: 'linear-gradient(135deg, rgba(30,30,40,0.98) 0%, rgba(20,20,30,0.98) 100%)',
+                    borderRadius: '20px',
+                    width: '100%',
+                    maxWidth: '500px',
+                    maxHeight: '90vh',
+                    overflow: 'auto',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div style={{
+                    padding: '20px',
+                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div>
+                        <h2 style={{
+                            color: 'white',
+                            fontSize: '20px',
+                            fontWeight: '700',
+                            margin: 0,
+                            fontFamily: 'Outfit, sans-serif'
+                        }}>
+                            🏍️ {fullName}
+                        </h2>
+                        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '4px 0 0 0' }}>
+                            Localização em tempo real
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            borderRadius: '12px',
+                            width: '40px',
+                            height: '40px',
+                            cursor: 'pointer',
+                            color: 'white',
+                            fontSize: '18px'
+                        }}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* Mapa */}
+                <div style={{ padding: '20px' }}>
+                    <div
+                        ref={mapRef}
+                        style={{
+                            height: '300px',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            background: 'rgba(255,255,255,0.05)'
+                        }}
+                    />
+                </div>
+
+                {/* Info do Motoboy */}
+                <div style={{ padding: '0 20px 20px' }}>
+                    <div className="glass-card" style={{ padding: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>📱</span>
+                                <span style={{ color: 'white' }}>{courier.phone}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>📍</span>
+                                <span style={{ color: 'rgba(255,255,255,0.7)' }}>Status:</span>
+                                <StatusBadge status={courier.status} />
+                            </div>
+                            {courierData.last_lat && courierData.last_lng && (
+                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
+                                    GPS: {courierData.last_lat.toFixed(6)}, {courierData.last_lng.toFixed(6)}
+                                </div>
+                            )}
+                            {!courierData.last_lat && (
+                                <div style={{ fontSize: '12px', color: 'rgba(255,200,100,0.7)' }}>
+                                    ⚠️ GPS não disponível
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Ações */}
+                <div style={{
+                    padding: '0 20px 20px',
+                    display: 'flex',
+                    gap: '12px'
+                }}>
+                    <a
+                        href={`https://wa.me/55${courier.phone}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            flex: 1,
+                            background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                            color: 'white',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            textAlign: 'center',
+                            textDecoration: 'none',
+                            fontWeight: '600',
+                            fontSize: '15px'
+                        }}
+                    >
+                        💬 WhatsApp
+                    </a>
+                    <a
+                        href={`tel:${courier.phone}`}
+                        style={{
+                            flex: 1,
+                            background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                            color: 'white',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            textAlign: 'center',
+                            textDecoration: 'none',
+                            fontWeight: '600',
+                            fontSize: '15px'
+                        }}
+                    >
+                        📞 Ligar
+                    </a>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Página principal de motoqueiros
+const MotoqueiroPage = ({ couriers = [], fetchAll }) => {
+    const [query, setQuery] = useState('');
+    const [searching, setSearching] = useState(false);
+    const [selectedCourier, setSelectedCourier] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const searchTimeoutRef = useRef(null);
+
+    // Filtro de busca (debounce 300ms)
+    const handleSearch = (value) => {
+        setQuery(value);
+        setSearching(true);
+
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        searchTimeoutRef.current = setTimeout(() => {
+            setSearching(false);
+        }, 300);
+    };
+
+    // Filtra motoboys pelo query
+    const filteredCouriers = couriers.filter(c => {
+        if (!query.trim()) return true;
+        const search = query.toLowerCase();
+        const fullName = `${c.name} ${c.last_name || ''}`.toLowerCase();
+        return fullName.includes(search) || c.phone?.includes(search);
+    });
+
+    // Agrupa por status
+    const grouped = {
+        busy: filteredCouriers.filter(c => c.status === 'busy'),
+        available: filteredCouriers.filter(c => c.status === 'available'),
+        offline: filteredCouriers.filter(c => c.status === 'offline')
+    };
+
+    const handleSelectCourier = (courier) => {
+        setSelectedCourier(courier);
+        setShowModal(true);
+    };
+
+    return (
+        <>
+            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                {/* Header */}
+                <div style={{ marginBottom: '32px' }}>
+                    <h1 style={{
+                        fontSize: '32px',
+                        fontWeight: '700',
+                        color: 'white',
+                        marginBottom: '8px',
+                        fontFamily: 'Outfit, sans-serif'
+                    }}>
+                        🏍️ Motoqueiros
+                    </h1>
+                    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '15px' }}>
+                        Gerencie seus motoboys em tempo real
+                    </p>
+                </div>
+
+                {/* Campo de Busca */}
+                <div className="glass-card" style={{ marginBottom: '24px', padding: '24px' }}>
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type="text"
+                            placeholder="Buscar por nome ou telefone..."
+                            value={query}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '16px 50px 16px 20px',
+                                background: 'rgba(255,255,255,0.1)',
+                                border: '2px solid rgba(255,255,255,0.2)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                fontSize: '16px',
+                                outline: 'none',
+                                transition: 'all 0.2s'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.4)'}
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.2)'}
+                        />
+                        <div style={{
+                            position: 'absolute',
+                            right: '20px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: '20px'
+                        }}>
+                            {searching ? '⏳' : '🔍'}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Stats Cards */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '16px',
+                    marginBottom: '32px'
+                }}>
+                    <div className="glass-card" style={{ padding: '20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '32px', fontWeight: '700', color: '#3B82F6' }}>
+                            {grouped.busy.length}
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+                            🏍️ Em Entrega
+                        </div>
+                    </div>
+                    <div className="glass-card" style={{ padding: '20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '32px', fontWeight: '700', color: '#22C55E' }}>
+                            {grouped.available.length}
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+                            ✅ Disponíveis
+                        </div>
+                    </div>
+                    <div className="glass-card" style={{ padding: '20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '32px', fontWeight: '700', color: '#6B7280' }}>
+                            {grouped.offline.length}
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+                            ⏸️ Offline
+                        </div>
+                    </div>
+                </div>
+
+                {/* Lista de Motoboys por Status */}
+
+                {/* Em Entrega */}
+                {grouped.busy.length > 0 && (
+                    <div style={{ marginBottom: '32px' }}>
+                        <h3 style={{
+                            color: '#3B82F6',
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            marginBottom: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            🏍️ Em Entrega
+                            <span style={{
+                                background: 'rgba(59,130,246,0.2)',
+                                padding: '2px 10px',
+                                borderRadius: '12px',
+                                fontSize: '14px'
+                            }}>
+                                {grouped.busy.length}
+                            </span>
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {grouped.busy.map(courier => (
+                                <CourierCard
+                                    key={courier.id}
+                                    courier={courier}
+                                    onClick={() => handleSelectCourier(courier)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Disponíveis */}
+                {grouped.available.length > 0 && (
+                    <div style={{ marginBottom: '32px' }}>
+                        <h3 style={{
+                            color: '#22C55E',
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            marginBottom: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            ✅ Disponíveis
+                            <span style={{
+                                background: 'rgba(34,197,94,0.2)',
+                                padding: '2px 10px',
+                                borderRadius: '12px',
+                                fontSize: '14px'
+                            }}>
+                                {grouped.available.length}
+                            </span>
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {grouped.available.map(courier => (
+                                <CourierCard
+                                    key={courier.id}
+                                    courier={courier}
+                                    onClick={() => handleSelectCourier(courier)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Offline */}
+                {grouped.offline.length > 0 && (
+                    <div style={{ marginBottom: '32px' }}>
+                        <h3 style={{
+                            color: '#6B7280',
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            marginBottom: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            ⏸️ Offline
+                            <span style={{
+                                background: 'rgba(107,114,128,0.2)',
+                                padding: '2px 10px',
+                                borderRadius: '12px',
+                                fontSize: '14px'
+                            }}>
+                                {grouped.offline.length}
+                            </span>
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {grouped.offline.map(courier => (
+                                <CourierCard
+                                    key={courier.id}
+                                    courier={courier}
+                                    onClick={() => handleSelectCourier(courier)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Mensagem quando não há motoboys */}
+                {filteredCouriers.length === 0 && (
+                    <div className="glass-card" style={{ padding: '40px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏍️</div>
+                        <div style={{ color: 'white', fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
+                            {query ? 'Nenhum motoboy encontrado' : 'Nenhum motoboy cadastrado'}
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+                            {query ? 'Tente buscar por outro nome ou telefone' : 'Cadastre seus motoboys para gerenciá-los aqui'}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Modal */}
+            {showModal && selectedCourier && (
+                <CourierMapModal
+                    courier={selectedCourier}
+                    onClose={() => {
+                        setShowModal(false);
+                        setSelectedCourier(null);
+                    }}
+                />
+            )}
+        </>
+    );
+};
+
 // ============ PÁGINA DE PEDIDOS ============
 
 const OrdersPage = ({ orders = [], fetchAll }) => {
