@@ -51,7 +51,88 @@
     <!-- Firebase SDK para Push Notifications -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
-    
+
+    <!-- Capacitor Detection - GPS em Background para App Nativo -->
+    <script>
+        // Detecta se esta rodando no Capacitor (app nativo)
+        window.isCapacitorNative = false;
+
+        // Funcao para inicializar Capacitor (chamada apos carregar)
+        window.initCapacitor = function() {
+            // Verifica se Capacitor esta disponivel e e plataforma nativa
+            if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+                window.isCapacitorNative = true;
+                console.log('📱 Rodando no app nativo (Capacitor)');
+                console.log('📱 Plataforma:', Capacitor.getPlatform());
+
+                // Verifica se o plugin ForegroundService esta disponivel
+                if (Capacitor.Plugins && Capacitor.Plugins.ForegroundService) {
+                    console.log('✅ Plugin ForegroundService disponivel');
+                } else {
+                    console.warn('⚠️ Plugin ForegroundService NAO disponivel');
+                }
+            } else {
+                console.log('🌐 Rodando no navegador (PWA)');
+            }
+        };
+
+        // Inicia Foreground Service para GPS em background
+        window.startForegroundService = async function() {
+            if (!window.isCapacitorNative) {
+                console.log('Foreground Service nao disponivel (nao e app nativo)');
+                return false;
+            }
+
+            // Acessa o plugin via Capacitor.Plugins
+            const ForegroundService = Capacitor.Plugins?.ForegroundService;
+            if (!ForegroundService) {
+                console.warn('Plugin ForegroundService nao encontrado');
+                return false;
+            }
+
+            try {
+                await ForegroundService.startForegroundService({
+                    id: 1,
+                    title: 'MotoFlash',
+                    body: 'Rastreando entrega...',
+                    smallIcon: 'ic_stat_icon',
+                    silent: false
+                });
+                console.log('✅ Foreground Service iniciado - GPS funciona em background!');
+                return true;
+            } catch (err) {
+                console.error('❌ Erro ao iniciar Foreground Service:', err);
+                return false;
+            }
+        };
+
+        // Para o Foreground Service
+        window.stopForegroundService = async function() {
+            if (!window.isCapacitorNative) {
+                return;
+            }
+
+            const ForegroundService = Capacitor.Plugins?.ForegroundService;
+            if (!ForegroundService) {
+                return;
+            }
+
+            try {
+                await ForegroundService.stopForegroundService();
+                console.log('⏹️ Foreground Service parado');
+            } catch (err) {
+                console.error('Erro ao parar Foreground Service:', err);
+            }
+        };
+
+        // Tenta inicializar Capacitor quando a pagina carrega
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', window.initCapacitor);
+        } else {
+            setTimeout(window.initCapacitor, 100); // Pequeno delay para garantir que Capacitor foi injetado
+        }
+    </script>
+
     <style>
         body { 
             font-family: 'Inter', system-ui, sans-serif;
@@ -1403,9 +1484,14 @@
                 }
             }, [batch]);
             
-            const startRoute = () => {
+            const startRoute = async () => {
                 stopContinuousAlert(); // Para o alerta quando aceitar os pedidos
                 setRouteStarted(true);
+
+                // Inicia Foreground Service no app nativo (GPS funciona em background)
+                if (window.isCapacitorNative) {
+                    await window.startForegroundService();
+                }
 
                 // Envia GPS imediatamente ao iniciar rota
                 if (lastKnownPositionRef.current) {
@@ -1502,8 +1588,14 @@
                         alert('Erro ao finalizar. Tente novamente.');
                         return;
                     }
-                    
+
                     stopGPSTracking();
+
+                    // Para o Foreground Service no app nativo
+                    if (window.isCapacitorNative) {
+                        await window.stopForegroundService();
+                    }
+
                     setRouteStarted(false);
                     setReturningHome(false);
                     setDismissedArrivals(new Set());

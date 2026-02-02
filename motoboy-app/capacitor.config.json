@@ -1,0 +1,28 @@
+{
+  "appId": "com.motoflash.motoboy",
+  "appName": "MotoFlash Motoboy",
+  "webDir": "build",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "plugins": {
+    "Geolocation": {
+      "androidHighAccuracy": true
+    },
+    "ForegroundService": {
+      "notification": {
+        "smallIcon": "ic_stat_icon",
+        "title": "MotoFlash",
+        "body": "Rastreando entrega...",
+        "contentTitle": "MotoFlash Motoboy",
+        "buttons": []
+      }
+    }
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

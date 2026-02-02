@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MotoFlash Motoboy</string>
+    <string name="title_activity_main">MotoFlash Motoboy</string>
+    <string name="package_name">com.motoflash.motoboy</string>
+    <string name="custom_url_scheme">com.motoflash.motoboy</string>
+
+    <!-- Strings para notificacao do Foreground Service -->
+    <string name="foreground_service_notification_title">MotoFlash</string>
+    <string name="foreground_service_notification_text">Rastreando entrega...</string>
+    <string name="foreground_service_notification_channel_name">Rastreamento GPS</string>
+    <string name="foreground_service_notification_channel_description">Notificacoes de rastreamento de entrega em andamento</string>
+</resources>

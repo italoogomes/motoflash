@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/
+dist/
+
+# Android build
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+*.iml
+
+# iOS
+ios/Pods/
+ios/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*

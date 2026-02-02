@@ -1550,12 +1550,107 @@ Olá! Você está continuando o trabalho no MotoFlash.
 d1454af - Fix: Adicionar last_lat/last_lng ao CourierResponse
 ```
 
+### 1️⃣6️⃣ App Nativo Capacitor - GPS em Background (v1.5.0) ⭐ SESSÃO ATUAL
+
+**Data:** 2026-02-02
+**Status:** 🔄 **EM ANDAMENTO** (pronto para build/teste)
+
+#### 📋 Problema Resolvido
+
+Quando motoboy minimiza o app MotoFlash para usar Waze/Google Maps:
+- ❌ PWA: GPS para de atualizar (navegador pausa JavaScript em background)
+- ✅ App Nativo: GPS continua funcionando via Foreground Service
+
+#### ✅ O que foi implementado
+
+**1. Projeto Capacitor criado (`motoboy-app/`)**
+- Capacitor 5+ configurado
+- Plataforma Android adicionada
+- Plugins instalados:
+  - `@capacitor/geolocation` - GPS
+  - `@capawesome-team/capacitor-android-foreground-service` - Foreground Service (gratuito!)
+  - `@capacitor-community/http` - HTTP nativo
+
+**2. Permissões Android configuradas (`AndroidManifest.xml`)**
+- `ACCESS_FINE_LOCATION` - GPS
+- `ACCESS_BACKGROUND_LOCATION` - GPS em background
+- `FOREGROUND_SERVICE` - Serviço em primeiro plano
+- `FOREGROUND_SERVICE_LOCATION` - Serviço com localização
+- `POST_NOTIFICATIONS` - Notificação persistente
+
+**3. Código único (motoboy.html modificado)**
+- Detecta se está rodando no Capacitor (`window.isCapacitorNative`)
+- Se app nativo: inicia Foreground Service ao iniciar rota
+- Se navegador: usa comportamento normal (watchPosition)
+- Mesmo código funciona em ambos os ambientes!
+
+#### 📂 Arquivos Criados
+
+```
+motoboy-app/
+├── package.json
+├── capacitor.config.json
+├── build/
+│   └── index.html (cópia do motoboy.html)
+└── android/
+    ├── app/
+    │   └── src/main/
+    │       ├── AndroidManifest.xml (permissões)
+    │       └── res/values/strings.xml (notificação)
+    └── build.gradle
+```
+
+#### 📂 Arquivos Modificados
+
+- `backend/static/motoboy.html` - Adicionada detecção do Capacitor e funções para Foreground Service
+
+#### 🔜 Próximos Passos (para completar)
+
+1. **Instalar Android Studio** (se não tiver)
+   - Download: https://developer.android.com/studio
+
+2. **Abrir o projeto no Android Studio**
+   ```bash
+   cd motoboy-app
+   npx cap open android
+   # Ou abrir manualmente: motoboy-app/android/
+   ```
+
+3. **Conectar celular Android via USB**
+   - Ativar "Modo desenvolvedor" no celular
+   - Ativar "Depuração USB"
+
+4. **Rodar o app**
+   - No Android Studio: Run > Run 'app'
+   - Ou via terminal: `npx cap run android`
+
+5. **Testar GPS em background**
+   - Logar como motoboy
+   - Aceitar pedidos
+   - Clicar "Iniciar Rota"
+   - Verificar notificação "MotoFlash - Rastreando entrega..."
+   - Abrir Waze/Maps e verificar se GPS continua atualizando
+
+#### 💰 Custos
+
+| Item | Valor |
+|------|-------|
+| Conta Play Store | R$ 130 (único) |
+| Plugins | R$ 0 (gratuitos!) |
+| **TOTAL** | **R$ 130** |
+
+---
+
 **TAREFAS PLANEJADAS (próximas sessões):**
 
-1. **📊 Nova Aba de Relatórios**
+1. **📱 Finalizar App Capacitor**
+   - Testar no dispositivo real
+   - Publicar na Play Store
+
+2. **📊 Nova Aba de Relatórios**
    - Visão geral, performance, gráficos
 
-2. **⚙️ Configurações do Restaurante**
+3. **⚙️ Configurações do Restaurante**
    - Dados da conta, horários, preferências
 
 **Importante:**
@@ -1568,8 +1663,8 @@ Boa sorte! 🚀
 
 ---
 
-**Última atualização:** 2026-02-01 (sessão com Ítalo - Aba de Motoqueiros)
-**Última tarefa concluída:** ✅ Aba de Motoqueiros com Mapa em Tempo Real (v1.4.3)
-**Próxima tarefa:** 📊 Nova Aba de Relatórios
-**Status:** ✅ **TUDO FUNCIONANDO** (94/94 testes passando + PostgreSQL)
-**Commits da sessão:** 9828234 (Motoqueiros), d1454af (Fix GPS CourierResponse)
+**Última atualização:** 2026-02-02 (sessão com Ítalo - App Capacitor GPS Background)
+**Última tarefa concluída:** 🔄 App Nativo Capacitor (estrutura criada, pronto para teste)
+**Próxima tarefa:** Testar app no dispositivo Android + Publicar Play Store
+**Status:** ✅ **BACKEND FUNCIONANDO** (94/94 testes) | 🔄 **APP NATIVO** (pronto para build)
+**Nova pasta:** `motoboy-app/` (projeto Capacitor Android)
