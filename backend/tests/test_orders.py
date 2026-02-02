@@ -586,3 +586,66 @@ def test_short_id_independente_por_restaurante(
         # Ambos começam em 1001 (são independentes)
         assert short_id1 == 1001 or short_id1 > 1000
         assert short_id2 == 1001 or short_id2 > 1000
+
+
+def test_cancelar_pedido_sucesso(
+    client: TestClient,
+    auth_headers: dict,
+    session: Session,
+    test_restaurant: Restaurant
+):
+    """
+    Testa cancelamento de pedido em preparo
+    """
+    from models import Order, OrderStatus, PrepType
+
+    order = Order(
+        customer_name="Cancelado",
+        address_text="Rua Cancel, 123",
+        lat=-23.5,
+        lng=-46.6,
+        prep_type=PrepType.SHORT,
+        status=OrderStatus.PREPARING,
+        restaurant_id=test_restaurant.id,
+        short_id=5001,
+        tracking_code="MF-CAN001"
+    )
+    session.add(order)
+    session.commit()
+    session.refresh(order)
+
+    response = client.post(f"/orders/{order.id}/cancel", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+    assert response.json()["cancelled_at"] is not None
+
+
+def test_cancelar_pedido_ja_coletado(
+    client: TestClient,
+    auth_headers: dict,
+    session: Session,
+    test_restaurant: Restaurant
+):
+    """
+    Testa que não pode cancelar pedido já coletado
+    """
+    from models import Order, OrderStatus, PrepType
+
+    order = Order(
+        customer_name="Coletado",
+        address_text="Rua Coleta, 123",
+        lat=-23.5,
+        lng=-46.6,
+        prep_type=PrepType.SHORT,
+        status=OrderStatus.PICKED_UP,
+        restaurant_id=test_restaurant.id,
+        short_id=5002,
+        tracking_code="MF-CAN002"
+    )
+    session.add(order)
+    session.commit()
+    session.refresh(order)
+
+    response = client.post(f"/orders/{order.id}/cancel", headers=auth_headers)
+    assert response.status_code == 400
+    assert "não pode ser cancelado" in response.json()["detail"]

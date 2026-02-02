@@ -1,7 +1,10 @@
+// Som de notificação (base64 de um beep simples)
+const NOTIFICATION_SOUND = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQIBh+X/j1QYAJ/t7ZNYDQSi//+VSxIAuv//sV0YALT8/7heFACu+/+1XRIAtvz/uFwOAL39/7dcDAC8/f+2Ww0Avf3/t1sOALz9/7ZbDQC9/f+3Ww4AvP3/tlsNAL39/7dbDgC8/f+2Ww0Avf3/t1sOALz9/7ZbDQC9/f+3Ww4AvP3/tlsMAL79/7hcDAC9/f+2Ww0Avf3/t1wNALz9/7ZbDAC+/f+4XAwAvf3/tlsNAL39/7dcDQC8/f+2WwwAvv3/uFwMAL39/7ZbDQC9/f+3XA0AvP3/tlsMAL79/7hcDAC9/f+2Ww0Avf3/t1wNALz9/7ZbDAC+/f+4XAwAvf3/tlsMAL79/7hcDAC9/f+2Ww0Avf3/t1wNALz9/7ZbDAC+/f+4XAwAvf3/tlsMAL79/7hcDAC9/f+2Ww0Avf3/t1wNALz9/7ZbDAC+/f+4XAwAvf3/tlsNAL39/7dcDQC8/f+2Ww0Avf3/t1sOALz9/7ZbDQC9/f+3Ww4AvP3/tloOAL79/7hbDQC9/f+2Ww0Avf3/t1sOALz9/7ZbDQC9/f+3Ww4AvP3/tlsNAL39/7dbDgC8/f+2Ww0Avf3/t1sOALz9/7ZbDQC9/f+3Ww4AvP3/tloOAL79/7hbDQC9/f+2Wg4Avv3/uFsNAL39/7ZaDgC+/f+4Ww0A');
+
 function MotoFlashApp() {
     const [currentPage, setCurrentPage] = useState('inicio');
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    
+
     // Dados
     const [orders, setOrders] = useState([]);
     const [couriers, setCouriers] = useState([]);
@@ -10,6 +13,11 @@ function MotoFlashApp() {
     const [alerts, setAlerts] = useState(null);
     const [recommendation, setRecommendation] = useState(null);
     const [connected, setConnected] = useState(false);
+
+    // Som de notificação
+    const [soundEnabled, setSoundEnabled] = useState(true);
+    const previousOrderCountRef = useRef(0);
+    const isFirstLoadRef = useRef(true);
     
     // Restaurante
     const [restaurantName, setRestaurantName] = useState(() => {
@@ -34,6 +42,18 @@ function MotoFlashApp() {
         window.location.href = '/login';
     };
     
+    // Função para tocar som de notificação
+    const playNotificationSound = useCallback(() => {
+        if (soundEnabled) {
+            try {
+                NOTIFICATION_SOUND.currentTime = 0;
+                NOTIFICATION_SOUND.play().catch(() => {});
+            } catch (e) {
+                console.log('Não foi possível tocar som:', e);
+            }
+        }
+    }, [soundEnabled]);
+
     const fetchAll = useCallback(async () => {
         try {
             const [ordersRes, couriersRes, batchesRes, statsRes, alertsRes, recoRes] = await Promise.all([
@@ -44,21 +64,35 @@ function MotoFlashApp() {
                 authFetch(`${API_URL}/dispatch/alerts`),
                 authFetch(`${API_URL}/dispatch/recommendation`),
             ]);
-            
-            if (ordersRes.ok) setOrders(await ordersRes.json());
+
+            if (ordersRes.ok) {
+                const newOrders = await ordersRes.json();
+                // Conta pedidos ativos (não entregues/cancelados)
+                const activeOrders = newOrders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+                const activeCount = activeOrders.length;
+
+                // Toca som se há mais pedidos ativos e não é o primeiro carregamento
+                if (!isFirstLoadRef.current && activeCount > previousOrderCountRef.current) {
+                    playNotificationSound();
+                }
+
+                previousOrderCountRef.current = activeCount;
+                isFirstLoadRef.current = false;
+                setOrders(newOrders);
+            }
             if (couriersRes.ok) setCouriers(await couriersRes.json());
             if (batchesRes.ok) setBatches(await batchesRes.json());
             if (statsRes.ok) setStats(await statsRes.json());
             if (alertsRes.ok) setAlerts(await alertsRes.json());
             if (recoRes.ok) setRecommendation(await recoRes.json());
-            
+
             setConnected(true);
         } catch (err) {
             if (err.message !== 'Não autenticado' && err.message !== 'Sessão expirada') {
                 setConnected(false);
             }
         }
-    }, []);
+    }, [playNotificationSound]);
     
     useEffect(() => {
         fetchAll();
@@ -187,9 +221,14 @@ function MotoFlashApp() {
                                     </span>
                                 </div>
                                 
-                                {/* Notificações */}
-                                <button className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                                    🔔
+                                {/* Som de notificação */}
+                                <button
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                                    style={{ background: soundEnabled ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255,255,255,0.08)' }}
+                                    onClick={() => setSoundEnabled(!soundEnabled)}
+                                    title={soundEnabled ? 'Som ativado' : 'Som desativado'}
+                                >
+                                    {soundEnabled ? '🔔' : '🔕'}
                                 </button>
                             </div>
                         </div>

@@ -54,6 +54,7 @@ const StatusBadge = ({ status }) => {
         assigned: { class: 'badge-info', label: 'Em Rota' },  // Renomeado de "Atribuído"
         picked_up: { class: 'badge-purple', label: 'Coletado' },
         delivered: { class: 'badge-success', label: 'Entregue' },
+        cancelled: { class: 'badge-danger', label: 'Cancelado' },
         available: { class: 'badge-success', label: 'Disponível' },
         busy: { class: 'badge-warning', label: 'Em entrega' },
         offline: { class: 'badge-gray', label: 'Offline' },
@@ -851,7 +852,7 @@ const OrdersList = ({ orders, onRefresh }) => {
     const pendingOrders = orders.filter(o => ['created', 'preparing'].includes(o.status));
     const readyOrders = orders.filter(o => o.status === 'ready');
     const inRouteOrders = orders.filter(o => ['assigned', 'picked_up'].includes(o.status));
-    
+
     const handleScan = async (orderId) => {
         try {
             await authFetch(`${API_URL}/orders/${orderId}/scan`, { method: 'POST' });
@@ -860,8 +861,22 @@ const OrdersList = ({ orders, onRefresh }) => {
             console.error('Erro ao bipar:', err);
         }
     };
-    
-    const OrderCard = ({ order, showScan = false }) => (
+
+    const handleCancel = async (order) => {
+        if (!confirm(`Cancelar pedido #${order.short_id} de ${order.customer_name}?`)) return;
+        try {
+            await authFetch(`${API_URL}/orders/${order.id}/cancel`, { method: 'POST' });
+            onRefresh();
+        } catch (err) {
+            console.error('Erro ao cancelar:', err);
+            alert('Erro ao cancelar pedido: ' + (err.message || 'Tente novamente'));
+        }
+    };
+
+    // Pedido pode ser cancelado se ainda não foi coletado
+    const canCancel = (status) => ['created', 'preparing', 'ready', 'assigned'].includes(status);
+
+    const OrderCard = ({ order, showScan = false, showCancel = false }) => (
         <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -895,15 +910,27 @@ const OrdersList = ({ orders, onRefresh }) => {
                     <div className="text-xs mt-1" style={{ color: '#60a5fa' }}>Parada #{order.stop_order}</div>
                 )}
             </div>
-            {showScan && (
-                <button 
-                    onClick={() => handleScan(order.id)} 
-                    className="ml-2 py-2 px-3 rounded-lg text-sm font-medium"
-                    style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}
-                >
-                    📱 Bipar
-                </button>
-            )}
+            <div className="flex items-center gap-2">
+                {showScan && (
+                    <button
+                        onClick={() => handleScan(order.id)}
+                        className="py-2 px-3 rounded-lg text-sm font-medium"
+                        style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}
+                    >
+                        📱 Bipar
+                    </button>
+                )}
+                {showCancel && canCancel(order.status) && (
+                    <button
+                        onClick={() => handleCancel(order)}
+                        className="py-2 px-3 rounded-lg text-sm font-medium"
+                        style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                        title="Cancelar pedido"
+                    >
+                        ✕
+                    </button>
+                )}
+            </div>
         </div>
     );
     
@@ -919,7 +946,7 @@ const OrdersList = ({ orders, onRefresh }) => {
                         <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Nenhum pedido</p>
                     ) : (
                         pendingOrders.map(order => (
-                            <OrderCard key={order.id} order={order} showScan={true} />
+                            <OrderCard key={order.id} order={order} showScan={true} showCancel={true} />
                         ))
                     )}
                 </div>
@@ -935,7 +962,7 @@ const OrdersList = ({ orders, onRefresh }) => {
                         <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Nenhum pedido</p>
                     ) : (
                         readyOrders.map(order => (
-                            <OrderCard key={order.id} order={order} />
+                            <OrderCard key={order.id} order={order} showCancel={true} />
                         ))
                     )}
                 </div>
@@ -951,7 +978,7 @@ const OrdersList = ({ orders, onRefresh }) => {
                         <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Nenhum pedido</p>
                     ) : (
                         inRouteOrders.map(order => (
-                            <OrderCard key={order.id} order={order} />
+                            <OrderCard key={order.id} order={order} showCancel={true} />
                         ))
                     )}
                 </div>
@@ -3602,6 +3629,10 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [debouncedQuery, setDebouncedQuery] = useState('');
+    const [dateFilter, setDateFilter] = useState('today'); // today, yesterday, week, all
+    const [filteredByDate, setFilteredByDate] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [viewMode, setViewMode] = useState('list'); // list, kanban
 
     // Debounce da busca (300ms)
     useEffect(() => {
@@ -3611,6 +3642,47 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
+    // Busca pedidos por data
+    useEffect(() => {
+        const fetchOrdersByDate = async () => {
+            setLoading(true);
+            try {
+                const today = new Date();
+                let dateFrom, dateTo;
+
+                if (dateFilter === 'today') {
+                    dateFrom = today.toISOString().split('T')[0];
+                    dateTo = dateFrom;
+                } else if (dateFilter === 'yesterday') {
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    dateFrom = yesterday.toISOString().split('T')[0];
+                    dateTo = dateFrom;
+                } else if (dateFilter === 'week') {
+                    const weekAgo = new Date(today);
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    dateFrom = weekAgo.toISOString().split('T')[0];
+                    dateTo = today.toISOString().split('T')[0];
+                } else {
+                    // 'all' - sem filtro de data, usa os orders passados como prop
+                    setFilteredByDate(orders);
+                    setLoading(false);
+                    return;
+                }
+
+                const res = await authFetch(`${API_URL}/orders?limit=100&date_from=${dateFrom}&date_to=${dateTo}`);
+                if (res.ok) {
+                    setFilteredByDate(await res.json());
+                }
+            } catch (err) {
+                console.error('Erro ao buscar pedidos:', err);
+            }
+            setLoading(false);
+        };
+
+        fetchOrdersByDate();
+    }, [dateFilter, orders]);
+
     // Filtros de status (simplificado - sem "Criado")
     const statusFilters = [
         { key: 'all', label: 'Todos', emoji: '📦', color: '#60a5fa' },
@@ -3618,6 +3690,15 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
         { key: 'ready', label: 'Pronto', emoji: '✅', color: '#34d399' },
         { key: 'assigned', label: 'Em Rota', emoji: '🏍️', color: '#60a5fa' },
         { key: 'delivered', label: 'Entregue', emoji: '✓', color: '#10b981' },
+        { key: 'cancelled', label: 'Cancelado', emoji: '✕', color: '#ef4444' },
+    ];
+
+    // Filtros de data
+    const dateFilters = [
+        { key: 'today', label: 'Hoje', emoji: '📅' },
+        { key: 'yesterday', label: 'Ontem', emoji: '📆' },
+        { key: 'week', label: '7 dias', emoji: '🗓️' },
+        { key: 'all', label: 'Tudo', emoji: '📚' },
     ];
 
     // Normaliza texto (remove acentos, lowercase)
@@ -3629,8 +3710,8 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
             .replace(/[\u0300-\u036f]/g, '');
     };
 
-    // Filtra pedidos
-    const filteredOrders = orders.filter(order => {
+    // Filtra pedidos (usa filteredByDate que já vem filtrado por data)
+    const filteredOrders = filteredByDate.filter(order => {
         // Filtro por status
         if (selectedStatus !== 'all' && order.status !== selectedStatus) {
             return false;
@@ -3655,12 +3736,12 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
         return true;
     });
 
-    // Conta pedidos por status
+    // Conta pedidos por status (usando filteredByDate)
     const statusCounts = statusFilters.reduce((acc, filter) => {
         if (filter.key === 'all') {
-            acc[filter.key] = orders.length;
+            acc[filter.key] = filteredByDate.length;
         } else {
-            acc[filter.key] = orders.filter(o => o.status === filter.key).length;
+            acc[filter.key] = filteredByDate.filter(o => o.status === filter.key).length;
         }
         return acc;
     }, {});
@@ -3728,108 +3809,255 @@ const OrdersPage = ({ orders = [], fetchAll }) => {
                 ))}
             </div>
 
-            {/* Contador e Data */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="text-white/70">
-                    📅 Hoje • {filteredOrders.length} {filteredOrders.length === 1 ? 'pedido' : 'pedidos'}
+            {/* Filtros de Data */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+                {dateFilters.map(filter => (
+                    <button
+                        key={filter.key}
+                        onClick={() => setDateFilter(filter.key)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                            dateFilter === filter.key
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                        {filter.emoji} {filter.label}
+                    </button>
+                ))}
+                <div className="ml-auto flex items-center gap-2">
+                    <span className="text-white/50 text-sm">
+                        {loading ? '⏳' : `${filteredOrders.length}`}
+                    </span>
+                    {/* Toggle de visualização */}
+                    <div className="flex bg-white/5 rounded-lg p-0.5">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`px-2 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-orange-500 text-white' : 'text-white/50 hover:text-white'}`}
+                            title="Lista"
+                        >
+                            ☰
+                        </button>
+                        <button
+                            onClick={() => setViewMode('kanban')}
+                            className={`px-2 py-1 rounded text-sm ${viewMode === 'kanban' ? 'bg-orange-500 text-white' : 'text-white/50 hover:text-white'}`}
+                            title="Kanban"
+                        >
+                            ▦
+                        </button>
+                    </div>
+                    <button
+                        onClick={fetchAll}
+                        className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 text-sm transition-all"
+                    >
+                        🔄
+                    </button>
                 </div>
-                <button
-                    onClick={fetchAll}
-                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 text-sm transition-all"
-                >
-                    🔄 Atualizar
-                </button>
             </div>
 
-            {/* Lista de Pedidos */}
-            <div className="space-y-3">
-                {filteredOrders.length === 0 ? (
-                    <div className="glass-card p-8 text-center">
-                        <div className="text-4xl mb-3">🔍</div>
-                        <div className="text-white/70">
-                            {debouncedQuery ? 'Nenhum pedido encontrado' : 'Nenhum pedido ainda'}
+            {/* Visualização Kanban */}
+            {viewMode === 'kanban' && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Preparando */}
+                    <div className="glass-card p-4" style={{ borderTop: '3px solid #fb923c' }}>
+                        <h3 className="font-semibold mb-3 flex items-center justify-between" style={{ color: '#fb923c' }}>
+                            <span>👨‍🍳 Preparando</span>
+                            <span className="bg-orange-500/20 px-2 py-0.5 rounded text-sm">
+                                {filteredOrders.filter(o => o.status === 'preparing').length}
+                            </span>
+                        </h3>
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {filteredOrders.filter(o => o.status === 'preparing').map(order => (
+                                <div key={order.id} className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 font-mono">#{order.short_id}</span>
+                                        <span className="text-white font-medium text-sm truncate">{order.customer_name}</span>
+                                    </div>
+                                    <div className="text-xs text-white/50 truncate mb-2">{order.address_text?.split(' - ')[0]}</div>
+                                    <button
+                                        onClick={() => markAsReady(order.id)}
+                                        className="w-full px-2 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-xs font-medium"
+                                    >
+                                        ✅ Pronto
+                                    </button>
+                                </div>
+                            ))}
+                            {filteredOrders.filter(o => o.status === 'preparing').length === 0 && (
+                                <div className="text-center py-4 text-white/30 text-sm">Nenhum</div>
+                            )}
                         </div>
                     </div>
-                ) : (
-                    filteredOrders.map(order => (
-                        <div key={order.id} className="glass-card p-4 hover:bg-white/5 transition-all">
-                            <div className="flex items-start gap-4">
-                                {/* Badge com short_id */}
-                                <div
-                                    className="flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center font-bold text-white text-lg"
-                                    style={{
-                                        background: order.status === 'delivered'
-                                            ? '#9ca3af'
-                                            : 'linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%)'
-                                    }}
-                                >
-                                    #{order.short_id}
+
+                    {/* Pronto */}
+                    <div className="glass-card p-4" style={{ borderTop: '3px solid #34d399' }}>
+                        <h3 className="font-semibold mb-3 flex items-center justify-between" style={{ color: '#34d399' }}>
+                            <span>✅ Pronto</span>
+                            <span className="bg-green-500/20 px-2 py-0.5 rounded text-sm">
+                                {filteredOrders.filter(o => o.status === 'ready').length}
+                            </span>
+                        </h3>
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {filteredOrders.filter(o => o.status === 'ready').map(order => (
+                                <div key={order.id} className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-mono">#{order.short_id}</span>
+                                        <span className="text-white font-medium text-sm truncate">{order.customer_name}</span>
+                                    </div>
+                                    <div className="text-xs text-white/50 truncate">{order.address_text?.split(' - ')[0]}</div>
+                                    {order.ready_at && (
+                                        <Timer startTime={order.ready_at} />
+                                    )}
                                 </div>
+                            ))}
+                            {filteredOrders.filter(o => o.status === 'ready').length === 0 && (
+                                <div className="text-center py-4 text-white/30 text-sm">Nenhum</div>
+                            )}
+                        </div>
+                    </div>
 
-                                {/* Informações do Pedido */}
-                                <div className="flex-1 min-w-0">
-                                    {/* Linha 1: Nome + Status */}
-                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                        <span className="font-semibold text-white text-lg">
-                                            {order.customer_name}
-                                        </span>
-                                        <StatusBadge status={order.status} />
+                    {/* Em Rota */}
+                    <div className="glass-card p-4" style={{ borderTop: '3px solid #60a5fa' }}>
+                        <h3 className="font-semibold mb-3 flex items-center justify-between" style={{ color: '#60a5fa' }}>
+                            <span>🏍️ Em Rota</span>
+                            <span className="bg-blue-500/20 px-2 py-0.5 rounded text-sm">
+                                {filteredOrders.filter(o => ['assigned', 'picked_up'].includes(o.status)).length}
+                            </span>
+                        </h3>
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {filteredOrders.filter(o => ['assigned', 'picked_up'].includes(o.status)).map(order => (
+                                <div key={order.id} className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-mono">#{order.short_id}</span>
+                                        <span className="text-white font-medium text-sm truncate">{order.customer_name}</span>
+                                    </div>
+                                    <div className="text-xs text-white/50 truncate">{order.address_text?.split(' - ')[0]}</div>
+                                    <StatusBadge status={order.status} />
+                                </div>
+                            ))}
+                            {filteredOrders.filter(o => ['assigned', 'picked_up'].includes(o.status)).length === 0 && (
+                                <div className="text-center py-4 text-white/30 text-sm">Nenhum</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Entregue */}
+                    <div className="glass-card p-4" style={{ borderTop: '3px solid #10b981' }}>
+                        <h3 className="font-semibold mb-3 flex items-center justify-between" style={{ color: '#10b981' }}>
+                            <span>✓ Entregue</span>
+                            <span className="bg-emerald-500/20 px-2 py-0.5 rounded text-sm">
+                                {filteredOrders.filter(o => o.status === 'delivered').length}
+                            </span>
+                        </h3>
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {filteredOrders.filter(o => o.status === 'delivered').slice(0, 10).map(order => (
+                                <div key={order.id} className="p-3 rounded-lg bg-white/5 opacity-60">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-400 font-mono">#{order.short_id}</span>
+                                        <span className="text-white font-medium text-sm truncate">{order.customer_name}</span>
+                                    </div>
+                                    <div className="text-xs text-white/40">
+                                        {order.delivered_at ? new Date(order.delivered_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    </div>
+                                </div>
+                            ))}
+                            {filteredOrders.filter(o => o.status === 'delivered').length === 0 && (
+                                <div className="text-center py-4 text-white/30 text-sm">Nenhum</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Lista de Pedidos */}
+            {viewMode === 'list' && (
+                <div className="space-y-3">
+                    {filteredOrders.length === 0 ? (
+                        <div className="glass-card p-8 text-center">
+                            <div className="text-4xl mb-3">🔍</div>
+                            <div className="text-white/70">
+                                {debouncedQuery ? 'Nenhum pedido encontrado' : 'Nenhum pedido ainda'}
+                            </div>
+                        </div>
+                    ) : (
+                        filteredOrders.map(order => (
+                            <div key={order.id} className="glass-card p-4 hover:bg-white/5 transition-all">
+                                <div className="flex items-start gap-4">
+                                    {/* Badge com short_id */}
+                                    <div
+                                        className="flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center font-bold text-white text-lg"
+                                        style={{
+                                            background: order.status === 'delivered'
+                                                ? '#9ca3af'
+                                                : 'linear-gradient(135deg, #ff6b00 0%, #ff8c42 100%)'
+                                        }}
+                                    >
+                                        #{order.short_id}
                                     </div>
 
-                                    {/* Linha 2: Endereço */}
-                                    <div className="text-white/60 text-sm mb-1">
-                                        📍 {order.address_text}
-                                    </div>
+                                    {/* Informações do Pedido */}
+                                    <div className="flex-1 min-w-0">
+                                        {/* Linha 1: Nome + Status */}
+                                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                            <span className="font-semibold text-white text-lg">
+                                                {order.customer_name}
+                                            </span>
+                                            <StatusBadge status={order.status} />
+                                        </div>
 
-                                    {/* Linha 3: Telefone + Horário */}
-                                    <div className="flex items-center gap-4 text-white/50 text-sm mb-3">
-                                        {order.customer_phone && (
-                                            <span>📱 {order.customer_phone}</span>
-                                        )}
-                                        <span>
-                                            🕐 {new Date(order.created_at).toLocaleTimeString('pt-BR', {
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })}
-                                        </span>
-                                        {order.tracking_code && (
-                                            <span className="font-mono">{order.tracking_code}</span>
-                                        )}
-                                    </div>
+                                        {/* Linha 2: Endereço */}
+                                        <div className="text-white/60 text-sm mb-1">
+                                            📍 {order.address_text}
+                                        </div>
 
-                                    {/* Ações Rápidas */}
-                                    <div className="flex flex-wrap gap-2">
-                                        {order.status === 'preparing' && (
+                                        {/* Linha 3: Telefone + Horário */}
+                                        <div className="flex items-center gap-4 text-white/50 text-sm mb-3">
+                                            {order.customer_phone && (
+                                                <span>📱 {order.customer_phone}</span>
+                                            )}
+                                            <span>
+                                                🕐 {new Date(order.created_at).toLocaleTimeString('pt-BR', {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </span>
+                                            {order.tracking_code && (
+                                                <span className="font-mono">{order.tracking_code}</span>
+                                            )}
+                                        </div>
+
+                                        {/* Ações Rápidas */}
+                                        <div className="flex flex-wrap gap-2">
+                                            {order.status === 'preparing' && (
+                                                <button
+                                                    onClick={() => markAsReady(order.id)}
+                                                    className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    ✅ Marcar Pronto
+                                                </button>
+                                            )}
                                             <button
-                                                onClick={() => markAsReady(order.id)}
-                                                className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-sm font-medium transition-all"
+                                                onClick={() => downloadQRCode(order.id)}
+                                                className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-sm font-medium transition-all"
                                             >
-                                                ✅ Marcar Pronto
+                                                🖨️ QR Code
                                             </button>
-                                        )}
-                                        <button
-                                            onClick={() => downloadQRCode(order.id)}
-                                            className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-sm font-medium transition-all"
-                                        >
-                                            🖨️ QR Code
-                                        </button>
-                                        {order.customer_phone && (
-                                            <a
-                                                href={`https://wa.me/${order.customer_phone.replace(/\D/g, '')}?text=Olá! Seu pedido #${order.short_id} está ${order.status === 'ready' ? 'pronto' : 'em preparo'}!`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg text-sm font-medium transition-all"
-                                            >
-                                                💬 WhatsApp
-                                            </a>
-                                        )}
+                                            {order.customer_phone && (
+                                                <a
+                                                    href={`https://wa.me/${order.customer_phone.replace(/\D/g, '')}?text=Olá! Seu pedido #${order.short_id} está ${order.status === 'ready' ? 'pronto' : 'em preparo'}!`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    💬 WhatsApp
+                                                </a>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))
-                )}
-            </div>
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 };

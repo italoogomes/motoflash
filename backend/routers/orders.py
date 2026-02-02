@@ -5,7 +5,7 @@ Rotas de Pedidos (Orders)
 - Todos os pedidos são vinculados ao restaurant_id do usuário logado
 - Listagem filtra apenas pedidos do restaurante do usuário
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models import (
     Order, OrderCreate, OrderResponse, OrderTrackingResponse, OrderStatus, User, Restaurant, Customer,
-    Batch, Courier, OrderTrackingDetails, BatchInfo, CourierInfo, RouteInfo, SimpleOrder, Waypoint
+    Batch, Courier, CourierStatus, OrderTrackingDetails, BatchInfo, CourierInfo, RouteInfo, SimpleOrder, Waypoint
 )
 from services.qrcode_service import generate_qrcode_base64, generate_qrcode_bytes
 from services.geocoding_service import geocode_address
@@ -108,25 +108,48 @@ def create_order(
 def list_orders(
     status: OrderStatus = None,
     limit: int = 50,
+    date_from: str = None,  # Formato: YYYY-MM-DD
+    date_to: str = None,    # Formato: YYYY-MM-DD
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Lista pedidos do restaurante do usuário logado
-    
+
     🔒 Filtra automaticamente pelo restaurant_id
+
+    Parâmetros opcionais:
+    - status: filtrar por status
+    - date_from: data inicial (YYYY-MM-DD)
+    - date_to: data final (YYYY-MM-DD)
     """
     if not current_user.restaurant_id:
         return []
-    
+
     # 🔒 PROTEÇÃO: filtra por restaurant_id
     query = select(Order).where(
         Order.restaurant_id == current_user.restaurant_id
     ).order_by(Order.created_at.desc()).limit(limit)
-    
+
     if status:
         query = query.where(Order.status == status)
-    
+
+    # Filtro por data
+    if date_from:
+        try:
+            start_date = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.where(Order.created_at >= start_date)
+        except ValueError:
+            pass  # Ignora data inválida
+
+    if date_to:
+        try:
+            # Adiciona 1 dia para incluir o dia inteiro
+            end_date = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+            query = query.where(Order.created_at < end_date)
+        except ValueError:
+            pass  # Ignora data inválida
+
     orders = session.exec(query).all()
     return orders
 
@@ -434,6 +457,60 @@ def deliver_order(
     
     order.status = OrderStatus.DELIVERED
     order.delivered_at = datetime.now()
+
+    session.add(order)
+    session.commit()
+    session.refresh(order)
+
+    return order
+
+
+@router.post("/{order_id}/cancel", response_model=OrderResponse)
+def cancel_order(
+    order_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cancela um pedido.
+    Só pode cancelar pedidos que ainda não foram coletados pelo motoboy.
+    """
+    order = session.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+    # 🔒 PROTEÇÃO
+    if order.restaurant_id != current_user.restaurant_id:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+    # Só pode cancelar se ainda não foi coletado
+    if order.status in [OrderStatus.PICKED_UP, OrderStatus.DELIVERED, OrderStatus.CANCELLED]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pedido não pode ser cancelado (status atual: {order.status})"
+        )
+
+    # Se estava em um batch, verifica se precisa liberar o motoboy
+    if order.batch_id:
+        batch = session.get(Batch, order.batch_id)
+        if batch and batch.courier_id:
+            courier = session.get(Courier, batch.courier_id)
+            if courier and courier.status == CourierStatus.BUSY:
+                # Verifica se não tem outros pedidos ativos no batch
+                other_orders = session.exec(
+                    select(Order).where(
+                        Order.batch_id == batch.id,
+                        Order.id != order.id,
+                        Order.status.in_([OrderStatus.ASSIGNED, OrderStatus.PICKED_UP])
+                    )
+                ).all()
+                if not other_orders:
+                    courier.status = CourierStatus.AVAILABLE
+                    session.add(courier)
+
+    order.status = OrderStatus.CANCELLED
+    order.cancelled_at = datetime.now()
+    order.batch_id = None  # Remove do lote
 
     session.add(order)
     session.commit()

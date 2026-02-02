@@ -4,6 +4,44 @@ Todas as mudanças notáveis do projeto serão documentadas neste arquivo.
 
 ---
 
+## [1.4.2] - 2026-02-01
+
+### 📋 Melhorias na Aba de Pedidos
+
+#### ✅ Novas Funcionalidades
+
+1. **❌ Cancelar Pedido**
+   - Novo endpoint `POST /orders/{id}/cancel`
+   - Status `CANCELLED` adicionado ao enum
+   - Botão ✕ nos cards de pedido
+   - Libera motoboy automaticamente se estava atribuído
+
+2. **🔔 Notificação Sonora**
+   - Som de beep quando novo pedido chega
+   - Botão toggle no header (🔔/🔕)
+   - Não toca no primeiro carregamento
+
+3. **📅 Filtro de Histórico**
+   - Parâmetros `date_from` e `date_to` no endpoint `/orders`
+   - Botões: Hoje / Ontem / 7 dias / Tudo
+
+4. **▦ Visualização Kanban**
+   - Toggle entre Lista (☰) e Kanban (▦)
+   - 4 colunas: Preparando → Pronto → Em Rota → Entregue
+   - Cards compactos com ações rápidas
+
+#### 🛠️ Arquivos Modificados
+- `backend/models.py` - Status CANCELLED + campo cancelled_at
+- `backend/routers/orders.py` - Endpoint /cancel + filtros de data
+- `backend/static/js/components.js` - UI (cancelar, filtro, kanban)
+- `backend/static/js/app.js` - Som de notificação
+- `backend/tests/test_orders.py` - 2 novos testes
+
+#### 📊 Testes
+- **94/94 passando** (100%)
+
+---
+
 ## [1.4.1] - 2026-02-01
 
 ### 📋 Simplificação do Fluxo de Pedidos

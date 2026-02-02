@@ -1,7 +1,7 @@
 # 📋 Progresso da Sessão - MotoFlash
 
-**Data:** 2026-01-29
-**Versão Atual:** 1.3.2 ✅ ESTÁVEL (100% dos testes passando - 92 testes)
+**Data:** 2026-02-01
+**Versão Atual:** 1.4.0 ✅ ESTÁVEL (100% dos testes passando - 94 testes)
 
 ---
 
@@ -352,7 +352,7 @@ curl https://api.motoflash.com/orders/track/MF-A3B7K9
 #### 📊 Resultado
 
 **Testes:**
-- ✅ **92/92 testes passando (100%)**
+- ✅ **94/94 testes passando (100%)**
 - 7 novos testes adicionados
 - Todos os testes antigos continuam passando
 
@@ -535,7 +535,7 @@ Atendente: *busca por "Maria Silva"* → "Oi Maria! Seu pedido #1234 está em ro
 #### 📊 Resultado
 
 **Testes:**
-- ✅ **92/92 testes passando (100%)**
+- ✅ **94/94 testes passando (100%)**
 - Nenhum teste novo necessário (endpoints reutilizam lógica existente)
 - Multi-tenant já testado nos 92 testes
 
@@ -657,7 +657,7 @@ e6d93ec - Trigger Railway redeploy - fix search endpoint
 ```
 
 **📊 Testes:**
-- ✅ **92/92 testes passando (100%)**
+- ✅ **94/94 testes passando (100%)**
 - Nenhum teste quebrado pela refatoração
 
 **💡 Lição Aprendida:**
@@ -1046,7 +1046,7 @@ useEffect(() => {
 
 #### 🧪 Resultado:
 
-- ✅ **92/92 testes passando (100%)**
+- ✅ **94/94 testes passando (100%)**
 - ✅ GPS enviado a cada 5 segundos independente do navegador
 - ✅ Retry automático em caso de falha de rede
 - ✅ Envio imediato ao iniciar rota
@@ -1436,59 +1436,62 @@ Sistema SaaS multi-tenant de gerenciamento de entregas para restaurantes com fro
 Olá! Você está continuando o trabalho no MotoFlash.
 
 **Situação atual:**
-- ✅ 92/92 testes implementados e passando (100%)
+- ✅ 94/94 testes implementados e passando (100%)
 - ✅ CI/CD implementado com GitHub Actions
 - ✅ Sistema de Previsão Híbrida implementado (v1.1.0)
 - ✅ Bug "Motoboys Recomendados" corrigido (v1.1.1)
 - ✅ IDs Amigáveis para Pedidos implementado (v1.2.0)
 - ✅ Sistema de Rastreamento implementado (v1.3.0)
 - ✅ Bug crítico do endpoint /search corrigido (v1.3.1)
-- ✅ **Mapa preto + Marcador do motoboy corrigidos (v1.3.2)**
+- ✅ Mapa preto + Marcador do motoboy corrigidos (v1.3.2)
+- ✅ **GPS em tempo real do motoboy corrigido (v1.3.3)**
+- ✅ **Migração SQLite → PostgreSQL (v1.3.4)**
+- ✅ **Melhorias na Aba de Pedidos (v1.4.0)** ⭐ NOVO
 - ✅ Documentação completa e atualizada
 
-**Contexto da última sessão (2026-01-29 - Sessão com Ítalo):**
+**Contexto da última sessão (2026-02-01 - Sessão com Ítalo):**
 
-**PARTE 1: Bug do Mapa Preto (v1.3.2) - RESOLVIDO ✅**
-- 🔍 Investigação: **6 tentativas de correção** (commits: b766271 → 80d4cff)
-- 🎯 Causa Raiz: Leaflet criava mapa quando container tinha `height: 0` (animação CSS do modal)
-- ✅ Solução: Delay de 300ms + verificação recursiva (`offsetHeight > 0`) + state `mapReady`
+**PARTE 1: GPS em Tempo Real do Motoboy (v1.3.3) - RESOLVIDO ✅**
+- 🔍 Problema: GPS ficava parado na posição do restaurante durante a entrega
+- 🎯 Causa Raiz: Dependência total do `watchPosition` que pausa em background
+- ✅ Solução: `setInterval` de 5s independente + retry logic (3 tentativas)
 
-**PARTE 2: Marcador do Motoboy (v1.3.2) - RESOLVIDO ✅**
-- 🔍 Problema: GPS do motoboy era `null` no backend
-- 🎯 Causa Raiz: `motoboy.html` NÃO enviava GPS para o backend (apenas usava localmente)
-- ✅ Solução: Adicionado `fetch` no `watchPosition` para enviar GPS a cada 10s
-- ✅ Fix adicional: Erro "courierId undefined" corrigido usando `localStorage.getItem('motoboy_id')`
+**PARTE 2: Migração SQLite → PostgreSQL (v1.3.4) - RESOLVIDO ✅**
+- 🔍 Problema: SQLite não suporta múltiplas escritas simultâneas (limite ~10-15 restaurantes)
+- ✅ Solução: Auto-detecção de DATABASE_URL no `database.py`
+- ✅ Adicionado `psycopg2-binary` no requirements.txt
+- ✅ PostgreSQL configurado no Railway
 
-**🎉 SISTEMA DE RASTREAMENTO 100% FUNCIONAL:**
-- ✅ Busca multi-campo: nome, telefone, #ID, código de rastreio
-- ✅ Mapa interativo: tiles, marcadores, polyline
-- ✅ **Marcador do motoboy (🏍️) aparece!**
-- ✅ GPS atualiza em tempo real (a cada 10 segundos)
-- ✅ Polling funciona sem quebrar
-- ✅ WhatsApp: Botão para enviar link de rastreio
-- ✅ **NÃO gasta requisições extras do Google Maps** (reutiliza polyline)
+**PARTE 3: Melhorias na Aba de Pedidos (v1.4.0) - CONCLUÍDO ✅**
+- ✅ **Tempo decorrido:** Já implementado (componente Timer com cores)
+- ✅ **Botão Cancelar pedido:** Endpoint + lógica + UI implementados
+- ✅ **Notificação sonora:** Som de beep quando novo pedido chega
+- ✅ **Filtro de histórico:** Hoje/Ontem/7 dias/Tudo
+- ✅ **Visualização Kanban:** Toggle entre Lista e Kanban
 
-**Commits da sessão (v1.3.2):**
-```
-80d4cff - Fix v6: Mapa preto (solução definitiva)
-d21039b - Debug: Logs para marcador do motoboy
-e6c6c2a - Fix: Enviar GPS do motoboy para backend
-82c81d3 - Fix: Corrigir referência a courierId
-```
+**Arquivos modificados nesta sessão:**
+- `backend/models.py` - Status CANCELLED + campo cancelled_at
+- `backend/routers/orders.py` - Endpoint /cancel + filtro por data
+- `backend/database.py` - Auto-detecção PostgreSQL/SQLite
+- `backend/requirements.txt` - psycopg2-binary adicionado
+- `backend/static/js/components.js` - Cancelar, Filtro data, Kanban
+- `backend/static/js/app.js` - Som de notificação
+- `backend/static/motoboy.html` - GPS com setInterval independente
+- `backend/tests/test_orders.py` - Testes de cancelamento
 
 **TAREFAS PLANEJADAS (próximas sessões):**
 
-1. **📋 Redesign Aba de Pedidos**
-   - Filtros, busca, timeline visual
-
-2. **🛵 Redesign Aba de Motoqueiros**
+1. **🛵 Redesign Aba de Motoqueiros**
    - Mapa em tempo real, estatísticas, ranking
 
-3. **📊 Nova Aba de Relatórios**
+2. **📊 Nova Aba de Relatórios**
    - Visão geral, performance, gráficos
 
+3. **⚙️ Configurações do Restaurante**
+   - Dados da conta, horários, preferências
+
 **Importante:**
-- Todos os 92 testes DEVEM passar sempre (100%)
+- Todos os 94 testes DEVEM passar sempre (100%)
 - Sempre documente mudanças em CHANGELOG.md
 - Sempre atualize este arquivo (PROGRESSO_SESSAO.md)
 - Teste isolamento multi-tenant em novos features
@@ -1498,7 +1501,7 @@ Boa sorte! 🚀
 ---
 
 **Última atualização:** 2026-02-01 (sessão com Ítalo - GPS + PostgreSQL + Simplificação)
-**Última tarefa concluída:** ✅ Simplificação do Fluxo de Pedidos (v1.4.1)
+**Última tarefa concluída:** ✅ Melhorias na Aba de Pedidos (v1.4.2)
 **Próxima tarefa:** 🛵 Redesign Aba de Motoqueiros
-**Status:** ✅ **TUDO FUNCIONANDO** (92/92 testes passando + PostgreSQL)
+**Status:** ✅ **TUDO FUNCIONANDO** (94/94 testes passando + PostgreSQL)
 **Commits da sessão:** 41f12e4 (GPS), 1906939 (PostgreSQL), (pendente: simplificação)

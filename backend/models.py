@@ -20,6 +20,7 @@ class OrderStatus(str, Enum):
     ASSIGNED = "assigned"         # Atribuído a um motoqueiro
     PICKED_UP = "picked_up"       # Coletado pelo motoqueiro
     DELIVERED = "delivered"       # Entregue ao cliente
+    CANCELLED = "cancelled"       # Pedido cancelado
 
 
 class PrepType(str, Enum):
@@ -239,7 +240,8 @@ class Order(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     ready_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
-    
+    cancelled_at: Optional[datetime] = None
+
     # Relacionamentos
     batch_id: Optional[str] = Field(default=None, foreign_key="batches.id")
     stop_order: Optional[int] = None  # Ordem de parada no lote (1, 2, 3...)
@@ -418,8 +420,8 @@ class OrderCreate(SQLModel):
 class OrderResponse(SQLModel):
     """Schema de resposta do pedido"""
     id: str
-    short_id: Optional[int]  # ID curto para comunicação (#1001)
-    tracking_code: Optional[str]  # Código de rastreio (MF-ABC123)
+    short_id: Optional[int] = None  # ID curto para comunicação (#1001)
+    tracking_code: Optional[str] = None  # Código de rastreio (MF-ABC123)
     customer_name: str
     address_text: str
     lat: float
@@ -427,9 +429,11 @@ class OrderResponse(SQLModel):
     prep_type: PrepType
     status: OrderStatus
     created_at: datetime
-    ready_at: Optional[datetime]
-    batch_id: Optional[str]
-    stop_order: Optional[int]
+    ready_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    batch_id: Optional[str] = None
+    stop_order: Optional[int] = None
 
 
 class OrderTrackingResponse(SQLModel):

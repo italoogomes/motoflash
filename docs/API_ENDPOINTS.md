@@ -203,8 +203,10 @@ Lista pedidos do restaurante.
 **Headers:** Requer `Authorization`
 
 **Query Params:**
-- `status` (opcional): Filtra por status (CREATED, PREPARING, READY, etc.)
+- `status` (opcional): Filtra por status (PREPARING, READY, ASSIGNED, DELIVERED, CANCELLED)
 - `limit` (opcional): Limita resultados (padrão: 50)
+- `date_from` (opcional): Data inicial no formato YYYY-MM-DD
+- `date_to` (opcional): Data final no formato YYYY-MM-DD
 
 **Response 200:**
 ```json
@@ -306,6 +308,35 @@ Marca pedido como DELIVERED (entregue ao cliente).
   "id": "uuid-v4",
   "status": "DELIVERED",
   "delivered_at": "2026-01-25T11:30:00"
+}
+```
+
+---
+
+### POST /orders/{order_id}/cancel
+
+Cancela um pedido. Só pode cancelar pedidos que ainda não foram coletados pelo motoboy.
+
+**Headers:** Requer `Authorization`
+
+**Regras:**
+- ✅ Pode cancelar: PREPARING, READY, ASSIGNED
+- ❌ Não pode cancelar: PICKED_UP, DELIVERED, CANCELLED
+- Se estava atribuído a um motoboy, libera ele automaticamente
+
+**Response 200:**
+```json
+{
+  "id": "uuid-v4",
+  "status": "CANCELLED",
+  "cancelled_at": "2026-01-25T10:45:00"
+}
+```
+
+**Response 400:**
+```json
+{
+  "detail": "Pedido não pode ser cancelado (status atual: picked_up)"
 }
 ```
 
