@@ -88,18 +88,27 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Exemplo: ALLOWED_ORIGINS=https://motoflash.com,https://app.motoflash.com
 allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
 
+# Origens do app nativo Capacitor (sempre permitidas)
+capacitor_origins = [
+    "https://localhost",
+    "capacitor://localhost",
+    "http://localhost",
+]
+
 if allowed_origins_env:
-    # Produção: usa origens específicas da variável de ambiente
+    # Produção: usa origens específicas da variável de ambiente + Capacitor
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+    allowed_origins.extend(capacitor_origins)
     print(f"🔒 CORS configurado para: {allowed_origins}")
 else:
-    # Desenvolvimento: permite localhost
+    # Desenvolvimento: permite localhost + Capacitor
     allowed_origins = [
         "http://localhost:8000",
         "http://127.0.0.1:8000",
         "http://localhost:3000",  # React dev server (se usar)
     ]
-    print("⚠️ CORS em modo desenvolvimento (apenas localhost)")
+    allowed_origins.extend(capacitor_origins)
+    print("⚠️ CORS em modo desenvolvimento (localhost + Capacitor)")
 
 app.add_middleware(
     CORSMiddleware,
