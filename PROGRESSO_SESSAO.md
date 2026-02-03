@@ -1,7 +1,7 @@
 # 📋 Progresso da Sessão - MotoFlash
 
-**Data:** 2026-02-01
-**Versão Atual:** 1.4.0 ✅ ESTÁVEL (100% dos testes passando - 94 testes)
+**Data:** 2026-02-02
+**Versão Atual:** 1.5.0 ✅ ESTÁVEL (94 testes + App Android funcionando!)
 
 ---
 
@@ -1550,10 +1550,10 @@ Olá! Você está continuando o trabalho no MotoFlash.
 d1454af - Fix: Adicionar last_lat/last_lng ao CourierResponse
 ```
 
-### 1️⃣6️⃣ App Nativo Capacitor - GPS em Background (v1.5.0) ⭐ SESSÃO ATUAL
+### 1️⃣6️⃣ App Nativo Capacitor - GPS em Background (v1.5.0) ✅ COMPLETO
 
 **Data:** 2026-02-02
-**Status:** 🔄 **EM ANDAMENTO** (pronto para build/teste)
+**Status:** ✅ **FUNCIONANDO NO CELULAR!**
 
 #### 📋 Problema Resolvido
 
@@ -1584,82 +1584,87 @@ Quando motoboy minimiza o app MotoFlash para usar Waze/Google Maps:
 - Se navegador: usa comportamento normal (watchPosition)
 - Mesmo código funciona em ambos os ambientes!
 
-#### 📂 Arquivos Criados
+**4. URL da API corrigida para app nativo**
+- `build/index.html` usa URL fixa: `https://motoflash-production.up.railway.app`
+- Necessário porque `window.location.origin` retorna `capacitor://localhost` no app nativo
+
+**5. CORS configurado para app nativo**
+- Adicionadas origens: `https://localhost`, `capacitor://localhost`, `http://localhost`
+- Backend aceita requisições do app Capacitor
+
+#### 📂 Estrutura do Projeto
 
 ```
 motoboy-app/
 ├── package.json
 ├── capacitor.config.json
 ├── build/
-│   └── index.html (cópia do motoboy.html)
+│   └── index.html (cópia do motoboy.html com URL fixa)
 └── android/
     ├── app/
     │   └── src/main/
     │       ├── AndroidManifest.xml (permissões)
     │       └── res/values/strings.xml (notificação)
-    └── build.gradle
+    ├── build.gradle
+    └── variables.gradle (versões compatíveis)
 ```
 
-#### 📂 Arquivos Modificados
+#### 🐛 Problemas Resolvidos Durante a Sessão
 
-- `backend/static/motoboy.html` - Adicionada detecção do Capacitor e funções para Foreground Service
+| Problema | Solução |
+|----------|---------|
+| Caminho com acento (Ítalo) | Mover para `C:\dev\motoboy-app` |
+| Node.js não instalado | Instalar Node.js |
+| Java 8 em vez de Java 17 | Instalar JDK 17 Temurin |
+| Namespace não especificado | Adicionar `namespace` em múltiplos build.gradle |
+| Java 21 requerido | Mudar `jvmToolchain(21)` para `jvmToolchain(17)` |
+| Versões de dependências incompatíveis | Baixar versões (activity 1.8.0, core 1.12.0, splashscreen 1.0.0) |
+| Emulador travado | Usar celular físico via USB |
+| "Não foi possível conectar ao servidor" | Corrigir URL da API (window.location.origin → URL fixa) |
+| Erro de CORS | Adicionar origens Capacitor ao backend |
 
-#### ✅ Já feito nesta sessão
+#### 📂 Arquivos Modificados no Backend
 
-1. ✅ **Instalou Android Studio**
-2. ✅ **Abriu projeto no Android Studio**
-3. ✅ **Criou emulador** (Pixel 6, API 36)
-4. ✅ **Ajustou versões do Gradle** (AGP 8.13→8.2.2, SDK 36→34, Java 21→17)
+1. **`backend/main.py`** - Adicionadas origens Capacitor ao CORS
+2. **`backend/static/motoboy.html`** - Detecção do Capacitor e Foreground Service (sessão anterior)
 
-#### ⚠️ Problema encontrado
+#### 🧪 Testado e Funcionando
 
-O Gradle não funciona bem em pastas do **OneDrive** (erro "operação de nuvem inválida").
-
-**Solução para continuar em casa:**
-```bash
-# Copiar para pasta local (FORA do OneDrive)
-xcopy "C:\Users\SEU_USUARIO\...\motoflash\motoboy-app" "C:\dev\motoboy-app\" /E /I /H
-
-# Abrir a nova pasta no Android Studio
-# C:\dev\motoboy-app\android
-```
-
-#### 🔜 Próximos Passos
-
-1. **Mover motoboy-app para fora do OneDrive** (ex: C:\dev\motoboy-app)
-2. **Abrir no Android Studio** e fazer Sync
-3. **Conectar celular Android via USB**
-   - Ativar "Modo desenvolvedor" no celular
-   - Ativar "Depuração USB"
-4. **Rodar o app** (Run > Run 'app')
-5. **Testar GPS em background**
-   - Logar como motoboy
-   - Aceitar pedidos
-   - Clicar "Iniciar Rota"
-   - Verificar notificação "MotoFlash - Rastreando entrega..."
-   - Abrir Waze/Maps e verificar se GPS continua atualizando
+- ✅ Login no app nativo
+- ✅ Mapa carregando com Leaflet
+- ✅ Lista de entregas aparecendo
+- ✅ Botão "Iniciar Rota" disponível
 
 #### 💰 Custos
 
 | Item | Valor |
 |------|-------|
-| Conta Play Store | R$ 130 (único) |
+| Conta Play Store | R$ 130 (único) - aguardando aprovação |
 | Plugins | R$ 0 (gratuitos!) |
 | **TOTAL** | **R$ 130** |
 
 ---
 
-**TAREFAS PLANEJADAS (próximas sessões):**
+### 🔜 PRÓXIMOS PASSOS (Próximas Sessões)
 
-1. **📱 Finalizar App Capacitor**
-   - Testar no dispositivo real
-   - Publicar na Play Store
+1. **📱 Testar GPS em Background**
+   - Clicar "Iniciar Rota"
+   - Minimizar app e abrir Waze/Maps
+   - Verificar se GPS continua atualizando no dashboard
 
-2. **📊 Nova Aba de Relatórios**
+2. **📦 Gerar APK Assinado**
+   - Build > Generate Signed Bundle/APK
+   - Criar keystore para assinatura
+
+3. **🏪 Publicar na Play Store**
+   - Quando conta for aprovada
+   - Upload do AAB
+   - Preencher informações do app
+
+4. **📊 Nova Aba de Relatórios**
    - Visão geral, performance, gráficos
 
-3. **⚙️ Configurações do Restaurante**
-   - Dados da conta, horários, preferências
+---
 
 **Importante:**
 - Todos os 94 testes DEVEM passar sempre (100%)
@@ -1667,16 +1672,15 @@ xcopy "C:\Users\SEU_USUARIO\...\motoflash\motoboy-app" "C:\dev\motoboy-app\" /E 
 - Sempre atualize este arquivo (PROGRESSO_SESSAO.md)
 - Teste isolamento multi-tenant em novos features
 
-Boa sorte! 🚀
-
 ---
 
-**Última atualização:** 2026-02-02 (sessão com Ítalo - App Capacitor GPS Background)
-**Última tarefa concluída:** 🔄 App Nativo Capacitor (Android Studio instalado, emulador criado, aguardando build)
-**Próxima tarefa:** Mover pasta para fora do OneDrive → Build → Testar no dispositivo
-**Status:** ✅ **BACKEND FUNCIONANDO** (94/94 testes) | 🔄 **APP NATIVO** (aguardando build fora do OneDrive)
-**Nova pasta:** `motoboy-app/` (projeto Capacitor Android)
+**Última atualização:** 2026-02-02 (sessão com Ítalo - App Capacitor COMPLETO!)
+**Última tarefa concluída:** ✅ App Nativo Capacitor funcionando no celular
+**Próxima tarefa:** Testar GPS em background → Gerar APK → Publicar na Play Store
+**Status:** ✅ **TUDO FUNCIONANDO** (94/94 testes + App Android)
+**Versão:** v1.5.0
 
 **Mensagem para próxima sessão:**
-> O projeto está pronto, só precisa ser movido para fora do OneDrive (ex: C:\dev\motoboy-app)
-> e abrir a pasta android no Android Studio. O Gradle deve sincronizar e o app vai compilar.
+> O app Android está funcionando! O próximo passo é testar o GPS em background
+> (minimizar o app e verificar se continua enviando localização) e depois
+> gerar o APK assinado para publicar na Play Store quando a conta for aprovada.

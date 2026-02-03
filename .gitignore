@@ -27,3 +27,12 @@ Thumbs.db
 # Env
 .env
 .env.local
+
+# Capacitor/Android App
+motoboy-app/node_modules/
+motoboy-app/android/.gradle/
+motoboy-app/android/build/
+motoboy-app/android/app/build/
+motoboy-app/android/.idea/
+motoboy-app/android/local.properties
+motoboy-app/android/capacitor-cordova-android-plugins/build/

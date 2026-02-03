@@ -56,12 +56,34 @@ motoboy-app/
 #### 📂 Arquivos Modificados
 - `backend/static/motoboy.html` - Detecção do Capacitor + Foreground Service
 
+#### ✅ Sessão de 02/02/2026 - App Completado!
+
+**Problemas resolvidos durante o build:**
+- Caminho com acento (Ítalo) → Mover para `C:\dev\motoboy-app`
+- Node.js não instalado → Instalar Node.js
+- Java 8 em vez de Java 17 → Instalar JDK 17 Temurin
+- Namespace não especificado → Adicionar `namespace` em múltiplos build.gradle
+- Java 21 requerido → Mudar `jvmToolchain(21)` para `jvmToolchain(17)`
+- Versões incompatíveis → Baixar versões (activity 1.8.0, core 1.12.0, splashscreen 1.0.0)
+- "Não foi possível conectar ao servidor" → Corrigir URL da API
+- Erro de CORS → Adicionar origens Capacitor ao backend
+
+**Arquivos modificados no backend:**
+- `backend/main.py` - Adicionadas origens Capacitor ao CORS
+
+**Testado no Motorola Moto G20:**
+- ✅ Login funcionando
+- ✅ Mapa carregando
+- ✅ Lista de entregas
+- ✅ Botão "Iniciar Rota"
+
 #### 🔜 Próximos Passos
-1. Instalar Android Studio
-2. Abrir `motoboy-app/android/` no Android Studio
-3. Conectar celular Android via USB
-4. Build e testar
-5. Publicar na Play Store (R$ 130)
+1. ~~Instalar Android Studio~~ ✅
+2. ~~Abrir e compilar projeto~~ ✅
+3. ~~Testar no celular~~ ✅
+4. Testar GPS em background
+5. Gerar APK assinado
+6. Publicar na Play Store (R$ 130 - aguardando aprovação da conta)
 
 #### 📊 Testes
 - **94/94 passando** (100%) - Backend não afetado

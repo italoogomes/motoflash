@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.motoflash.motoboy"
+    namespace "com.motoflash.motoboy"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.motoflash.motoboy"
