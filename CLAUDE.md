@@ -7,23 +7,23 @@
 ## 📋 REGRAS OBRIGATÓRIAS
 
 ### 1. Antes de Qualquer Coisa
-- **SEMPRE** leia `PROGRESSO_SESSAO.md` para entender onde paramos
+- **SEMPRE** leia `PROGRESSO_ATUAL.md` para entender o estado do projeto
 - **SEMPRE** consulte `docs/` antes de modificar código
 - **SEMPRE** pergunte qual tarefa o usuário quer continuar
 
 ### 2. Durante o Trabalho
 - Faça **um passo de cada vez** e confirme antes de prosseguir
-- **Documente tudo** que fizer em `docs/` e `PROGRESSO_SESSAO.md`
+- **Documente tudo** que fizer em `docs/` e `PROGRESSO_ATUAL.md`
 - Siga o estilo dos arquivos existentes
 - Teste isolamento multi-tenant (CRÍTICO 🔒)
 
 ### 3. Sobre Tokens/Contexto
 - **AVISE** quando perceber que a conversa está ficando longa
-- **SUGIRA** salvar o progresso no `PROGRESSO_SESSAO.md` antes de acabar
+- **SUGIRA** salvar o progresso no `PROGRESSO_ATUAL.md` antes de acabar
 - **NUNCA** deixe trabalho sem documentar antes de encerrar
 
 ### 4. Ao Finalizar Qualquer Tarefa
-- Atualize `PROGRESSO_SESSAO.md` com o que foi feito
+- Atualize `PROGRESSO_ATUAL.md` com o que foi feito
 - Atualize `CHANGELOG.md` se houve mudança de versão
 - Rode os testes: `pytest` (deve passar 100%)
 - Liste os próximos passos claros
@@ -41,41 +41,7 @@
 | Mudança no frontend | `docs/FRONTEND_BACKEND.md` |
 | Novo serviço/módulo | `docs/ARQUITETURA.md` |
 | Correção de bug | `docs/TESTES.md` (seção correções) |
-| Qualquer mudança | `PROGRESSO_SESSAO.md` + `CHANGELOG.md`|
-
-#### Padrão de Documentação MotoFlash:
-
-```markdown
-# 📚 Título do Documento
-
-**Versão:** x.x.x
-**Data:** YYYY-MM-DD
-**Status:** ✅ ou 🔄
-
----
-
-## 📊 Seção Principal
-
-### Subseção
-- Item 1
-- Item 2
-
-#### Se for correção/mudança:
-- **Problema**: O que estava errado
-- **Solução**: O que foi feito
-- **Motivo/Aprendizado**: Por que essa solução
-
----
-```
-
-#### Regras de Formatação:
-- ✅ Usar emojis nos títulos (📚 📊 🔧 ✅ 🔄 ⭐ 🎯)
-- ✅ Tabelas para resumos e comparações
-- ✅ Blocos de código com linguagem especificada
-- ✅ Separadores `---` entre seções
-- ✅ Estrutura Problema → Solução → Motivo para correções
-- ✅ Versão e data no cabeçalho
-- ❌ NUNCA deixar mudança sem documentar
+| Qualquer mudança | `PROGRESSO_ATUAL.md` + `CHANGELOG.md` |
 
 ---
 
@@ -83,42 +49,38 @@
 
 | Arquivo | Propósito | Quando Atualizar |
 |---------|-----------|------------------|
-| `PROGRESSO_SESSAO.md` | **CONTEXTO** - Onde paramos | Sempre, ao final de cada tarefa |
+| `PROGRESSO_ATUAL.md` | **CONTEXTO** - Estado atual do projeto (~100 linhas) | Sempre, ao final de cada tarefa |
+| `docs/PROGRESSO_HISTORICO.md` | Timeline condensada de todas as versões | Nova versão lançada |
 | `CHANGELOG.md` | Histórico de versões | A cada nova versão |
 | `README.md` | Documentação principal | Mudanças significativas |
 
 ### Pasta `docs/` - Documentação Técnica
 
-| Arquivo | Propósito | Quando Atualizar |
-|---------|-----------|------------------|
-| `docs/README.md` | Índice da documentação | Novo documento criado |
-| `docs/API_ENDPOINTS.md` | Referência de endpoints | Novo/modificado endpoint |
-| `docs/ARQUITETURA.md` | Visão geral do sistema | Nova feature/módulo |
-| `docs/ARQUITETURA_MODULAR.md` | Estrutura do frontend | Mudança no frontend |
-| `docs/FLUXOS.md` | Fluxos de dados | Nova funcionalidade |
-| `docs/FRONTEND_BACKEND.md` | Integração front/back | Mudança em páginas |
-| `docs/TESTES.md` | Guia de testes | Novo teste/correção |
-| `docs/CI_CD.md` | Pipeline GitHub Actions | Mudança no CI/CD |
-| `docs/FIREBASE.md` | Push notifications | Mudança em notificações |
-| `docs/RASTREAMENTO.md` | Sistema de rastreamento | Mudança no tracking |
+| Arquivo | Propósito |
+|---------|-----------|
+| `docs/API_ENDPOINTS.md` | Referência de endpoints |
+| `docs/ARQUITETURA.md` | Visão geral do sistema |
+| `docs/ARQUITETURA_MODULAR.md` | Estrutura do frontend |
+| `docs/FLUXOS.md` | Fluxos de dados |
+| `docs/FRONTEND_BACKEND.md` | Integração front/back |
+| `docs/TESTES.md` | Guia de testes |
+| `docs/CI_CD.md` | Pipeline GitHub Actions |
+| `docs/FIREBASE.md` | Push notifications |
+| `docs/RASTREAMENTO.md` | Sistema de rastreamento |
+| `docs/PROGRESSO_HISTORICO.md` | Timeline completa do desenvolvimento |
 
 ---
 
 ## 🚀 Como Iniciar uma Sessão
 
 ```
-Oi Claude! Leia PROGRESSO_SESSAO.md e me diga onde paramos.
+Oi Claude! Leia PROGRESSO_ATUAL.md e me diga onde paramos.
 Quero continuar com [descrição da tarefa].
 ```
 
-### Ou para tarefas específicas:
-
+### Para histórico detalhado (se precisar):
 ```
-Claude, leia docs/ARQUITETURA.md e me ajude a [tarefa].
-```
-
-```
-Claude, rode os testes e me diga se algo quebrou.
+Claude, leia docs/PROGRESSO_HISTORICO.md para ver como resolvemos [problema].
 ```
 
 ---
@@ -128,22 +90,21 @@ Claude, rode os testes e me diga se algo quebrou.
 Quando a conversa estiver longa, Claude deve:
 
 1. **Avisar proativamente:**
-   > "⚠️ Estamos com bastante contexto acumulado. Sugiro salvarmos o progresso no PROGRESSO_SESSAO.md antes de continuar."
+   > "⚠️ Estamos com bastante contexto acumulado. Sugiro salvarmos o progresso antes de continuar."
 
 2. **Salvar o estado atual:**
-   - Atualizar seção "✅ O QUE JÁ FOI FEITO"
-   - Atualizar seção "🎯 PRÓXIMOS PASSOS"
-   - Atualizar "Mensagem para o Próximo Claude"
+   - Atualizar `PROGRESSO_ATUAL.md` (manter ≤100 linhas!)
+   - Adicionar entrada em `docs/PROGRESSO_HISTORICO.md` se nova versão
+   - Atualizar `CHANGELOG.md`
 
-3. **Dar comando para continuar:**
-   > "Para continuar em nova sessão, diga: 'Claude, leia PROGRESSO_SESSAO.md e continue de onde paramos.'"
+3. **IMPORTANTE:** `PROGRESSO_ATUAL.md` deve ter no máximo ~100 linhas. Se crescer demais, mova detalhes para `docs/PROGRESSO_HISTORICO.md`.
 
 ---
 
 ## 🔧 Padrões do Projeto
 
 ### Tecnologias
-- Backend: Python FastAPI + PostgreSQL + SQLModel
+- Backend: Python FastAPI + PostgreSQL + SQLAlchemy
 - Frontend: React 18 (CDN) + Tailwind CSS + Leaflet.js
 - Testes: Pytest (deve passar 100%)
 - CI/CD: GitHub Actions
@@ -171,9 +132,6 @@ cd backend && pytest
 
 # Rodar com detalhes
 pytest -v
-
-# Ver logs do Railway (se CLI instalado)
-railway logs
 ```
 
 ### Regras de Código
@@ -184,10 +142,10 @@ railway logs
 
 ---
 
-## 🎯 Fluxo de Trabalho Ideal
+## 🎯 Fluxo de Trabalho
 
 ```
-1. Ler PROGRESSO_SESSAO.md
+1. Ler PROGRESSO_ATUAL.md
    ↓
 2. Ler docs/ relevantes
    ↓
@@ -195,26 +153,14 @@ railway logs
    ↓
 4. Rodar testes (pytest)
    ↓
-5. DOCUMENTAR (ver checklist abaixo)
+5. Atualizar PROGRESSO_ATUAL.md (manter ≤100 linhas!)
    ↓
-6. Atualizar PROGRESSO_SESSAO.md
+6. Atualizar docs/ e CHANGELOG.md se necessário
    ↓
 7. Sugerir próximos passos
 ```
 
-### ✅ Checklist de Documentação (OBRIGATÓRIO)
-
-Antes de finalizar qualquer tarefa, verificar:
-
-- [ ] `PROGRESSO_SESSAO.md` atualizado com o que foi feito
-- [ ] `CHANGELOG.md` atualizado (se nova versão)
-- [ ] Documento correto em `docs/` atualizado (ver tabela acima)
-- [ ] Versão e data atualizados nos arquivos modificados
-- [ ] Código documentado com comentários quando necessário
-
-**NUNCA encerrar sessão sem documentar!**
-
 ---
 
-**Última atualização:** 2026-02-02
+**Última atualização:** 2026-02-05
 **Versão do projeto:** v1.5.0
