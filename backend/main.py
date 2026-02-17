@@ -301,6 +301,17 @@ def serve_dashboard():
     return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque index.html na pasta static/</p>", status_code=404)
 
 
+@app.get("/privacidade", response_class=HTMLResponse, tags=["Legal"])
+@app.get("/privacidade.html", response_class=HTMLResponse, tags=["Legal"])
+def serve_privacy():
+    """Política de Privacidade - obrigatória para Play Store"""
+    privacy_path = STATIC_DIR / "privacidade.html"
+    if privacy_path.exists():
+        with open(privacy_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Arquivo não encontrado</h1><p>Coloque privacidade.html na pasta static/</p>", status_code=404)
+
+
 # ============ AUTENTICAÇÃO (MULTI-RESTAURANTE) ============
 
 @app.get("/cadastro", tags=["Autenticação"])

@@ -132,16 +132,16 @@ _(2.477 caracteres - dentro do limite de 4000)_
 
 ## 📧 Email de Contato
 
-_(Você precisa adicionar um email válido)_
+**Email de suporte:** privacidade@motoflash.com.br
 
-Sugestão: `suporte@motoflash.com.br` ou seu email pessoal
+_(Você pode usar este ou substituir pelo seu email pessoal na configuração da Play Store)_
 
 ---
 
 ## 🌐 Site e Política de Privacidade
 
 **Site:** https://motoflash-production.up.railway.app
-**Política de Privacidade:** _(precisa criar uma página)_
+**Política de Privacidade:** https://motoflash-production.up.railway.app/privacidade.html
 
 ---
 
@@ -150,6 +150,7 @@ Sugestão: `suporte@motoflash.com.br` ou seu email pessoal
 ### ✅ Concluído:
 - [x] Ícone 512x512 (já existe)
 - [x] Ícones do app (todos os tamanhos gerados)
+- [x] Política de Privacidade (https://motoflash-production.up.railway.app/privacidade.html)
 
 ### ⏳ Pendente:
 - [ ] Feature Graphic: 1024x500 pixels (banner da loja)
