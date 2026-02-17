@@ -132,9 +132,7 @@ _(2.477 caracteres - dentro do limite de 4000)_
 
 ## 📧 Email de Contato
 
-**Email de suporte:** privacidade@motoflash.com.br
-
-_(Você pode usar este ou substituir pelo seu email pessoal na configuração da Play Store)_
+**Email de suporte:** suporte.motoflash@gmail.com
 
 ---
 
