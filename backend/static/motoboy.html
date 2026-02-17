@@ -558,11 +558,121 @@
         
         const LogoLight = ({ size = 40 }) => (
             <svg width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Sombra para melhor contraste */}
+                <circle cx="40" cy="40" r="36" fill="rgba(0,0,0,0.1)"/>
                 <circle cx="40" cy="40" r="34" fill="white"/>
                 <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="#FF6B00"/>
             </svg>
         );
-        
+
+        // ============ ÍCONES PROFISSIONAIS (Substituem emojis) ============
+
+        const PhoneIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+            </svg>
+        );
+
+        const LockIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+        );
+
+        const EyeIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+        );
+
+        const EyeOffIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+        );
+
+        const KeyIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+        );
+
+        const LightBulbIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+        );
+
+        const XIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        );
+
+        const AlertIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        );
+
+        const MapPinIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        );
+
+        const CheckIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+        );
+
+        const MapIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+        );
+
+        const MotorcycleIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        );
+
+        const CarIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17a3 3 0 100-6 3 3 0 000 6zM16 17a3 3 0 100-6 3 3 0 000 6z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 9h14" />
+            </svg>
+        );
+
+        const RefreshIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+        );
+
+        const SpeakerIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+        );
+
+        const RocketIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        );
+
+        const StoreIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+        );
+
         // ============ FUNÇÕES AUXILIARES ============
         
         const fetchOSRMRoute = async (coordinates) => {
@@ -707,17 +817,22 @@
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                 <div className="bg-white rounded-2xl p-6 max-w-sm w-full bounce-in">
                     <div className="text-center">
-                        <div className="text-5xl mb-3">📍</div>
+                        <div className="flex justify-center mb-3">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                                <MapPinIcon className="w-10 h-10" />
+                            </div>
+                        </div>
                         <h2 className="text-xl font-bold text-gray-800 mb-2">Você chegou!</h2>
                         <p className="text-gray-600 mb-1">{order.customer_name}</p>
                         <p className="text-sm text-gray-500 mb-4">{order.address_text}</p>
-                        
+
                         <div className="space-y-2">
                             <button
                                 onClick={onConfirm}
-                                className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold active:scale-95 transition-all"
+                                className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold active:scale-95 transition-all flex items-center justify-center gap-2"
                             >
-                                ✅ Marcar como Entregue
+                                <CheckIcon className="w-5 h-5" />
+                                Marcar como Entregue
                             </button>
                             <button
                                 onClick={onCancel}
@@ -741,22 +856,22 @@
                         <button
                             onClick={() => onSelect('google')}
                             className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
-                                selectedApp === 'google' 
-                                    ? 'bg-white shadow text-blue-600' 
+                                selectedApp === 'google'
+                                    ? 'bg-white shadow text-blue-600'
                                     : 'text-gray-500'
                             }`}
                         >
-                            <span>🗺️</span> Maps
+                            <MapIcon className="w-4 h-4" /> Maps
                         </button>
                         <button
                             onClick={() => onSelect('waze')}
                             className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
-                                selectedApp === 'waze' 
-                                    ? 'bg-white shadow text-cyan-600' 
+                                selectedApp === 'waze'
+                                    ? 'bg-white shadow text-cyan-600'
                                     : 'text-gray-500'
                             }`}
                         >
-                            <span>🚗</span> Waze
+                            <CarIcon className="w-4 h-4" /> Waze
                         </button>
                     </div>
                     
@@ -848,8 +963,9 @@
                         </h2>
                         
                         {error && (
-                            <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 text-center text-sm">
-                                ⚠️ {error}
+                            <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 flex items-center gap-2 text-sm">
+                                <AlertIcon className="w-5 h-5 flex-shrink-0" />
+                                <span>{error}</span>
                             </div>
                         )}
                         
@@ -859,9 +975,9 @@
                                     Celular
                                 </label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                        📱
-                                    </span>
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                        <PhoneIcon className="w-5 h-5" />
+                                    </div>
                                     <input
                                         type="tel"
                                         value={phone}
@@ -877,9 +993,9 @@
                                     Senha
                                 </label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                        🔒
-                                    </span>
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                        <LockIcon className="w-5 h-5" />
+                                    </div>
                                     <input
                                         type={showPassword ? 'text' : 'password'}
                                         value={password}
@@ -890,9 +1006,9 @@
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                     >
-                                        {showPassword ? '🙈' : '👁️'}
+                                        {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
@@ -936,24 +1052,29 @@
                     {showForgotPassword && (
                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                             <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
-                                <button 
+                                <button
                                     onClick={() => setShowForgotPassword(false)}
-                                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
+                                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
                                 >
-                                    ✕
+                                    <XIcon className="w-6 h-6" />
                                 </button>
-                                
+
                                 <div className="text-center">
-                                    <div className="text-4xl mb-3">🔑</div>
+                                    <div className="flex justify-center mb-3">
+                                        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                                            <KeyIcon className="w-8 h-8" />
+                                        </div>
+                                    </div>
                                     <h3 className="text-lg font-bold text-gray-800 mb-2">
                                         Esqueceu a senha?
                                     </h3>
                                     <p className="text-gray-600 mb-4">
                                         Entre em contato com o <strong>restaurante</strong> e peça um link para redefinir sua senha.
                                     </p>
-                                    <div className="bg-orange-50 rounded-xl p-4 mb-4">
-                                        <p className="text-sm text-orange-800">
-                                            💡 O restaurante vai te enviar um link pelo WhatsApp
+                                    <div className="bg-orange-50 rounded-xl p-4 mb-4 flex items-start gap-3">
+                                        <LightBulbIcon className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-orange-800 text-left">
+                                            O restaurante vai te enviar um link pelo WhatsApp
                                         </p>
                                     </div>
                                     <button
@@ -1656,8 +1777,14 @@
                                 <h2 className="text-xl font-semibold text-gray-700 mb-2">Aguardando pedidos</h2>
                                 <p className="text-gray-500">Relaxa! Você será notificado com som quando houver entregas.</p>
                                 <div className="flex flex-col gap-3 mt-4">
-                                    <Button onClick={fetchBatch}>🔄 Atualizar</Button>
-                                    <Button onClick={alertNewBatch} variant="secondary">🔊 Testar Som</Button>
+                                    <Button onClick={fetchBatch} className="flex items-center justify-center gap-2">
+                                        <RefreshIcon className="w-5 h-5" />
+                                        Atualizar
+                                    </Button>
+                                    <Button onClick={alertNewBatch} variant="secondary" className="flex items-center justify-center gap-2">
+                                        <SpeakerIcon className="w-5 h-5" />
+                                        Testar Som
+                                    </Button>
                                 </div>
                             </Card>
                         </div>
@@ -1681,8 +1808,9 @@
                             {/* Botão iniciar rota */}
                             {!routeStarted && (
                                 <div className="px-4 mb-4">
-                                    <Button onClick={startRoute} variant="success" size="large" className="w-full">
-                                        🚀 Iniciar Rota ({batch.orders.length} entrega{batch.orders.length > 1 ? 's' : ''})
+                                    <Button onClick={startRoute} variant="success" size="large" className="w-full flex items-center justify-center gap-2">
+                                        <RocketIcon className="w-6 h-6" />
+                                        Iniciar Rota ({batch.orders.length} entrega{batch.orders.length > 1 ? 's' : ''})
                                     </Button>
                                 </div>
                             )}
@@ -1694,12 +1822,17 @@
                         <div className="px-4 mb-4">
                             <Card className="p-4 bg-green-50 border-2 border-green-500">
                                 <div className="flex items-center gap-3">
-                                    <div className="text-3xl">🏪</div>
+                                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                                        <StoreIcon className="w-7 h-7" />
+                                    </div>
                                     <div className="flex-1">
                                         <h3 className="font-semibold text-green-700">Volte ao restaurante</h3>
                                         <p className="text-sm text-green-600">{RESTAURANT_LOCATION.address}</p>
                                         {currentPosition && (
-                                            <p className="text-xs text-green-500 mt-1">📍 {Math.round(getDistanceToRestaurant())}m</p>
+                                            <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                                                <MapPinIcon className="w-3 h-3" />
+                                                {Math.round(getDistanceToRestaurant())}m
+                                            </p>
                                         )}
                                     </div>
                                 </div>
@@ -1717,8 +1850,9 @@
                     {/* Lista de entregas */}
                     {!returningHome && routeStarted && batch?.orders && (
                         <div className="px-4">
-                            <h3 className="font-semibold text-gray-700 mb-3">
-                                📍 Suas entregas ({deliveredOrders.length}/{batch.orders.length})
+                            <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                <MapPinIcon className="w-5 h-5 text-orange-500" />
+                                Suas entregas ({deliveredOrders.length}/{batch.orders.length})
                             </h3>
                             
                             <div className="space-y-3">
@@ -1731,19 +1865,20 @@
                                         <Card key={order.id} className={`p-4 ${isDelivered ? 'opacity-60' : isNext ? 'border-2 border-orange-500 bg-orange-50' : ''}`}>
                                             <div className="flex items-start gap-3">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${isDelivered ? 'bg-gray-400' : 'bg-orange-500'}`}>
-                                                    {isDelivered ? '✓' : order.stop_order}
+                                                    {isDelivered ? <CheckIcon className="w-6 h-6" /> : order.stop_order}
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <span className="font-semibold text-gray-800">{order.customer_name}</span>
-                                                        {isDelivered && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✓ Entregue</span>}
+                                                        {isDelivered && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1"><CheckIcon className="w-3 h-3" /> Entregue</span>}
                                                         {isNext && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Próxima</span>}
                                                     </div>
                                                     <p className="text-sm text-gray-500 mt-1">{order.address_text}</p>
                                                     
                                                     {isNext && distance && (
-                                                        <p className="text-xs text-gray-500 mt-1">
-                                                            📍 {distance < 1000 ? `${Math.round(distance)}m` : `${(distance/1000).toFixed(1)}km`}
+                                                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                                            <MapPinIcon className="w-3 h-3" />
+                                                            {distance < 1000 ? `${Math.round(distance)}m` : `${(distance/1000).toFixed(1)}km`}
                                                             {distance <= ARRIVAL_DISTANCE_METERS && <span className="text-green-600 font-medium"> - Você chegou!</span>}
                                                         </p>
                                                     )}
@@ -1757,13 +1892,14 @@
                                                                 lng={order.lng}
                                                                 onNavigate={openNavigation}
                                                             />
-                                                            <Button 
-                                                                onClick={() => markDelivered(order.id)} 
-                                                                variant="success" 
-                                                                size="small" 
-                                                                className="w-full mt-2"
+                                                            <Button
+                                                                onClick={() => markDelivered(order.id)}
+                                                                variant="success"
+                                                                size="small"
+                                                                className="w-full mt-2 flex items-center justify-center gap-2"
                                                             >
-                                                                ✅ Marcar como Entregue
+                                                                <CheckIcon className="w-4 h-4" />
+                                                                Marcar como Entregue
                                                             </Button>
                                                         </>
                                                     )}
@@ -1779,8 +1915,9 @@
                     {/* Footer */}
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg">
                         {returningHome ? (
-                            <Button onClick={finishBatch} variant="success" size="large" className="w-full">
-                                ✅ Cheguei no restaurante!
+                            <Button onClick={finishBatch} variant="success" size="large" className="w-full flex items-center justify-center gap-2">
+                                <CheckIcon className="w-6 h-6" />
+                                Cheguei no restaurante!
                             </Button>
                         ) : (
                             <div className="text-center text-gray-500 text-sm">
