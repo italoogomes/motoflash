@@ -1,6 +1,6 @@
 # 📋 MotoFlash - Estado Atual
 
-**Versão:** 1.5.0 | **Data:** 2026-02-02 | **Testes:** 94/94 (100%)
+**Versão:** 1.5.2 | **Data:** 2026-02-17 | **Testes:** 94/94 (100%)
 
 ---
 
@@ -54,34 +54,27 @@
 
 ## 🔜 Próximos Passos
 
-**Status atual:** Aguardando verificação da conta Google Play Console (pode levar dias)
+**Status atual:** Conta Google Play Console verificada com sucesso! ✅
 
-**Enquanto aguardamos, escolher uma das opções:**
+**Assets para Play Store:**
 
-1. **Preparar Assets da Play Store** 📸 (RECOMENDADO - rápido e deixa tudo pronto)
-   - Criar ícone 512x512px
-   - Screenshots do app funcionando
-   - Descrição e textos promocionais
-   - Banner da loja
+✅ **Concluído:**
+- Ícone 512x512px (icon-512.png)
+- Ícones do app Android (todas densidades)
+- Textos (descrição curta/longa)
+- Política de Privacidade (https://motoflash-production.up.railway.app/privacidade.html)
+- UI profissional (emojis → ícones SVG)
+- Logo melhorada (sombra para contraste)
 
-2. **Gerar APK/AAB Assinado** 🔐
-   - Criar keystore
-   - Gerar `.aab` final
-   - Testar em dispositivos reais
+⏳ **Pendente:**
+- Feature Graphic (banner 1024x500)
+- Screenshots do app (mínimo 2)
+- Gerar APK/AAB Assinado
 
-3. **Testar App em Produção** 🧪
-   - GPS em background (minimizar app)
-   - Verificar atualização do dashboard
-   - Testar em diferentes dispositivos Android
-
-4. **Implementar Novas Features** ✨
-   - Nova Aba de Relatórios (visão geral, performance, horários de pico)
-   - Aba de Configurações (dados da conta, horários, preferências)
-
-5. **Melhorar Documentação** 📚
-   - README com guia do app
-   - Manual para motoboys
-   - Documentar processo de publicação
+**Próximas ações:**
+1. Criar Feature Graphic e Screenshots
+2. Gerar APK/AAB assinado
+3. Publicar na Play Store
 
 ## 📂 Estrutura Principal
 
