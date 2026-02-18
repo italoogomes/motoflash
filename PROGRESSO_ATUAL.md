@@ -54,27 +54,27 @@
 
 ## 🔜 Próximos Passos
 
-**Status atual:** Conta Google Play Console verificada com sucesso! ✅
+**Status atual:** App enviado para revisão do Google Play (Teste fechado - Alpha) ✅
 
-**Assets para Play Store:**
+### Play Store - Concluído ✅
+- Feature Graphic 1024x500px (`feature-graphic.html`)
+- Screenshots do app (4 screenshots)
+- AAB assinado gerado (versionCode 2, targetSdk 35)
+- Teste interno configurado com testadores
+- Teste fechado - Alpha criado e enviado para revisão
+- Declarações preenchidas: localização, ForegroundService, publicidade (não usa)
+- Credenciais de acesso para revisores fornecidas
 
-✅ **Concluído:**
-- Ícone 512x512px (icon-512.png)
-- Ícones do app Android (todas densidades)
-- Textos (descrição curta/longa)
-- Política de Privacidade (https://motoflash-production.up.railway.app/privacidade.html)
-- UI profissional (emojis → ícones SVG)
-- Logo melhorada (sombra para contraste)
+### Alterações no App (pendente build)
+- `AndroidManifest.xml`: removido `ACCESS_BACKGROUND_LOCATION` (ForegroundService é suficiente)
+- `build.gradle`: versionCode atualizado para 3
+- Novo AAB (versionCode 3) ainda não gerado — fazer quando Google aprovar
 
-⏳ **Pendente:**
-- Feature Graphic (banner 1024x500)
-- Screenshots do app (mínimo 2)
-- Gerar APK/AAB Assinado
-
-**Próximas ações:**
-1. Criar Feature Graphic e Screenshots
-2. Gerar APK/AAB assinado
-3. Publicar na Play Store
+### Próximas ações (após aprovação do Google):
+1. Gerar novo AAB com versionCode 3 (Android Studio → Generate Signed App Bundle)
+2. Fazer upload do novo AAB na Play Console
+3. Solicitar acesso à Produção
+4. Publicar para todos os usuários
 
 ## 📂 Estrutura Principal
 

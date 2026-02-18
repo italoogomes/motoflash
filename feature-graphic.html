@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoFlash - Feature Graphic 1024x500</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #2c3e50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .feature-graphic {
+            width: 1024px;
+            height: 500px;
+            background: linear-gradient(135deg, #FF6B00 0%, #FF8C00 50%, #FFA500 100%);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 80px;
+            box-sizing: border-box;
+        }
+
+        /* Efeitos decorativos */
+        .feature-graphic::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .feature-graphic::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -5%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .left-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .logo-circle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .brand-text h1 {
+            font-size: 72px;
+            font-weight: 900;
+            color: white;
+            margin: 0;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            letter-spacing: -2px;
+        }
+
+        .brand-text p {
+            font-size: 28px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.95);
+            margin: 0;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .tagline {
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 3px 15px rgba(0,0,0,0.3);
+            max-width: 500px;
+            line-height: 1.3;
+        }
+
+        .right-content {
+            position: relative;
+            z-index: 2;
+            text-align: right;
+        }
+
+        .feature-list {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            align-items: flex-end;
+        }
+
+        .feature-item {
+            background: rgba(255,255,255,0.25);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 20px;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .feature-icon {
+            font-size: 24px;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #FF6B00;
+        }
+
+        .instructions h3 {
+            margin-top: 0;
+            color: #FF6B00;
+        }
+
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="feature-graphic" id="featureGraphic">
+            <!-- Conteúdo esquerdo -->
+            <div class="left-content">
+                <div class="logo-section">
+                    <div class="logo-circle">
+                        <!-- Logo SVG -->
+                        <svg width="120" height="120" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="40" cy="40" r="36" fill="rgba(0,0,0,0.1)"/>
+                            <circle cx="40" cy="40" r="34" fill="white"/>
+                            <path d="M44 12 L28 40 L38 40 L32 68 L56 36 L44 36 L52 12 Z" fill="#FF6B00"/>
+                        </svg>
+                    </div>
+                    <div class="brand-text">
+                        <h1>MotoFlash</h1>
+                        <p>App do Motoboy</p>
+                    </div>
+                </div>
+
+                <div class="tagline">
+                    Entregas Rápidas<br/>e Inteligentes
+                </div>
+            </div>
+
+            <!-- Conteúdo direito -->
+            <div class="right-content">
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        GPS em Tempo Real
+                    </div>
+                    <div class="feature-item">
+                        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                        Rotas Otimizadas
+                    </div>
+                    <div class="feature-item">
+                        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Entregas Rápidas
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📸 Como salvar o Feature Graphic (1024x500px):</h3>
+            <ol>
+                <li><strong>Pressione F11</strong> para entrar em tela cheia</li>
+                <li>Use uma ferramenta de screenshot ou:
+                    <ul>
+                        <li><strong>Windows:</strong> Win + Shift + S (Ferramenta de Captura)</li>
+                        <li><strong>Mac:</strong> Cmd + Shift + 4 (selecione a área)</li>
+                    </ul>
+                </li>
+                <li>Selecione APENAS a área laranja (1024x500px)</li>
+                <li>Salve como <strong>feature-graphic.png</strong></li>
+                <li>Faça upload na Play Console</li>
+            </ol>
+
+            <p><strong>💡 Dica:</strong> Para melhor qualidade, use a extensão do Chrome "Full Page Screen Capture" ou "Awesome Screenshot"</p>
+        </div>
+    </div>
+</body>
+</html>
